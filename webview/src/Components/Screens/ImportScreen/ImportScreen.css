@@ -1,0 +1,7 @@
+#ImportDocumentsButton:hover {
+    opacity: 0.5;
+}
+
+#ImportDocumentsButton:focus {
+    opacity: 0.25;
+}

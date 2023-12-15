@@ -1,0 +1,7 @@
+@import '../../../variables.css';
+
+.header {
+    font-family: Arial, sans-serif;
+    font-size: 22px;
+    font-weight: bold;
+}

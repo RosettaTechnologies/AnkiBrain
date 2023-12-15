@@ -1,0 +1,43 @@
+.SideBar > .container {
+    color: white;
+    font-size: 24px;
+}
+
+.SideBarButton {
+    border-radius: 5px;
+    padding: 3px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.SideBar span {
+    cursor: default;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.SideBarButton:hover {
+    background-color: gray;
+}
+
+.SideBarButton:active {
+    opacity: 0.5;
+}
+
+.AccountInfoContainer {
+    font-size: 14px;
+}
+
+/*#LoginButton {*/
+/*    background-color: var(--color-secondary) !important;*/
+/*}*/
+
+#ProfileButton:hover {
+    opacity: 0.5;
+}
+
+#ProfileButton:active {
+    opacity: 0.25;
+}

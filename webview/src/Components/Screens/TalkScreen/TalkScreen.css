@@ -1,0 +1,28 @@
+.SendButton:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.SendButton:active {
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+.TalkScreenMessage {
+    padding-left: 10px;
+    padding-right: 10px;
+    border-radius: 5px;
+
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    word-break: break-all;
+    max-width: 55%;
+}
+
+.ShareButton:hover {
+    opacity: 0.5;
+}
+
+.ShareButton:active {
+    opacity: 0.25;
+}
