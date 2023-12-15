@@ -1,3 +1,6 @@
+https://ankiweb.net/shared/info/1915225457
+
+Local Mode Installation (manual install)
 1. Open terminal in the AnkiBrain addon root folder (you'll see a `requirements.txt` file)
 2. Install C++ build tools for your OS
     1. Windows
