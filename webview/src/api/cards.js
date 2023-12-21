@@ -1,13 +1,14 @@
-import { pyGenerateCards } from "./PythonBridge/senders/pyGenerateCards";
-import { store, updateUser } from "./redux";
-import { addCards, setCards } from "./redux/slices/cards";
-import { isLocalMode } from "./user";
-import { setMakeCardsLoading } from "./redux/slices/makeCardsText";
-import { generateCardsRequest } from "./server-api/cards";
-import { errorToast, infoToast, successToast } from "./toast";
+import {pyGenerateCards} from "./PythonBridge/senders/pyGenerateCards";
+import {store, updateUser} from "./redux";
+import {addCards, setCards} from "./redux/slices/cards";
+import {isLocalMode} from "./user";
+import {setMakeCardsLoading} from "./redux/slices/makeCardsText";
+import {generateCardsRequest} from "./server-api/cards";
+import {errorToast, infoToast, successToast} from "./toast";
 import nlp from "compromise";
-import { addFailedCards } from "./redux/slices/failedCards";
-import { pyEditSetting } from "./PythonBridge/senders/pyEditSetting";
+import {addFailedCards} from "./redux/slices/failedCards";
+import {pyEditSetting} from "./PythonBridge/senders/pyEditSetting";
+import {postChat} from "./server-api/networking/chat";
 
 function splitIntoSentences(text) {
   let doc = nlp(text);
@@ -60,8 +61,8 @@ async function handleCardsRawString(
     infoToast(
       "Some cards failed",
       "Some of your cards were generated improperly. " +
-        "They may require a slight modification to work. " +
-        'The malformed JSON strings have been placed in the "Failed Cards" tab.'
+      "They may require a slight modification to work. " +
+      'The malformed JSON strings have been placed in the "Failed Cards" tab.'
     );
     // dispatch(
     //   setAppAlertModal({
@@ -86,6 +87,40 @@ async function handleCardsRawString(
   }
 }
 
+// TODO in progress
+function buildClozeCardQuery(text, nClozes, customPrompt, language = "English") {
+  return `
+    Please pick ${nClozes} of the most important words or phrases in the following ${language} sentence.
+            
+    "${text}"
+    
+    Please respond in ${language}. Please respond using valid JSON array syntax.
+    
+    ${customPrompt ? "Additionally: " + customPrompt : ""}
+    `;
+}
+
+// TODO in progress
+export async function generateClozeCards(text, nClozes, customPrompt = "", language = store.getState().language.value, dispatch = store.dispatch) {
+  if (isLocalMode()) {
+    // TODO
+  } else {
+    let query = buildClozeCardQuery(text, nClozes, customPrompt, language);
+    let res = await postChat(
+      query,
+      [],
+      false,
+      store.getState().appSettings.ai.llmModel,
+      store.getState().appSettings.ai.temperature,
+      store.getState().user.value.accessToken
+    )
+
+    if (res.status === 'success') {
+      let rawString = res.data.response.content;
+    }
+  }
+}
+
 export async function generateCards(
   text,
   customPrompt = "",
@@ -104,15 +139,14 @@ export async function generateCards(
         handleCardsRawString(cardsRawString, cardType, dispatch);
       }
     } else {
-      // For basic cards, just feed the entire input text.
       let res = await generateCardsRequest(
         text,
         customPrompt,
         cardType,
         language
       );
-      dispatch(setMakeCardsLoading(false));
 
+      dispatch(setMakeCardsLoading(false));
       if (res.status === "success") {
         dispatch(updateUser(res.data.user));
         let rawString = res.data.response.content;
