@@ -1,6 +1,8 @@
 node_modules/
 .next/
 
+.idea/
+
 tmp/
 .adminjs/
 anki-chatgpt/venv/
