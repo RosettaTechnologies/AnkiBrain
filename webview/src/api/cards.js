@@ -39,6 +39,10 @@ async function handleCardsRawString(
         card.tags = [];
       }
 
+      /*
+       * If cloze, we are expecting the text field to have **double asterisks** surrounding
+       * important text that gpt wants to be a cloze deletion.
+       */
       if (cardType === "cloze") {
         card.text = convertAsterisksToCloze(card.text);
       }
