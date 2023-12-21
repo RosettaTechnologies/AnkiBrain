@@ -33,10 +33,6 @@ export function ImportScreen(props) {
 
   useEffect(() => {
     if (user) {
-      infoToast(
-        "user has changed, setting documents...",
-        `documents: ${JSON.stringify(user.documentsStored)}`
-      );
       dispatch(setDocuments(user.documentsStored));
     }
   }, [user]);
