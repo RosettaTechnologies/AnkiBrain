@@ -2,6 +2,8 @@
 
 # 0.7.2 
 - Make cloze deletions more consistent (still not perfect)
+- AnkiBrain will now use its own note types, AnkiBrain-Basic and AnkiBrain-Cloze. This fixes the bug for non-English
+users for adding cards to a deck.
 
 # 0.7.1 (beta) - December 7, 2023
 - Patch for document deletion
