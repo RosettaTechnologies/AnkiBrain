@@ -41,12 +41,12 @@ function buildClozeCardQuery(text, customPrompt, language = "English") {
     Please read the ${language} text below in quotes.
             
     "${text}"
-    
+   
     From the text above, I want you to create flash cards in ${language}. 
     These are special cards where you omit key words or phrases. 
     You can use asterisks *like this* to indicate that a word or phrase 
     should be hidden for whoever is studying the card. 
-    You can create multiple deletions (omissions) per card. 
+    You can create multiple omissions per card. 
     Please decide to hide key words or phrases depending on how important they are to the context. 
     If a word or phrase is very important, you should definitely hide it using *this notation*!
     
@@ -61,8 +61,7 @@ function buildClozeCardQuery(text, customPrompt, language = "English") {
     } 
     ] 
     
-    I want each card to be relatively small - that means your "text" field should not be more than one sentence.
-    You MUST have at least ONE deletion per flash card using *this notation*.
+    Make each card relatively small - that means your "text" field should not be more than one sentence.
     
     ${
       language !== "English"
@@ -74,7 +73,6 @@ function buildClozeCardQuery(text, customPrompt, language = "English") {
     
     ${customPrompt}
   
-    Do not produce any cards that lack a deletion. 
     Do not output any other text besides JSON. Begin output now following the template above.
     `;
 }

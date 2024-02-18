@@ -111,11 +111,11 @@ class ChatInterface(ABC):
             
             "{text}"
             
-            From the text above, I want you to create flash cards in {language}. 
+            From the text above, I want you to create flash cards in ${language}. 
             These are special cards where you omit key words or phrases. 
             You can use asterisks *like this* to indicate that a word or phrase 
             should be hidden for whoever is studying the card. 
-            You can create multiple deletions (omissions) per card. 
+            You can create multiple omissions per card. 
             Please decide to hide key words or phrases depending on how important they are to the context. 
             If a word or phrase is very important, you should definitely hide it using *this notation*!
             
@@ -132,8 +132,7 @@ class ChatInterface(ABC):
             }}
             ] 
             
-            I want each card to be relatively small - that means your "text" field should not be more than one sentence.
-            You MUST have at least ONE deletion per flash card using *this notation*.
+            Make each card relatively small - that means your "text" field should not be more than one sentence.
             
             {'The example given above is in English, but remember to translate the final cards into ' +
              language + "! The name of the JSON field itself ('text') should remain in English."
@@ -142,8 +141,6 @@ class ChatInterface(ABC):
             
             {custom_prompt}
             
-            Always produce cards that have at least one *deletion* using the *asterisk notation* as I have shown you. 
-            Hiding words or phrases using asterisks is critical to the flash card learning process.
             Do not output any other text besides JSON. Begin output now following the template above.
             '''
         else:

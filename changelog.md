@@ -1,7 +1,7 @@
 # Changelog
 
 # 0.7.2 
-- Make cloze deletions more consistent
+- Make cloze deletions more consistent (still not perfect)
 
 # 0.7.1 (beta) - December 7, 2023
 - Patch for document deletion
