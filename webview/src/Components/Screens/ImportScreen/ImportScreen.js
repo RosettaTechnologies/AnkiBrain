@@ -72,7 +72,7 @@ export function ImportScreen(props) {
   };
 
   // Server mode but no user added.
-  if (!isLocalMode() && !user) {
+  if (!isLocalMode() && user === null) {
     return <Text>This screen is unavailable until you log in.</Text>;
   }
 
@@ -127,7 +127,7 @@ export function ImportScreen(props) {
               onClick={() => {
                 setShowDeleteAlert(true);
               }}
-              isDisabled={user.documentsStored.length === 0}
+              isDisabled={user !== null && user.documentsStored.length === 0}
             >
               <DeleteIcon fontSize={"sm"} me={2} />
               Delete Documents
@@ -140,7 +140,7 @@ export function ImportScreen(props) {
             <Spinner color={"accent"} />
           </Flex>
         )}
-        {!documentsLoading && (
+        {user !== null && !documentsLoading && (
           <Box maxHeight={1000} overflowY={"scroll"}>
             {user.documentsStored.map((doc, i) => (
               <Card
@@ -191,6 +191,6 @@ export function ImportScreen(props) {
           </Box>
         )}
       </Box>
-    </Box>
+    </Box >
   );
 }
