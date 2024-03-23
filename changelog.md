@@ -1,5 +1,8 @@
 # Changelog
 
+# 0.7.3 - March 23, 2024
+- Bugfix for white screen errors
+
 # 0.7.2 - February 19, 2024
 - Make cloze deletions more consistent (still not perfect)
 - AnkiBrain will now use its own note types, AnkiBrain-Basic and AnkiBrain-Cloze. This fixes the bug for non-English
