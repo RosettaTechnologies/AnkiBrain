@@ -9,7 +9,7 @@ anki-chatgpt/venv/
 .yarn/
 user_files/venv
 user_files/db
-user_files/bundled_dependencies
+*.pyc
 user_files/settings.json
 .yarn/*
 !.yarn/patches
