@@ -3,6 +3,7 @@ import {
   Button,
   Divider,
   Flex,
+  Grid,
   Input,
   Modal,
   ModalBody,
@@ -55,92 +56,95 @@ const AdvancedSettings = (props) => {
 
   return (
     <Box {...props}>
-      <Flex direction={"row"} justifyContent={"center"}>
-        <Flex direction={"column"} me={2}>
-          <Tag p={3} justifyContent={"center"}>
-            Large Language Model (LLM)
-          </Tag>
-          <Tag mt={5} p={3} justifyContent={"center"}>
-            Temperature (0-1)
-          </Tag>
-        </Flex>
-
-        <Flex direction={"column"} width={500}>
-          <Select
-            value={llm}
-            onChange={async (e) => {
-              await setLLMModel(e.target.value);
-              if (isLocalMode()) {
-                successToast(
-                  "LLM Changed",
-                  "The AI Language Model has been changed. Please restart AnkiBrain for this change to take effect."
-                );
-              }
-            }}
-          >
-            <option value={"gpt-3.5-turbo"}>gpt-3.5-turbo (default)</option>
-            <option value={"gpt-4"}>gpt-4 (expensive)</option>
-          </Select>
-          <Input
-            value={temperature}
-            onKeyDown={(e) => {
-              const allowedKeys = ["Backspace", "."];
-              const isNumber = !isNaN(Number(e.key));
-              const isAllowed = isNumber || allowedKeys.includes(e.key);
-              if (!isAllowed) {
-                e.preventDefault();
-              }
-            }}
-            onChange={async (e) => {
-              const isNumber = !isNaN(Number(e.target.value));
-              if (isNumber) {
-                const number = Number(e.target.value);
-                if (number < 0 || number > 1) {
-                  errorToast(
-                    "Invalid Temperature",
-                    "Please enter a temperature between 0 and 1."
-                  );
-                } else {
-                  await setTemperature(e.target.value);
-                  if (isLocalMode()) {
-                    successToast(
-                      "Temperature Changed",
-                      "The AI temperature has been changed. Please restart AnkiBrain for this change to take effect."
-                    );
-                  }
-                }
-              }
-            }}
-            mt={5}
-          />
-        </Flex>
-      </Flex>
-
-      <Divider />
-
-      <Flex direction={"row"} alignSelf={"center"} justifyContent={"center"}>
-        <Tag mt={5} p={3} justifyContent={"center"} me={2}>
-          Developer Mode
+      <Grid templateColumns="max-content 1fr" gap={6}>
+        <Tag p={3} justifyContent={"center"} maxWidth={300}>
+          Large Language Model (LLM)
         </Tag>
-        <Switch
-          alignSelf={"start"}
-          isChecked={devMode}
+        <Select
+          value={llm}
           onChange={async (e) => {
-            if (window.developerMode) {
-              let devMode = e.target.checked;
-              await pyEditSetting("devMode", devMode);
-              dispatch(setDevMode(devMode));
-              setupServerAPI();
-            } else {
-              e.preventDefault();
-              infoToast(
-                "No Access",
-                "You do not have access to developer mode at this time."
+            await setLLMModel(e.target.value);
+            if (isLocalMode()) {
+              successToast(
+                "LLM Changed",
+                "The AI Language Model has been changed. Please restart AnkiBrain for this change to take effect."
               );
             }
           }}
-          mt={8}
+        >
+          <option value={"gpt-3.5-turbo"}>gpt-3.5-turbo (default)</option>
+          <option value={"gpt-4"}>gpt-4 (expensive)</option>
+        </Select>
+
+        <Tag mt={5} p={3} justifyContent={"center"} maxWidth={300}>
+          Temperature (0-1)
+        </Tag>
+        <Input
+          value={temperature}
+          onKeyDown={(e) => {
+            const allowedKeys = ["Backspace", "."];
+            const isNumber = !isNaN(Number(e.key));
+            const isAllowed = isNumber || allowedKeys.includes(e.key);
+            if (!isAllowed) {
+              e.preventDefault();
+            }
+          }}
+          onChange={async (e) => {
+            const isNumber = !isNaN(Number(e.target.value));
+            if (isNumber) {
+              const number = Number(e.target.value);
+              if (number < 0 || number > 1) {
+                errorToast(
+                  "Invalid Temperature",
+                  "Please enter a temperature between 0 and 1."
+                );
+              } else {
+                await setTemperature(e.target.value);
+                if (isLocalMode()) {
+                  successToast(
+                    "Temperature Changed",
+                    "The AI temperature has been changed. Please restart AnkiBrain for this change to take effect."
+                  );
+                }
+              }
+            }
+          }}
+          mt={5}
         />
+      </Grid>
+
+      <Divider orientation="vertical" />
+
+      <Flex
+        flexDirection={"column"}
+        justifyContent={"center"}
+        alignItems={"center"}
+        mt={5}
+      >
+        <Tag mt={5} p={3} justifyContent={"center"}>
+          Developer Mode
+        </Tag>
+        <div>
+          <Switch
+            alignSelf={"start"}
+            isChecked={devMode}
+            onChange={async (e) => {
+              if (window.developerMode) {
+                let devMode = e.target.checked;
+                await pyEditSetting("devMode", devMode);
+                dispatch(setDevMode(devMode));
+                setupServerAPI();
+              } else {
+                e.preventDefault();
+                infoToast(
+                  "No Access",
+                  "You do not have access to developer mode at this time."
+                );
+              }
+            }}
+            mt={8}
+          />
+        </div>
       </Flex>
 
       <Flex justifyContent={"center"} mt={5}>
