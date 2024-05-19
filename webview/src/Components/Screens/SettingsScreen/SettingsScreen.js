@@ -24,7 +24,7 @@ import {
 } from "@chakra-ui/react";
 import "./SettingsScreen.css";
 import { errorToast, infoToast, successToast } from "../../../api/toast";
-import { setLLMModel, setTemperature } from "../../../api/settings";
+import { setLLMProvider, setLLMModel, setTemperature } from "../../../api/settings";
 import { setShowCardBottomHint as setStoreShowCardBottomHint } from "../../../api/redux/slices/showCardBottomHint";
 import { useDispatch, useSelector } from "react-redux";
 import { isLocalMode } from "../../../api/user";
@@ -47,6 +47,7 @@ import { setDeleteCardsAfterAdding } from "../../../api/redux/slices/deleteCards
 import { setShowBootReminderDialog } from "../../../api/redux/slices/showBootReminderDialog";
 
 const AdvancedSettings = (props) => {
+  const provider = useSelector((state) => state.appSettings.ai.provider);
   const temperature = useSelector((state) => state.appSettings.ai.temperature);
   const llm = useSelector((state) => state.appSettings.ai.llmModel);
   const dispatch = useDispatch();
@@ -57,6 +58,24 @@ const AdvancedSettings = (props) => {
   return (
     <Box {...props}>
       <Grid templateColumns="max-content 1fr" gap={6}>
+        <Tag p={3} justifyContent={"center"} maxWidth={300}>
+          Provider
+        </Tag>
+        <Select>
+          value={provider}
+          onChange=
+          {async (e) => {
+            await setLLMProvider(e.target.value)
+            if (isLocalMode()) {
+              successToast(
+                "Provider Changed",
+                "The AI Provider has been changed. Please restart AnkiBrain for this change to take effect."
+              );
+            }
+          }}
+          <option value={"openai"}>OpenAI</option>
+          <option value={"ollama"}>Ollama</option>
+        </Select>
         <Tag p={3} justifyContent={"center"} maxWidth={300}>
           Large Language Model (LLM)
         </Tag>
