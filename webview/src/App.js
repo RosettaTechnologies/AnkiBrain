@@ -58,7 +58,7 @@ function App() {
             cmd: InterprocessCommand.DID_LOAD_SETTINGS,
             data: {
               colorMode: "dark",
-              currentVersion: "0.6.2",
+              currentVersion: "0.7.3",
               documents_saved: [],
               llmProvider: "openai",
               llmModel: "gpt-3.5-turbo",
