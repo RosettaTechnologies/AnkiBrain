@@ -22,4 +22,4 @@ export const appSettings = createSlice({
   },
 });
 
-export const { setLLMModel, setTemperature } = appSettings.actions;
+export const { setLLMProvider, setLLMModel, setTemperature } = appSettings.actions;

@@ -24,14 +24,18 @@ import {
 } from "@chakra-ui/react";
 import "./SettingsScreen.css";
 import { errorToast, infoToast, successToast } from "../../../api/toast";
-import { setLLMProvider, setLLMModel, setTemperature } from "../../../api/settings";
+import {
+  setLLMProvider,
+  setLLMModel,
+  setTemperature,
+} from "../../../api/settings";
 import { setShowCardBottomHint as setStoreShowCardBottomHint } from "../../../api/redux/slices/showCardBottomHint";
 import { useDispatch, useSelector } from "react-redux";
 import { isLocalMode } from "../../../api/user";
 import { setDevMode } from "../../../api/redux/slices/devMode";
 import { setupServerAPI } from "../../../api/server-api/networking";
 import { pyEditSetting } from "../../../api/PythonBridge/senders/pyEditSetting";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   postPasswordReset,
   postRequestPasswordResetCode,
@@ -47,13 +51,23 @@ import { setDeleteCardsAfterAdding } from "../../../api/redux/slices/deleteCards
 import { setShowBootReminderDialog } from "../../../api/redux/slices/showBootReminderDialog";
 
 const AdvancedSettings = (props) => {
-  const provider = useSelector((state) => state.appSettings.ai.provider);
+  const provider = useSelector((state) => state.appSettings.ai.llmProvider);
   const temperature = useSelector((state) => state.appSettings.ai.temperature);
   const llm = useSelector((state) => state.appSettings.ai.llmModel);
   const dispatch = useDispatch();
   const devMode = useSelector((state) => state.devMode.value);
   const apiBaseUrl = useSelector((state) => state.apiBaseUrl.value);
   const user = useSelector((state) => state.user.value);
+  const llmOptions = {
+    openai: [
+      { value: "gpt-3.5-turbo", label: "gpt-3.5-turbo (default)" },
+      { value: "gpt-4", label: "gpt-4 (expensive)" },
+    ],
+    ollama: [
+      { value: "llama3", label: "llama3" }, //Should pull list of available LLMs over API
+      { value: "llama2", label: "llama2" },
+    ],
+  };
 
   return (
     <Box {...props}>
@@ -61,11 +75,11 @@ const AdvancedSettings = (props) => {
         <Tag p={3} justifyContent={"center"} maxWidth={300}>
           Provider
         </Tag>
-        <Select>
+        <Select
           value={provider}
-          onChange=
-          {async (e) => {
-            await setLLMProvider(e.target.value)
+          onChange={async (e) => {
+            await setLLMProvider(e.target.value);
+            await setLLMModel(llmOptions[e.target.value][0].value)
             if (isLocalMode()) {
               successToast(
                 "Provider Changed",
@@ -73,6 +87,7 @@ const AdvancedSettings = (props) => {
               );
             }
           }}
+        >
           <option value={"openai"}>OpenAI</option>
           <option value={"ollama"}>Ollama</option>
         </Select>
@@ -91,8 +106,11 @@ const AdvancedSettings = (props) => {
             }
           }}
         >
-          <option value={"gpt-3.5-turbo"}>gpt-3.5-turbo (default)</option>
-          <option value={"gpt-4"}>gpt-4 (expensive)</option>
+          {llmOptions[provider].map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </Select>
 
         <Tag mt={5} p={3} justifyContent={"center"} maxWidth={300}>

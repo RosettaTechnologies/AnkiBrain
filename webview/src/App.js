@@ -60,6 +60,7 @@ function App() {
               colorMode: "dark",
               currentVersion: "0.6.2",
               documents_saved: [],
+              llmProvider: "openai",
               llmModel: "gpt-3.5-turbo",
               temperature: 0,
               user_mode: "SERVER",

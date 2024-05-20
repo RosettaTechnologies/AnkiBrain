@@ -14,7 +14,7 @@ import { setPyCommandLock } from "../redux/slices/pyCommandLock";
 import { stopAllLoaders } from "../redux/stopAllLoaders";
 import { setCurrentVersion } from "../redux/slices/currentVersion";
 import { setLifetimeCost, setSessionCost } from "../redux/slices/cost";
-import { setLLMModel, setTemperature } from "../redux/slices/appSettings";
+import { setLLMModel, setLLMProvider, setTemperature } from "../redux/slices/appSettings";
 import { setLoadingText } from "../redux/slices/loadingText";
 import { setUserMode } from "../redux/slices/userMode";
 import { getUser } from "../server-api/networking/user";
@@ -131,6 +131,7 @@ export async function handlePythonDataReceived(
         customPromptTopicExplanation,
         colorMode,
         documents_saved,
+        llmProvider,
         llmModel,
         temperature,
         user_mode,
@@ -170,6 +171,9 @@ export async function handlePythonDataReceived(
       }
       if (documents_saved) {
         dispatch(setDocuments(documents_saved));
+      }
+      if (llmProvider) {
+        dispatch(setLLMProvider(llmProvider))
       }
       if (llmModel) {
         dispatch(setLLMModel(llmModel));
