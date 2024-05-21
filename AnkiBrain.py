@@ -43,7 +43,7 @@ class GUIThreadSignaler(QObject):
         mw.ankiBrain.sidePanel.webview.send_to_js(json_dict)
 
     def show_no_API_key_dialog(self):
-        showInfo('AnkiBrain has loaded. There is no API key detected, please set one before using the app.')
+        showInfo('AnkiBrain has loaded. There is no AI configured, please set up an OpenAI API Key or Ollama.')
 
     def reset_ui(self):
         mw.reset()
@@ -131,7 +131,7 @@ class AnkiBrain:
 
         if self.user_mode == UserMode.LOCAL:
             add_ankibrain_menu_item('Restart AI...', self.restart_async_members_from_sync)
-            add_ankibrain_menu_item('Set OpenAI API Key...', self.show_openai_api_key_dialog)
+            add_ankibrain_menu_item('Set OpenAI API Key...', self.show_openai_api_key_dialog) #Change when using ollama
             add_ankibrain_menu_item('Reinstall...', reinstall)
 
         # Check if AnkiBrain has been updated.
@@ -178,6 +178,8 @@ class AnkiBrain:
         # Check for key in .env file in user_files
         if self.user_mode == UserMode.LOCAL:
             load_dotenv(dotenv_path, override=True)
+            if os.getenv('AI_PROVIDER') not in ['openai', None]:
+                return
             if os.getenv('OPENAI_API_KEY') is None or os.getenv('OPENAI_API_KEY') == '':
                 print('No API key detected')
                 self.guiThreadSignaler.showNoAPIKeyDialogSignal.emit()
