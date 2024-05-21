@@ -2,8 +2,8 @@ import { isDevMode } from "../../devMode";
 import { store } from "../../redux";
 import { setApiBaseUrl } from "../../redux/slices/apiBaseUrl";
 
-export let DEV_SERVER_URL = "https://www.dev.anki.rankmd.org";
-export let PROD_SERVER_URL = "https://anki.rankmd.org";
+export let DEV_SERVER_URL = process.env.REACT_APP_DEV_SERVER_URL;
+export let PROD_SERVER_URL = process.env.REACT_APP_PROD_SERVER_URL;
 
 export function setupServerAPI() {
   let API_BASE_URL;
