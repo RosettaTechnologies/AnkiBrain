@@ -55,3 +55,5 @@ yarn-debug.log*
 yarn-error.log*
 .yarn
 .ankibrain-version
+meta.json
+__pycache__

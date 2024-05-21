@@ -6,7 +6,6 @@ import subprocess
 
 from InterprocessCommand import InterprocessCommand
 
-
 class ExternalScriptManager:
     def __init__(self, python_path, script_path):
         self.python_path = python_path
@@ -33,7 +32,12 @@ class ExternalScriptManager:
 
         # Wait for the ready message from external script.
         print('Waiting for ChatAI Ready Message')
-        ready_msg = await self.process.stdout.readline()
+        for _ in range(10):  # try 10 times
+            try:
+                ready_msg = await asyncio.wait_for(self.process.stdout.readline(), timeout=1.0)
+                break  # if the ready message is received, break the loop
+            except asyncio.TimeoutError:
+                continue  # if the ready message is not received within the timeout, try again
 
         # async def read_all(stream):
         #     output = []
@@ -43,7 +47,7 @@ class ExternalScriptManager:
         #             break
         #         output.append(line.decode().strip())
         #     return '\n'.join(output)
-        #
+        
         # error_msg = await read_all(self.process.stderr)
         # print(error_msg)
 
