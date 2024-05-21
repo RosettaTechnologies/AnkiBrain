@@ -14,6 +14,7 @@ from ChatAIModuleAdapter import ChatAIModuleAdapter
 from ExplainTalkButtons import ExplainTalkButtons
 from InterprocessCommand import InterprocessCommand as IC
 from OpenAIAPIKeyDialog import OpenAIAPIKeyDialog
+from OllamaAIHostDialog import OllamaAIHostDialog
 from PostUpdateDialog import PostUpdateDialog
 from SidePanel import SidePanel
 from UserModeDialog import show_user_mode_dialog
@@ -100,6 +101,9 @@ class AnkiBrain:
         self.openai_api_key_dialog = OpenAIAPIKeyDialog()
         self.openai_api_key_dialog.hide()
 
+        self.ollama_host_dialog = OllamaAIHostDialog()
+        self.ollama_host_dialog.hide()
+
         # Should go last because this object takes self and can call items.
         # Therefore, risk of things not completing setup.
         from ReactBridge import ReactBridge
@@ -120,6 +124,9 @@ class AnkiBrain:
         # Set up api key dialog.
         self.openai_api_key_dialog.on_key_save(self.handle_openai_api_key_save)
 
+        # Set up ollama host dialog
+        self.ollama_host_dialog.on_key_save(self.handle_ollama_host_key_save)
+
         # Hook for injecting custom javascript into Anki cards.
         addHook("prepareQA", handle_card_will_show)
 
@@ -131,7 +138,8 @@ class AnkiBrain:
 
         if self.user_mode == UserMode.LOCAL:
             add_ankibrain_menu_item('Restart AI...', self.restart_async_members_from_sync)
-            add_ankibrain_menu_item('Set OpenAI API Key...', self.show_openai_api_key_dialog) #Change when using ollama
+            add_ankibrain_menu_item('Set OpenAI API Key...', self.show_openai_api_key_dialog)
+            add_ankibrain_menu_item('Set Ollama Host...', self.show_ollama_host_dialog)
             add_ankibrain_menu_item('Reinstall...', reinstall)
 
         # Check if AnkiBrain has been updated.
@@ -225,6 +233,12 @@ class AnkiBrain:
         os.environ['OPENAI_API_KEY'] = key
         self.restart_async_members_from_sync()
 
+    def handle_ollama_host_key_save(self, key):
+        self.ollama_host_dialog.hide()
+        set_key(dotenv_path, 'OLLAMA_HOST', key)
+        os.environ['OLLAMA_HOST'] = key
+        self.restart_async_members_from_sync()
+
     def _handle_process_signal(self, signal, frame):
         try:
             self.chatAI.scriptManager.terminate_sync()
@@ -278,6 +292,9 @@ class AnkiBrain:
 
     def show_openai_api_key_dialog(self):
         self.openai_api_key_dialog.show()
+
+    def show_ollama_host_dialog(self):
+        self.ollama_host_dialog.show()
 
     def handle_anki_card_webview_pycmd(self, handled, cmd, context):
         try:
