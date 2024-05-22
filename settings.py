@@ -45,6 +45,7 @@ default_settings = {
     "user_mode": None,
     "llmProvider": 'openai',
     "llmModel": 'gpt-3.5-turbo',
+    "ollamaHost": 'https://127.0.0.1:1111434',
     'temperature': 0,
     'user': None,
     'devMode': False,

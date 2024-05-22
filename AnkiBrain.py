@@ -126,6 +126,7 @@ class AnkiBrain:
 
         # Set up ollama host dialog
         self.ollama_host_dialog.on_key_save(self.handle_ollama_host_key_save)
+        self.ollama_host_dialog.input_field.setText(mw.settingsManager.settings.get('ollamaHost', ''))
 
         # Hook for injecting custom javascript into Anki cards.
         addHook("prepareQA", handle_card_will_show)
@@ -237,6 +238,7 @@ class AnkiBrain:
         self.ollama_host_dialog.hide()
         set_key(dotenv_path, 'OLLAMA_HOST', key)
         os.environ['OLLAMA_HOST'] = key
+        mw.settingsManager.edit("ollamaHost", key)
         self.restart_async_members_from_sync()
 
     def _handle_process_signal(self, signal, frame):
