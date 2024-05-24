@@ -18,15 +18,11 @@ settings_path = path.join(user_data_dir, 'settings.json')
 
 
 class ChatAIWithoutDocuments(ChatInterface):
-    def __init__(self, verbose=False):
-        temperature = 0
-        model_name = 'gpt-3.5-turbo'
-        with open(settings_path, 'r') as f:
-            data = json.load(f)
-            temperature = data['temperature']
-            model_name = data['llmModel']
-
-        self.llm = ChatOpenAI(temperature=temperature, model_name=model_name)
+    def __init__(self, provider, model_name, temperature, base_url,  verbose=False):
+        if provider == 'ollama':
+            self.llm = ChatOpenAI(temperature=temperature, model_name=model_name, openai_api_base=base_url, openai_api_key="Not Needed")
+        else:
+            self.llm = ChatOpenAI(temperature=temperature, model_name=model_name)
         self.memory = ConversationBufferMemory()
         self.conversationChain = ConversationChain(llm=self.llm, memory=self.memory, verbose=verbose)
 

@@ -50,7 +50,7 @@ settings_path = path.join(user_data_dir, 'settings.json')
 
 
 class ChatAIWithDocuments(ChatInterface):
-    def __init__(self, documents_dir_path: str = default_documents_dir, persist_directory=persist_dir):
+    def __init__(self, provider, model_name, temperature, base_url, documents_dir_path: str = default_documents_dir, persist_directory=persist_dir):
         if not path.isdir(persist_dir):
             os.mkdir(persist_dir)
 
@@ -58,14 +58,11 @@ class ChatAIWithDocuments(ChatInterface):
 
         self.text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100, length_function=len)
 
-        temperature = 0
-        model_name = 'gpt-3.5-turbo'
-        with open(settings_path, 'r') as f:
-            data = json.load(f)
-            temperature = data['temperature']
-            model_name = data['llmModel']
-
-        self.llm = ChatOpenAI(temperature=temperature, model_name=model_name)
+        if provider == 'ollama':
+            self.llm = ChatOpenAI(temperature=temperature, model_name=model_name, openai_api_base=base_url, openai_api_key="Not Needed")
+        else:
+            self.llm = ChatOpenAI(temperature=temperature, model_name=model_name)
+        
         self.vectorstore = Chroma(embedding_function=HuggingFaceEmbeddings(), persist_directory=persist_directory)
         self.memory = ConversationBufferMemory(memory_key="chat_history", output_key='answer',
                                                return_messages=True)
