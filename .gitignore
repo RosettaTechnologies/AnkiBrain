@@ -57,3 +57,4 @@ yarn-error.log*
 .ankibrain-version
 meta.json
 __pycache__
+*.cpython
