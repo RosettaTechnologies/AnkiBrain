@@ -60,7 +60,6 @@ export async function handlePythonDataReceived(
                                                                                                                                                                                                     );
                                                                                                                                                                                                      */
 
-  let sourceDocuments, model, temperature;
   const cmd = pyResponseObject.cmd;
   const data = pyResponseObject.data;
 
@@ -81,20 +80,21 @@ export async function handlePythonDataReceived(
     case IC.DID_ADD_CARDS:
       //successToast("Cards Added", "Your cards have been added to Anki.");
       break;
-    case IC.DID_ASK_CONVERSATION_NO_DOCUMENTS:
-      model = store.getState().appSettings.ai.llmModel;
-      temperature = store.getState().appSettings.ai.temperature;
+    case IC.DID_ASK_CONVERSATION_NO_DOCUMENTS: {
+      let model = store.getState().appSettings.ai.llmModel;
+      let temperature = store.getState().appSettings.ai.temperature;
       addAIMessageToStore(data.response, [], model, temperature, dispatch);
       dispatch(setChatLoading(false));
-      break;
-    case IC.DID_ASK_CONVERSATION_DOCUMENTS:
+      break; 
+    }
+    case IC.DID_ASK_CONVERSATION_DOCUMENTS: {
       let sourceDocuments = JSON.parse(data.source_documents);
       let sourceSnippets = [];
       for (let doc of sourceDocuments) {
         sourceSnippets.push(doc.page_content);
       }
-      model = store.getState().appSettings.ai.llmModel;
-      temperature = store.getState().appSettings.ai.temperature;
+      let model = store.getState().appSettings.ai.llmModel;
+      let temperature = store.getState().appSettings.ai.temperature;
       addAIMessageToStore(
         data.response,
         sourceSnippets,
@@ -104,6 +104,7 @@ export async function handlePythonDataReceived(
       );
       dispatch(setChatLoading(false));
       break;
+    }
     case IC.DID_ADD_DOCUMENTS:
       // const documentsAdded = data.documents_added;
       // dispatch(addDocumentsToStore(documentsAdded));
