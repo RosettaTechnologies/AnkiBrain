@@ -150,7 +150,7 @@ if __name__ == '__main__':
         with open(settings_path, 'r') as f:
             data = json.load(f)
             provider = data.get('llmProvider', provider)
-            ollamaHost = data.get('ollamaHost', 'https://127.0.0.1:1111434')
+            ollamaHost = data.get('ollamaHost', 'http://127.0.0.1:11434')
             model = data.get('llmModel', 'gpt-3.5-turbo')
             temperature = data.get('temperature', 0)
 
