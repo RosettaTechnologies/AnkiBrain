@@ -35,9 +35,9 @@ class ExternalScriptManager:
         for _ in range(10):  # try 10 times
             try:
                 ready_msg = await asyncio.wait_for(self.process.stdout.readline(), timeout=1.0)
-                break  # if the ready message is received, break the loop
+                break
             except asyncio.TimeoutError:
-                continue  # if the ready message is not received within the timeout, try again
+                continue
 
         # async def read_all(stream):
         #     output = []
