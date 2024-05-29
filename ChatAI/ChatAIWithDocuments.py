@@ -5,6 +5,7 @@ from typing import Tuple, List
 
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
+from langchain_community.chat_models import ChatOllama
 from langchain.document_loaders import TextLoader, PyPDFLoader, Docx2txtLoader, UnstructuredPowerPointLoader, \
     UnstructuredHTMLLoader
 from langchain.embeddings import HuggingFaceEmbeddings
@@ -59,7 +60,7 @@ class ChatAIWithDocuments(ChatInterface):
         self.text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100, length_function=len)
 
         if provider == 'ollama':
-            self.llm = ChatOpenAI(temperature=temperature, model_name=model_name, openai_api_base=base_url, openai_api_key="Not Needed")
+            self.llm = ChatOllama(temperature=temperature, model_name=model_name, base_url=base_url)
         else:
             self.llm = ChatOpenAI(temperature=temperature, model_name=model_name)
         
