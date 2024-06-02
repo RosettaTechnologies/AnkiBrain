@@ -151,8 +151,6 @@ class ChatInterface(ABC):
 
 
         cards_raw_str = self.single_query_resets_memory(query)
-        print("RAW CARD STRING RESPONSE")
-        print(cards_raw_str)
         cards_raw_str = cards_raw_str.strip()
         cards_raw_str = extract_json_array(cards_raw_str)  # ???
         return cards_raw_str
