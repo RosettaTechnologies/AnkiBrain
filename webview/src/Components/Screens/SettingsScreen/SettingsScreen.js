@@ -120,8 +120,7 @@ const AdvancedSettings = (props) => {
           </Select>
           {provider === "ollama" && llmOptions.ollama.length === 0 && (
             <Text mt={5} p={3} justifyContent={"center"} maxWidth={300} color="red.500">
-              Could not load Ollama models. Please restart AnkiBrain or make sure
-              your Ollama server is running.
+              No Ollama models found. Please assure the server is running and that you have set up Ollama correctly.
             </Text>
           )}
         </div>
