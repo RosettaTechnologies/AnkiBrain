@@ -19,7 +19,7 @@ from PostUpdateDialog import PostUpdateDialog
 from SidePanel import SidePanel
 from UserModeDialog import show_user_mode_dialog
 from card_injection import handle_card_will_show
-from ollama_manager import get_ollama_models
+from ollama_manager import get_ollama_models, DEFAULT_OLLAMA_HOST
 from changelog import ChangelogDialog
 from project_paths import dotenv_path
 from util import run_win_install, run_macos_install, run_linux_install, UserMode
@@ -197,9 +197,9 @@ class AnkiBrain:
                     else:
                         print(f'Detected OpenAI API Key: {os.getenv("OPENAI_API_KEY")}')
                 else:
-                    ollama_host = mw.settingsManager.get('ollamaHost')
                     model = mw.settingsManager.get('llmModel')
-                    server_url = 'http://127.0.0.1:11434' if ollama_host is None else ollama_host
+                    ollama_host = mw.settingsManager.get('ollamaHost')
+                    server_url = DEFAULT_OLLAMA_HOST if ollama_host is None else ollama_host
                     models = get_ollama_models(server_url)
                     if len(models) == 0:
                         self.guiThreadSignaler.showInfoDialogSignal.emit(f'AnkiBrain has loaded. No Ollama models could be found at server url {server_url}.')
