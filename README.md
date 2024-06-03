@@ -79,3 +79,13 @@ To resolve this, simply install Anki from the official website using the .deb pa
    1. `pip install -r requirements.txt`
    2. Should produce no errors
 6. Addon should be OK to run now
+
+## Ollama Setup
+
+1. Assure that you have Ollama up and running on your system by running `ollama -v`.
+2. Confirm the server url of `ollama serve`
+   - Default is `http://127.0.0.1:11434`
+   - Change this in AnkiBrain under `Set Ollama Host`
+3. Assure any models you'd like to use are pulled and available when running `ollama list`.
+4. Open AnkiBrain and go to `Settings` in the WebView and then `Advanced Settings`. Change the Provider to `Ollama`.
+5. Select the model you would like to use.
