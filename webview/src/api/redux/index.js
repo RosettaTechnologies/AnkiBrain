@@ -31,6 +31,7 @@ import { deleteCardsAfterAdding } from "./slices/deleteCardsAfterAdding";
 import { showBootReminderDialog } from "./slices/showBootReminderDialog";
 import { appDidBoot } from "./slices/appDidBoot";
 import { customPrompts } from "./slices/customPrompts";
+import { ollamaModels } from "./slices/ollama";
 
 const showLoginModalSlice = createSlice({
   name: "showLoginModal",
@@ -115,5 +116,6 @@ export const store = configureStore({
     useDocuments: useDocuments.reducer,
     user: userSlice.reducer,
     userMode: userMode.reducer,
+    ollamaModels: ollamaModels.reducer,
   },
 });

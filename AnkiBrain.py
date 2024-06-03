@@ -19,6 +19,7 @@ from PostUpdateDialog import PostUpdateDialog
 from SidePanel import SidePanel
 from UserModeDialog import show_user_mode_dialog
 from card_injection import handle_card_will_show
+from ollama_manager import get_ollama_models
 from changelog import ChangelogDialog
 from project_paths import dotenv_path
 from util import run_win_install, run_macos_install, run_linux_install, UserMode
@@ -187,7 +188,10 @@ class AnkiBrain:
         # Check for key in .env file in user_files
         if self.user_mode == UserMode.LOCAL:
             load_dotenv(dotenv_path, override=True)
-            if mw.settingsManager.settings.get('llmProvider') not in ['openai', None]:
+            if mw.settingsManager.settings.get('llmProvider') == "ollama":
+                ollamaHost = mw.settingsManager.get('ollamaHost')
+                models = get_ollama_models('http://127.0.0.1:11434' if ollamaHost is None else ollamaHost)
+                self.reactBridge.send_cmd(IC.DID_LOAD_OLLAMA_MODELS, {'ollamaModels': models})
                 return
             if os.getenv('OPENAI_API_KEY') is None or os.getenv('OPENAI_API_KEY') == '':
                 print('No API key detected')

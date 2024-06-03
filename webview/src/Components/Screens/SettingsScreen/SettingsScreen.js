@@ -58,15 +58,13 @@ const AdvancedSettings = (props) => {
   const devMode = useSelector((state) => state.devMode.value);
   const apiBaseUrl = useSelector((state) => state.apiBaseUrl.value);
   const user = useSelector((state) => state.user.value);
+  const ollamaModels = useSelector((state) => state.ollamaModels.value);
   const llmOptions = {
     openai: [
       { value: "gpt-3.5-turbo", label: "gpt-3.5-turbo (default)" },
       { value: "gpt-4", label: "gpt-4 (expensive)" },
     ],
-    ollama: [
-      { value: "llama3", label: "llama3" }, //Should pull list of available LLMs over API
-      { value: "llama2", label: "llama2" },
-    ],
+    ollama: ollamaModels.map((model) => ({ value: model.model, label: model.name })),
   };
 
   return (
@@ -79,7 +77,7 @@ const AdvancedSettings = (props) => {
           value={provider}
           onChange={async (e) => {
             await setLLMProvider(e.target.value);
-            await setLLMModel(llmOptions[e.target.value][0].value)
+            await setLLMModel(llmOptions[e.target.value][0].value);
             if (isLocalMode()) {
               successToast(
                 "Provider Changed",
@@ -94,24 +92,39 @@ const AdvancedSettings = (props) => {
         <Tag p={3} justifyContent={"center"} maxWidth={300}>
           Large Language Model (LLM)
         </Tag>
-        <Select
-          value={llm}
-          onChange={async (e) => {
-            await setLLMModel(e.target.value);
-            if (isLocalMode()) {
-              successToast(
-                "LLM Changed",
-                "The AI Language Model has been changed. Please restart AnkiBrain for this change to take effect."
-              );
-            }
-          }}
-        >
-          {llmOptions[provider].map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </Select>
+        <div>
+          <Select
+            value={llm}
+            onChange={async (e) => {
+              await setLLMModel(e.target.value);
+              if (isLocalMode()) {
+                successToast(
+                  "LLM Changed",
+                  "The AI Language Model has been changed. Please restart AnkiBrain for this change to take effect."
+                );
+              }
+            }}
+          >
+            {provider === "openai" &&
+              llmOptions.openai.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            {provider === "ollama" &&
+              llmOptions.ollama.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+          </Select>
+          {provider === "ollama" && llmOptions.ollama.length === 0 && (
+            <Text mt={5} p={3} justifyContent={"center"} maxWidth={300} color="red.500">
+              Could not load Ollama models. Please restart AnkiBrain or make sure
+              your Ollama server is running.
+            </Text>
+          )}
+        </div>
 
         <Tag mt={5} p={3} justifyContent={"center"} maxWidth={300}>
           Temperature (0-1)

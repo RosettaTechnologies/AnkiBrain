@@ -41,6 +41,7 @@ import {
   setCustomPromptMakeCards,
   setCustomPromptTopicExplanation,
 } from "../redux/slices/customPrompts";
+import { setOllamaModels } from "../redux/slices/ollama"
 
 /**
  * Switchboard for incoming python commands.
@@ -119,6 +120,16 @@ export async function handlePythonDataReceived(
       break;
     case IC.DID_CLEAR_CONVERSATION:
       // This is just confirmation that the convo has reset (triggered by user on JS side).
+      break;
+    case IC.DID_LOAD_OLLAMA_MODELS:
+      // Hydrate store with available ollama models
+      let {
+        ollamaModels
+      } = data;
+
+      if (ollamaModels) {
+        dispatch(setOllamaModels(ollamaModels))
+      }
       break;
     case IC.DID_LOAD_SETTINGS:
       // Hydrate the store with the data from python layer's settings.json.
