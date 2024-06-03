@@ -31,21 +31,21 @@ class GUIThreadSignaler(QObject):
     """
     resetUISignal = pyqtSignal()
     openFileBrowserSignal = pyqtSignal(int)  # takes commandId so we can resolve the request
-    showNoAPIKeyDialogSignal = pyqtSignal()
+    showInfoDialogSignal = pyqtSignal(str)
     sendToJSFromAsyncThreadSignal = pyqtSignal(dict)
 
     def __init__(self):
         super().__init__()
         self.resetUISignal.connect(self.reset_ui)
         self.openFileBrowserSignal.connect(self.open_file_browser)
-        self.showNoAPIKeyDialogSignal.connect(self.show_no_API_key_dialog)
+        self.showInfoDialogSignal.connect(self.show_info_dialog)
         self.sendToJSFromAsyncThreadSignal.connect(self.send_to_js_from_async_thread)
 
     def send_to_js_from_async_thread(self, json_dict: dict):
         mw.ankiBrain.sidePanel.webview.send_to_js(json_dict)
 
-    def show_no_API_key_dialog(self):
-        showInfo('AnkiBrain has loaded. AI Provider is set to OpenAI and no API Key has been set.')
+    def show_info_dialog(self, message):
+        showInfo(message)
 
     def reset_ui(self):
         mw.reset()
@@ -185,19 +185,35 @@ class AnkiBrain:
         await self.load_user_settings()
         self.reactBridge.send_cmd(IC.DID_FINISH_STARTUP)
 
-        # Check for key in .env file in user_files
         if self.user_mode == UserMode.LOCAL:
-            load_dotenv(dotenv_path, override=True)
-            if mw.settingsManager.settings.get('llmProvider') == "ollama":
-                ollamaHost = mw.settingsManager.get('ollamaHost')
-                models = get_ollama_models('http://127.0.0.1:11434' if ollamaHost is None else ollamaHost)
-                self.reactBridge.send_cmd(IC.DID_LOAD_OLLAMA_MODELS, {'ollamaModels': models})
-                return
-            if os.getenv('OPENAI_API_KEY') is None or os.getenv('OPENAI_API_KEY') == '':
-                print('No API key detected')
-                self.guiThreadSignaler.showNoAPIKeyDialogSignal.emit()
-            else:
-                print(f'Detected API Key: {os.getenv("OPENAI_API_KEY")}')
+            try:
+                provider = mw.settingsManager.settings.get('llmProvider')
+                if provider != "ollama": #Always assume it's openai if provider not set or invalid
+                    # Check for key in .env file in user_files
+                    load_dotenv(dotenv_path, override=True)
+                    if os.getenv('OPENAI_API_KEY') is None or os.getenv('OPENAI_API_KEY') == '':
+                        print('No API key detected')
+                        self.guiThreadSignaler.showInfoDialogSignal.emit('AnkiBrain has loaded. AI Provider is set to OpenAI and no API Key has been set.')
+                    else:
+                        print(f'Detected OpenAI API Key: {os.getenv("OPENAI_API_KEY")}')
+                else:
+                    ollama_host = mw.settingsManager.get('ollamaHost')
+                    model = mw.settingsManager.get('llmModel')
+                    server_url = 'http://127.0.0.1:11434' if ollama_host is None else ollama_host
+                    models = get_ollama_models(server_url)
+                    if len(models) == 0:
+                        self.guiThreadSignaler.showInfoDialogSignal.emit(f'AnkiBrain has loaded. No Ollama models could be found at server url {server_url}.')
+                        return
+                    model_names = [model['model'] for model in models]
+                    if model not in model_names:
+                        # Model has not been set or no longer installed
+                        self.guiThreadSignaler.showInfoDialogSignal.emit(f"AnkiBrain has loaded. The selected Ollama model is invalid, defaulting to {model_names[0]}")
+                        # Should set to first available model
+                        mw.settingsManager.edit('llmModel', model_names[0])
+                        self.reactBridge.send_cmd(IC.EDIT_SETTING, { 'key': 'llmModel', 'value': model_names[0] })
+                    self.reactBridge.send_cmd(IC.DID_LOAD_OLLAMA_MODELS, {'ollamaModels': models})
+            except Exception as e:
+                print(f"Error initializing local ChatAI: {e}")
 
     async def _stop_async_members(self):
         """

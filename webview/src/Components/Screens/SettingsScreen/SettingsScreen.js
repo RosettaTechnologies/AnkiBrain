@@ -77,7 +77,8 @@ const AdvancedSettings = (props) => {
           value={provider}
           onChange={async (e) => {
             await setLLMProvider(e.target.value);
-            await setLLMModel(llmOptions[e.target.value][0].value);
+            const defaultModel = llmOptions[e.target.value]
+            await setLLMModel(defaultModel.length ? defaultModel.value : "");
             if (isLocalMode()) {
               successToast(
                 "Provider Changed",
