@@ -10,6 +10,7 @@ from AnkiBrainDocument import AnkiBrainDocument
 from InterprocessCommand import InterprocessCommand as IC
 from cards import add_basic_card, add_cloze_card
 from networking import fetch, postDocument
+from ollama_manager import get_ollama_models, DEFAULT_OLLAMA_HOST
 
 
 def rewrite_json_file(new_data: dict, f):
@@ -215,6 +216,12 @@ class ReactBridge:
 
                 mw.settingsManager.edit(key, value)
                 self.send_cmd(IC.DID_EDIT_SETTING, commandId=commandId)
+
+                if key == 'llmProvider' and value == 'ollama':
+                    ollama_host = mw.settingsManager.get('ollamaHost')
+                    server_url = DEFAULT_OLLAMA_HOST if ollama_host is None else ollama_host
+                    models = get_ollama_models(server_url)
+                    self.send_cmd(IC.DID_LOAD_OLLAMA_MODELS, {'ollamaModels': models})
 
             elif cmd == IC.PRINT_FROM_JS:
                 print(data['text'])

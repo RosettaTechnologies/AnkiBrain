@@ -67,6 +67,12 @@ const AdvancedSettings = (props) => {
     ollama: ollamaModels.map((model) => ({ value: model.model, label: model.name })),
   };
 
+  useEffect(() => {
+    if (llm == "") {
+      setLLMModel(ollamaModels[0].model)
+    }
+  }, [ollamaModels])
+
   return (
     <Box {...props}>
       <Grid templateColumns="max-content 1fr" gap={6}>
@@ -78,7 +84,7 @@ const AdvancedSettings = (props) => {
           onChange={async (e) => {
             await setLLMProvider(e.target.value);
             const defaultModel = llmOptions[e.target.value]
-            await setLLMModel(defaultModel.length ? defaultModel.value : "");
+            await setLLMModel(defaultModel.length ? defaultModel[0].value : "");
             if (isLocalMode()) {
               successToast(
                 "Provider Changed",
