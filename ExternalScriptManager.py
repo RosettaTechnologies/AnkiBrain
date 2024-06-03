@@ -32,12 +32,7 @@ class ExternalScriptManager:
 
         # Wait for the ready message from external script.
         print('Waiting for ChatAI Ready Message')
-        for _ in range(10):  # try 10 times
-            try:
-                ready_msg = await asyncio.wait_for(self.process.stdout.readline(), timeout=1.0)
-                break
-            except asyncio.TimeoutError:
-                continue
+        ready_msg = await self.process.stdout.readline()
 
         # async def read_all(stream):
         #     output = []
