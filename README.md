@@ -81,7 +81,7 @@ To resolve this, simply install Anki from the official website using the .deb pa
 6. Addon should be OK to run now
 
 ## Ollama Setup
-[!WARNING]
+[!CAUTION]
 You will need a powerful enough GPU to run models that produce high-quality cards and topic explanations.
 
 1. Assure that you have Ollama up and running on your system by running `ollama -v`.
