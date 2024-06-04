@@ -84,9 +84,9 @@ To resolve this, simply install Anki from the official website using the .deb pa
 
 ## Ollama Setup
 
-<!-- prettier-ignore -->
-[!CAUTION]
-You will need a powerful enough GPU to run models that produce high-quality cards and topic explanations.
+> [!CAUTION]
+> You will need a powerful enough GPU to run models that produce high-quality cards and topic explanations.
+
 
 1. Assure that you have Ollama up and running on your system by running `ollama -v`.
 2. Confirm the server url of `ollama serve`
@@ -95,3 +95,49 @@ You will need a powerful enough GPU to run models that produce high-quality card
 3. Assure any models you'd like to use are pulled and available when running `ollama list`.
 4. Open AnkiBrain and go to `Settings` in the WebView and then `Advanced Settings`. Change the Provider to `Ollama`.
 5. Select the model you would like to use.
+
+
+# Examples for how to create your own info panel, warning box and other decent looking notification in GitHub markdown.
+
+
+All the boxes are single/two cell tables or two row tables.
+
+
+## Warning box
+
+| :exclamation:  You have to read about this   |
+|----------------------------------------------|
+
+
+| :zap:        Risky setup going on here!  |
+|------------------------------------------|
+
+| :warning: WARNING           |
+|:----------------------------|
+| Another way to warn you     |
+
+
+| :boom: DANGER               |
+|:----------------------------|
+| Whoa there with this config |
+
+## Info panel
+
+| :memo:        | This is something that is good to note       |
+|---------------|:---------------------------------------------|
+
+
+| :point_up:    | Hey did you actually read the doc above?|
+|---------------|:----------------------------------------|
+
+
+## Other markdown options
+
+> [!NOTE]  
+> Highlights information that users should take into account, even when skimming.
+
+> [!IMPORTANT]  
+> Crucial information necessary for users to succeed.
+
+> [!WARNING]  
+> Critical content demanding immediate user attention due to potential risks.
