@@ -5,7 +5,9 @@ See [AnkiBrain](https://ankiweb.net/shared/info/1915225457) on AnkiWeb for more 
 # Local Mode Installation (manual install)
 
 ## Remarks
+
 ### Linux
+
 Please notice that this addon doesn't work when Anki is installed as a Flatpak.
 To resolve this, simply install Anki from the official website using the .deb package.
 
@@ -82,6 +84,7 @@ To resolve this, simply install Anki from the official website using the .deb pa
 
 ## Ollama Setup
 
+<!-- prettier-ignore -->
 [!CAUTION]
 You will need a powerful enough GPU to run models that produce high-quality cards and topic explanations.
 
