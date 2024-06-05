@@ -3,6 +3,7 @@ import {
   Button,
   Divider,
   Flex,
+  Grid,
   Input,
   Modal,
   ModalBody,
@@ -23,14 +24,18 @@ import {
 } from "@chakra-ui/react";
 import "./SettingsScreen.css";
 import { errorToast, infoToast, successToast } from "../../../api/toast";
-import { setLLMModel, setTemperature } from "../../../api/settings";
+import {
+  setLLMProvider,
+  setLLMModel,
+  setTemperature,
+} from "../../../api/settings";
 import { setShowCardBottomHint as setStoreShowCardBottomHint } from "../../../api/redux/slices/showCardBottomHint";
 import { useDispatch, useSelector } from "react-redux";
 import { isLocalMode } from "../../../api/user";
 import { setDevMode } from "../../../api/redux/slices/devMode";
 import { setupServerAPI } from "../../../api/server-api/networking";
 import { pyEditSetting } from "../../../api/PythonBridge/senders/pyEditSetting";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   postPasswordReset,
   postRequestPasswordResetCode,
@@ -46,26 +51,55 @@ import { setDeleteCardsAfterAdding } from "../../../api/redux/slices/deleteCards
 import { setShowBootReminderDialog } from "../../../api/redux/slices/showBootReminderDialog";
 
 const AdvancedSettings = (props) => {
+  const provider = useSelector((state) => state.appSettings.ai.llmProvider);
   const temperature = useSelector((state) => state.appSettings.ai.temperature);
   const llm = useSelector((state) => state.appSettings.ai.llmModel);
   const dispatch = useDispatch();
   const devMode = useSelector((state) => state.devMode.value);
   const apiBaseUrl = useSelector((state) => state.apiBaseUrl.value);
   const user = useSelector((state) => state.user.value);
+  const ollamaModels = useSelector((state) => state.ollamaModels.value);
+  const llmOptions = {
+    openai: [
+      { value: "gpt-3.5-turbo", label: "gpt-3.5-turbo (default)" },
+      { value: "gpt-4", label: "gpt-4 (expensive)" },
+    ],
+    ollama: ollamaModels.map((model) => ({ value: model.model, label: model.name })),
+  };
+
+  useEffect(() => {
+    if (llm == "") {
+      setLLMModel(ollamaModels[0].model)
+    }
+  }, [ollamaModels])
 
   return (
     <Box {...props}>
-      <Flex direction={"row"} justifyContent={"center"}>
-        <Flex direction={"column"} me={2}>
-          <Tag p={3} justifyContent={"center"}>
-            Large Language Model (LLM)
-          </Tag>
-          <Tag mt={5} p={3} justifyContent={"center"}>
-            Temperature (0-1)
-          </Tag>
-        </Flex>
-
-        <Flex direction={"column"} width={500}>
+      <Grid templateColumns="max-content 1fr" gap={6}>
+        <Tag p={3} justifyContent={"center"} maxWidth={300}>
+          Provider
+        </Tag>
+        <Select
+          value={provider}
+          onChange={async (e) => {
+            await setLLMProvider(e.target.value);
+            const defaultModel = llmOptions[e.target.value]
+            await setLLMModel(defaultModel.length ? defaultModel[0].value : "");
+            if (isLocalMode()) {
+              successToast(
+                "Provider Changed",
+                "The AI Provider has been changed. Please restart AnkiBrain for this change to take effect."
+              );
+            }
+          }}
+        >
+          <option value={"openai"}>OpenAI</option>
+          <option value={"ollama"}>Ollama</option>
+        </Select>
+        <Tag p={3} justifyContent={"center"} maxWidth={300}>
+          Large Language Model (LLM)
+        </Tag>
+        <div>
           <Select
             value={llm}
             onChange={async (e) => {
@@ -78,69 +112,95 @@ const AdvancedSettings = (props) => {
               }
             }}
           >
-            <option value={"gpt-3.5-turbo"}>gpt-3.5-turbo (default)</option>
-            <option value={"gpt-4"}>gpt-4 (expensive)</option>
+            {provider === "openai" &&
+              llmOptions.openai.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            {provider === "ollama" &&
+              llmOptions.ollama.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
           </Select>
-          <Input
-            value={temperature}
-            onKeyDown={(e) => {
-              const allowedKeys = ["Backspace", "."];
-              const isNumber = !isNaN(Number(e.key));
-              const isAllowed = isNumber || allowedKeys.includes(e.key);
-              if (!isAllowed) {
-                e.preventDefault();
-              }
-            }}
-            onChange={async (e) => {
-              const isNumber = !isNaN(Number(e.target.value));
-              if (isNumber) {
-                const number = Number(e.target.value);
-                if (number < 0 || number > 1) {
-                  errorToast(
-                    "Invalid Temperature",
-                    "Please enter a temperature between 0 and 1."
-                  );
-                } else {
-                  await setTemperature(e.target.value);
-                  if (isLocalMode()) {
-                    successToast(
-                      "Temperature Changed",
-                      "The AI temperature has been changed. Please restart AnkiBrain for this change to take effect."
-                    );
-                  }
-                }
-              }
-            }}
-            mt={5}
-          />
-        </Flex>
-      </Flex>
+          {provider === "ollama" && llmOptions.ollama.length === 0 && (
+            <Text mt={5} p={3} justifyContent={"center"} maxWidth={300} color="red.500">
+              No Ollama models found. Please assure the server is running and that you have set up Ollama correctly.
+            </Text>
+          )}
+        </div>
 
-      <Divider />
-
-      <Flex direction={"row"} alignSelf={"center"} justifyContent={"center"}>
-        <Tag mt={5} p={3} justifyContent={"center"} me={2}>
-          Developer Mode
+        <Tag mt={5} p={3} justifyContent={"center"} maxWidth={300}>
+          Temperature (0-1)
         </Tag>
-        <Switch
-          alignSelf={"start"}
-          isChecked={devMode}
-          onChange={async (e) => {
-            if (window.developerMode) {
-              let devMode = e.target.checked;
-              await pyEditSetting("devMode", devMode);
-              dispatch(setDevMode(devMode));
-              setupServerAPI();
-            } else {
+        <Input
+          value={temperature}
+          onKeyDown={(e) => {
+            const allowedKeys = ["Backspace", "."];
+            const isNumber = !isNaN(Number(e.key));
+            const isAllowed = isNumber || allowedKeys.includes(e.key);
+            if (!isAllowed) {
               e.preventDefault();
-              infoToast(
-                "No Access",
-                "You do not have access to developer mode at this time."
-              );
             }
           }}
-          mt={8}
+          onChange={async (e) => {
+            const isNumber = !isNaN(Number(e.target.value));
+            if (isNumber) {
+              const number = Number(e.target.value);
+              if (number < 0 || number > 1) {
+                errorToast(
+                  "Invalid Temperature",
+                  "Please enter a temperature between 0 and 1."
+                );
+              } else {
+                await setTemperature(e.target.value);
+                if (isLocalMode()) {
+                  successToast(
+                    "Temperature Changed",
+                    "The AI temperature has been changed. Please restart AnkiBrain for this change to take effect."
+                  );
+                }
+              }
+            }
+          }}
+          mt={5}
         />
+      </Grid>
+
+      <Divider orientation="vertical" />
+
+      <Flex
+        flexDirection={"column"}
+        justifyContent={"center"}
+        alignItems={"center"}
+        mt={5}
+      >
+        <Tag mt={5} p={3} justifyContent={"center"}>
+          Developer Mode
+        </Tag>
+        <div>
+          <Switch
+            alignSelf={"start"}
+            isChecked={devMode}
+            onChange={async (e) => {
+              if (window.developerMode) {
+                let devMode = e.target.checked;
+                await pyEditSetting("devMode", devMode);
+                dispatch(setDevMode(devMode));
+                setupServerAPI();
+              } else {
+                e.preventDefault();
+                infoToast(
+                  "No Access",
+                  "You do not have access to developer mode at this time."
+                );
+              }
+            }}
+            mt={8}
+          />
+        </div>
       </Flex>
 
       <Flex justifyContent={"center"} mt={5}>

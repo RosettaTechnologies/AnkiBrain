@@ -7,7 +7,10 @@ tmp/
 .adminjs/
 anki-chatgpt/venv/
 .yarn/
-.venv/*
+user_files/venv
+user_files/db
+*.pyc
+user_files/settings.json
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
@@ -51,3 +54,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .yarn
+.ankibrain-version
+meta.json
+**/__pycache__/
+*.cpython

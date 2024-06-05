@@ -6,7 +6,6 @@ import subprocess
 
 from InterprocessCommand import InterprocessCommand
 
-
 class ExternalScriptManager:
     def __init__(self, python_path, script_path):
         self.python_path = python_path
@@ -43,7 +42,7 @@ class ExternalScriptManager:
         #             break
         #         output.append(line.decode().strip())
         #     return '\n'.join(output)
-        #
+        
         # error_msg = await read_all(self.process.stderr)
         # print(error_msg)
 

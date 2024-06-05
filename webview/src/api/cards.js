@@ -7,6 +7,7 @@ import { generateCardsRequest } from "./server-api/cards";
 import { errorToast, infoToast, successToast } from "./toast";
 import { addFailedCards } from "./redux/slices/failedCards";
 import { pyEditSetting } from "./PythonBridge/senders/pyEditSetting";
+import { jsonrepair } from "jsonrepair"
 
 function convertAsterisksToCloze(text) {
   let counter = 1;
@@ -24,7 +25,14 @@ async function handleCardsRawString(
 ) {
   // Try converting to json
   try {
-    let cards = JSON.parse(rawString);
+    let cards
+    // First try parsing
+    try {
+      cards = JSON.parse(rawString);
+    } catch {
+      // Then try repairing invalid JSON
+      cards = JSON.parse(jsonrepair(rawString))
+    }
     for (let card of cards) {
       if (!card.type) {
         card.type = cardType;

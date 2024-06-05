@@ -45,8 +45,8 @@ def module_error(text: str):
     })
 
 
-def handle_module_input(data: dict[str, Any]):
-    if os.getenv('OPENAI_API_KEY') is None:
+def handle_module_input(provider: str, data: dict[str, Any]):
+    if os.getenv('OPENAI_API_KEY') is None and provider == "openai":
         module_error('Please set OPENAI_API_KEY')
         return
 
@@ -144,7 +144,16 @@ def handle_module_input(data: dict[str, Any]):
 
 
 if __name__ == '__main__':
+    provider = "openai"
     try:
+        settings_path = path.join(user_data_dir, 'settings.json')
+        with open(settings_path, 'r') as f:
+            data = json.load(f)
+            provider = data.get('llmProvider', provider)
+            ollamaHost = data.get('ollamaHost', 'http://127.0.0.1:11434')
+            model = data.get('llmModel', 'gpt-3.5-turbo')
+            temperature = data.get('temperature', 0)
+
         # Create .env if it doesn't exist.
         if not os.path.isfile(dotenv_path):
             with open(dotenv_path, 'w') as f:
@@ -152,11 +161,11 @@ if __name__ == '__main__':
 
         load_dotenv(dotenv_path, override=True)
 
-        if os.getenv('OPENAI_API_KEY') is not None:
-            withDocumentsAI = ChatAIWithDocuments()
-            withoutDocumentsAI = ChatAIWithoutDocuments()
+        if os.getenv('OPENAI_API_KEY') is not None or provider == "ollama":
+            withDocumentsAI = ChatAIWithDocuments(provider=provider, model_name=model, temperature=temperature, base_url=ollamaHost)
+            withoutDocumentsAI = ChatAIWithoutDocuments(provider=provider, model_name=model, temperature=temperature, base_url=ollamaHost)
 
-            withoutDocumentsSingleQuery = ChatAIWithoutDocuments()
+            withoutDocumentsSingleQuery = ChatAIWithoutDocuments(provider=provider, model_name=model, temperature=temperature, base_url=ollamaHost)
 
         # Send ready message now after finished loading above.
         _module_return({'status': 'success'})
@@ -176,7 +185,7 @@ if __name__ == '__main__':
                     continue
 
                 try:
-                    handle_module_input(input_data)
+                    handle_module_input(provider, input_data)
                 except Exception as e:
                     module_error(str(e))
             except json.JSONDecodeError:

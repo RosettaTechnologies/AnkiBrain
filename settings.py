@@ -43,7 +43,9 @@ default_settings = {
     "documents_saved": [],  # local mode only, server mode uses user.documentsSaved
     "lifetime_total_cost": 0,
     "user_mode": None,
+    "llmProvider": 'openai',
     "llmModel": 'gpt-3.5-turbo',
+    "ollamaHost": 'https://127.0.0.1:1111434',
     'temperature': 0,
     'user': None,
     'devMode': False,

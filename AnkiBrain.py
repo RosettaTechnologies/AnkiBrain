@@ -14,10 +14,12 @@ from ChatAIModuleAdapter import ChatAIModuleAdapter
 from ExplainTalkButtons import ExplainTalkButtons
 from InterprocessCommand import InterprocessCommand as IC
 from OpenAIAPIKeyDialog import OpenAIAPIKeyDialog
+from OllamaAIHostDialog import OllamaAIHostDialog
 from PostUpdateDialog import PostUpdateDialog
 from SidePanel import SidePanel
 from UserModeDialog import show_user_mode_dialog
 from card_injection import handle_card_will_show
+from ollama_manager import get_ollama_models, DEFAULT_OLLAMA_HOST
 from changelog import ChangelogDialog
 from project_paths import dotenv_path
 from util import run_win_install, run_macos_install, run_linux_install, UserMode
@@ -29,21 +31,21 @@ class GUIThreadSignaler(QObject):
     """
     resetUISignal = pyqtSignal()
     openFileBrowserSignal = pyqtSignal(int)  # takes commandId so we can resolve the request
-    showNoAPIKeyDialogSignal = pyqtSignal()
+    showInfoDialogSignal = pyqtSignal(str)
     sendToJSFromAsyncThreadSignal = pyqtSignal(dict)
 
     def __init__(self):
         super().__init__()
         self.resetUISignal.connect(self.reset_ui)
         self.openFileBrowserSignal.connect(self.open_file_browser)
-        self.showNoAPIKeyDialogSignal.connect(self.show_no_API_key_dialog)
+        self.showInfoDialogSignal.connect(self.show_info_dialog)
         self.sendToJSFromAsyncThreadSignal.connect(self.send_to_js_from_async_thread)
 
     def send_to_js_from_async_thread(self, json_dict: dict):
         mw.ankiBrain.sidePanel.webview.send_to_js(json_dict)
 
-    def show_no_API_key_dialog(self):
-        showInfo('AnkiBrain has loaded. There is no API key detected, please set one before using the app.')
+    def show_info_dialog(self, message):
+        showInfo(message)
 
     def reset_ui(self):
         mw.reset()
@@ -100,6 +102,9 @@ class AnkiBrain:
         self.openai_api_key_dialog = OpenAIAPIKeyDialog()
         self.openai_api_key_dialog.hide()
 
+        self.ollama_host_dialog = OllamaAIHostDialog()
+        self.ollama_host_dialog.hide()
+
         # Should go last because this object takes self and can call items.
         # Therefore, risk of things not completing setup.
         from ReactBridge import ReactBridge
@@ -120,6 +125,10 @@ class AnkiBrain:
         # Set up api key dialog.
         self.openai_api_key_dialog.on_key_save(self.handle_openai_api_key_save)
 
+        # Set up ollama host dialog
+        self.ollama_host_dialog.on_key_save(self.handle_ollama_host_key_save)
+        self.ollama_host_dialog.input_field.setText(mw.settingsManager.settings.get('ollamaHost', ''))
+
         # Hook for injecting custom javascript into Anki cards.
         addHook("prepareQA", handle_card_will_show)
 
@@ -132,6 +141,7 @@ class AnkiBrain:
         if self.user_mode == UserMode.LOCAL:
             add_ankibrain_menu_item('Restart AI...', self.restart_async_members_from_sync)
             add_ankibrain_menu_item('Set OpenAI API Key...', self.show_openai_api_key_dialog)
+            add_ankibrain_menu_item('Set Ollama Host...', self.show_ollama_host_dialog)
             add_ankibrain_menu_item('Reinstall...', reinstall)
 
         # Check if AnkiBrain has been updated.
@@ -175,14 +185,35 @@ class AnkiBrain:
         await self.load_user_settings()
         self.reactBridge.send_cmd(IC.DID_FINISH_STARTUP)
 
-        # Check for key in .env file in user_files
         if self.user_mode == UserMode.LOCAL:
-            load_dotenv(dotenv_path, override=True)
-            if os.getenv('OPENAI_API_KEY') is None or os.getenv('OPENAI_API_KEY') == '':
-                print('No API key detected')
-                self.guiThreadSignaler.showNoAPIKeyDialogSignal.emit()
-            else:
-                print(f'Detected API Key: {os.getenv("OPENAI_API_KEY")}')
+            try:
+                provider = mw.settingsManager.settings.get('llmProvider')
+                if provider != "ollama": #Always assume it's openai if provider not set or invalid
+                    # Check for key in .env file in user_files
+                    load_dotenv(dotenv_path, override=True)
+                    if os.getenv('OPENAI_API_KEY') is None or os.getenv('OPENAI_API_KEY') == '':
+                        print('No API key detected')
+                        self.guiThreadSignaler.showInfoDialogSignal.emit('AnkiBrain has loaded. AI Provider is set to OpenAI and no API Key has been set.')
+                    else:
+                        print(f'Detected OpenAI API Key: {os.getenv("OPENAI_API_KEY")}')
+                else:
+                    model = mw.settingsManager.get('llmModel')
+                    ollama_host = mw.settingsManager.get('ollamaHost')
+                    server_url = DEFAULT_OLLAMA_HOST if ollama_host is None else ollama_host
+                    models = get_ollama_models(server_url)
+                    if len(models) == 0:
+                        self.guiThreadSignaler.showInfoDialogSignal.emit(f'AnkiBrain has loaded. No Ollama models could be found at server url {server_url}.')
+                        return
+                    model_names = [model['model'] for model in models]
+                    if model not in model_names:
+                        # Model has not been set or no longer installed
+                        self.guiThreadSignaler.showInfoDialogSignal.emit(f"AnkiBrain has loaded. The selected Ollama model is invalid, defaulting to {model_names[0]}")
+                        # Should set to first available model
+                        mw.settingsManager.edit('llmModel', model_names[0])
+                        self.reactBridge.send_cmd(IC.EDIT_SETTING, { 'key': 'llmModel', 'value': model_names[0] })
+                    self.reactBridge.send_cmd(IC.DID_LOAD_OLLAMA_MODELS, {'ollamaModels': models})
+            except Exception as e:
+                print(f"Error initializing local ChatAI: {e}")
 
     async def _stop_async_members(self):
         """
@@ -221,6 +252,13 @@ class AnkiBrain:
         self.openai_api_key_dialog.hide()
         set_key(dotenv_path, 'OPENAI_API_KEY', key)
         os.environ['OPENAI_API_KEY'] = key
+        self.restart_async_members_from_sync()
+
+    def handle_ollama_host_key_save(self, key):
+        self.ollama_host_dialog.hide()
+        set_key(dotenv_path, 'OLLAMA_HOST', key)
+        os.environ['OLLAMA_HOST'] = key
+        mw.settingsManager.edit("ollamaHost", key)
         self.restart_async_members_from_sync()
 
     def _handle_process_signal(self, signal, frame):
@@ -276,6 +314,9 @@ class AnkiBrain:
 
     def show_openai_api_key_dialog(self):
         self.openai_api_key_dialog.show()
+
+    def show_ollama_host_dialog(self):
+        self.ollama_host_dialog.show()
 
     def handle_anki_card_webview_pycmd(self, handled, cmd, context):
         try:

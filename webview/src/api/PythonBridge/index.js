@@ -14,7 +14,7 @@ import { setPyCommandLock } from "../redux/slices/pyCommandLock";
 import { stopAllLoaders } from "../redux/stopAllLoaders";
 import { setCurrentVersion } from "../redux/slices/currentVersion";
 import { setLifetimeCost, setSessionCost } from "../redux/slices/cost";
-import { setLLMModel, setTemperature } from "../redux/slices/appSettings";
+import { setLLMModel, setLLMProvider, setTemperature } from "../redux/slices/appSettings";
 import { setLoadingText } from "../redux/slices/loadingText";
 import { setUserMode } from "../redux/slices/userMode";
 import { getUser } from "../server-api/networking/user";
@@ -41,6 +41,7 @@ import {
   setCustomPromptMakeCards,
   setCustomPromptTopicExplanation,
 } from "../redux/slices/customPrompts";
+import { setOllamaModels } from "../redux/slices/ollama"
 
 /**
  * Switchboard for incoming python commands.
@@ -60,7 +61,6 @@ export async function handlePythonDataReceived(
                                                                                                                                                                                                     );
                                                                                                                                                                                                      */
 
-  let sourceDocuments, model, temperature;
   const cmd = pyResponseObject.cmd;
   const data = pyResponseObject.data;
 
@@ -81,20 +81,21 @@ export async function handlePythonDataReceived(
     case IC.DID_ADD_CARDS:
       //successToast("Cards Added", "Your cards have been added to Anki.");
       break;
-    case IC.DID_ASK_CONVERSATION_NO_DOCUMENTS:
-      model = store.getState().appSettings.ai.llmModel;
-      temperature = store.getState().appSettings.ai.temperature;
+    case IC.DID_ASK_CONVERSATION_NO_DOCUMENTS: {
+      let model = store.getState().appSettings.ai.llmModel;
+      let temperature = store.getState().appSettings.ai.temperature;
       addAIMessageToStore(data.response, [], model, temperature, dispatch);
       dispatch(setChatLoading(false));
-      break;
-    case IC.DID_ASK_CONVERSATION_DOCUMENTS:
+      break; 
+    }
+    case IC.DID_ASK_CONVERSATION_DOCUMENTS: {
       let sourceDocuments = JSON.parse(data.source_documents);
       let sourceSnippets = [];
       for (let doc of sourceDocuments) {
         sourceSnippets.push(doc.page_content);
       }
-      model = store.getState().appSettings.ai.llmModel;
-      temperature = store.getState().appSettings.ai.temperature;
+      let model = store.getState().appSettings.ai.llmModel;
+      let temperature = store.getState().appSettings.ai.temperature;
       addAIMessageToStore(
         data.response,
         sourceSnippets,
@@ -104,6 +105,7 @@ export async function handlePythonDataReceived(
       );
       dispatch(setChatLoading(false));
       break;
+    }
     case IC.DID_ADD_DOCUMENTS:
       // const documentsAdded = data.documents_added;
       // dispatch(addDocumentsToStore(documentsAdded));
@@ -119,6 +121,16 @@ export async function handlePythonDataReceived(
     case IC.DID_CLEAR_CONVERSATION:
       // This is just confirmation that the convo has reset (triggered by user on JS side).
       break;
+    case IC.DID_LOAD_OLLAMA_MODELS:
+      // Hydrate store with available ollama models
+      let {
+        ollamaModels
+      } = data;
+
+      if (ollamaModels) {
+        dispatch(setOllamaModels(ollamaModels))
+      }
+      break;
     case IC.DID_LOAD_SETTINGS:
       // Hydrate the store with the data from python layer's settings.json.
       let {
@@ -131,6 +143,7 @@ export async function handlePythonDataReceived(
         customPromptTopicExplanation,
         colorMode,
         documents_saved,
+        llmProvider,
         llmModel,
         temperature,
         user_mode,
@@ -170,6 +183,9 @@ export async function handlePythonDataReceived(
       }
       if (documents_saved) {
         dispatch(setDocuments(documents_saved));
+      }
+      if (llmProvider) {
+        dispatch(setLLMProvider(llmProvider))
       }
       if (llmModel) {
         dispatch(setLLMModel(llmModel));
