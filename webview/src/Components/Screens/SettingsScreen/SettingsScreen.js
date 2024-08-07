@@ -78,10 +78,10 @@ const AdvancedSettings = (props) => {
               }
             }}
           >
+            <option value={"gpt-4o-mini"}>gpt-4o-mini (default)</option>
+            <option value={"gpt-4o"}>gpt-4o (expensive)</option>
             <option value={"gpt-3.5-turbo"}>gpt-3.5-turbo (deprecated)</option>
             <option value={"gpt-4"}>gpt-4 (deprecated)</option>
-            <option value={"gpt-4o"}>gpt-4o (expensive)</option>
-            <option value={"gpt-4o-mini"}>gpt-4o-mini (default)</option>
           </Select>
           <Input
             value={temperature}
