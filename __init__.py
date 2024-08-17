@@ -6,6 +6,8 @@ from os import path
 # Necessary to bootstrap this way so we can start importing other modules in the root folder.
 sys.path.insert(1, path.abspath(path.dirname(__file__)))
 
+
+
 from project_paths import \
     ChatAI_module_dir, \
     version_file_path, \

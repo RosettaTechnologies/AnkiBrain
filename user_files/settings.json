@@ -1,0 +1,72 @@
+{
+  "aiLanguage": "English",
+  "automaticallyAddCards": true,
+  "colorMode": "dark",
+  "currentVersion": "0.7.3",
+  "customPromptChat": "",
+  "customPromptMakeCards": "",
+  "customPromptTopicExplanation": "",
+  "deleteCardsAfterAdding": true,
+  "devMode": false,
+  "documents_saved": [],
+  "lifetime_total_cost": 0,
+  "llmModel": "gpt-3.5-turbo",
+  "showBootReminderDialog": false,
+  "showCardBottomHint": true,
+  "showSidePanel": true,
+  "tempCards": [
+    {
+      "back": "A pulmonary embolism is a potentially life-threatening condition that occurs when a blood clot travels to the lungs and blocks one of the pulmonary arteries.",
+      "front": "What is a pulmonary embolism?",
+      "tags": [],
+      "type": "basic"
+    },
+    {
+      "back": "Symptoms may include sudden chest pain, shortness of breath, rapid heart rate, coughing up blood, and feeling lightheaded or dizzy.",
+      "front": "What are some symptoms of a pulmonary embolism?",
+      "tags": [],
+      "type": "basic"
+    },
+    {
+      "back": "Diagnosis typically involves imaging tests such as CT pulmonary angiography, ventilation-perfusion scan, or ultrasound of the legs to confirm the presence of a blood clot.",
+      "front": "How is a pulmonary embolism diagnosed?",
+      "tags": [],
+      "type": "basic"
+    },
+    {
+      "back": "Risk factors include a history of deep vein thrombosis, prolonged immobility, surgery, cancer, obesity, and certain genetic conditions affecting blood clotting.",
+      "front": "What are some risk factors for developing a pulmonary embolism?",
+      "tags": [],
+      "type": "basic"
+    },
+    {
+      "back": "Preventive measures include staying active, maintaining a healthy weight, and following prescribed medication regimens to reduce the likelihood of developing a pulmonary embolism.",
+      "front": "What are some preventive measures for individuals at risk of a pulmonary embolism?",
+      "tags": [],
+      "type": "basic"
+    }
+  ],
+  "temperature": 0,
+  "user": {
+    "__v": 0,
+    "_id": "66a1ad5e9aa16e98ddcd7162",
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY2YTFhZDVlOWFhMTZlOThkZGNkNzE2MiIsImFjY2Vzc1Rva2VuIjp0cnVlLCJpYXQiOjE3MjM4MzYxMTEsImV4cCI6MTcyNjQyODExMX0.Q8Yfp-U_aE5M4inqKTHyUuGdg5Variy745HQ0Es2dsM",
+    "admin": false,
+    "balance": 0,
+    "customerId": null,
+    "documentsStored": [],
+    "email": "ynayak@med.umich.edu",
+    "fileSizeLimit": 104857600,
+    "isVerified": true,
+    "lastStorageCharge": null,
+    "maxStorageSpace": 104857600,
+    "monthlyStorageCharge": 0,
+    "nFilesLimit": 10,
+    "nFilesUploaded": 0,
+    "nVectorLimit": 5000,
+    "nVectorsStored": 0,
+    "storageSpaceUsed": 0,
+    "verificationCode": null
+  },
+  "user_mode": "SERVER"
+}
