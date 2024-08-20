@@ -5,5 +5,4 @@ __pycache__/
 # Ignore specific file
 user_files/settings.json
 
-# Ignore webview package.json
-webview/package.json
+
