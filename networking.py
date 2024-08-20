@@ -4,7 +4,6 @@ import os.path
 import httpx
 from aqt import mw
 
-#Git test dev 8/20
 # TODO
 
 #Check enviornment mode:
