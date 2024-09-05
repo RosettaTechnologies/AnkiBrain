@@ -1,3 +1,11 @@
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# Ignore specific file
+user_files/settings.json
+
+
 node_modules/
 .next/
 
@@ -51,5 +59,3 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .yarn
-/.ankibrain-version
-/user_files/settings.json

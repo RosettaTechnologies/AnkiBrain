@@ -46,6 +46,8 @@ function App() {
   );
   const { colorMode, toggleColorMode } = useColorMode();
 
+
+  //Function that can be called globally to render the loading screen
   useEffect(() => {
     dispatch(setBoolGlobalLoadingIndicator(true));
     initPythonBridge(window, dispatch, navigate);
