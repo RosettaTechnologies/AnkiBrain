@@ -3,6 +3,7 @@
 # 0.7.4
 - Bugfix for importing AnkiBrain module
 - Remove free credits request button (users now automatically get free credits upon signup)
+- Bugfix for HTTP 4xx error codes being printed to user (#15 by ynayak31)
 
 # 0.7.3 - March 23, 2024
 - Bugfix for white screen errors

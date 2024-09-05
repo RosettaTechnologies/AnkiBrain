@@ -8,6 +8,7 @@ user_files/settings.json
 
 node_modules/
 .next/
+.ankibrain-version
 
 .idea/
 
