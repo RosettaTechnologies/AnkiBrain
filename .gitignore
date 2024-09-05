@@ -52,3 +52,4 @@ yarn-debug.log*
 yarn-error.log*
 .yarn
 /.ankibrain-version
+/user_files/settings.json
