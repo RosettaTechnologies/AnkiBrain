@@ -1,5 +1,8 @@
 # Changelog
 
+# 0.7.4
+- Bugfix for importing AnkiBrain module
+
 # 0.7.3 - March 23, 2024
 - Bugfix for white screen errors
 
