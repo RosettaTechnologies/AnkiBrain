@@ -55,14 +55,14 @@ def load_ankibrain_local_mode():
     from InstallDialog import InstallDialog, show_install_dialog
 
     if has_ankibrain_completed_install():
-        from AnkiBrain import AnkiBrain
+        from AnkiBrainModule import AnkiBrain
         ankiBrain = AnkiBrain(user_mode=UserMode.LOCAL)
         mw.ankiBrain = ankiBrain
     else:
         mw.installDialog = InstallDialog(mw)
         mw.installDialog.hide()
 
-        from AnkiBrain import add_ankibrain_menu_item
+        from AnkiBrainModule import add_ankibrain_menu_item
         add_ankibrain_menu_item('Install...', show_install_dialog)
 
         def show_user_mode_dialog():
@@ -76,7 +76,7 @@ def load_ankibrain_local_mode():
 
 def load_ankibrain_server_mode():
     print('Loading AnkiBrain in Regular (Server) Mode...')
-    from AnkiBrain import AnkiBrain
+    from AnkiBrainModule import AnkiBrain
     from util import UserMode
     mw.ankiBrain = AnkiBrain(user_mode=UserMode.SERVER)
 
@@ -94,7 +94,7 @@ def unload_ankibrain():
         print('Destroying mw SettingsManager instance...')
         mw.settingsManager = None
 
-    from AnkiBrain import remove_ankibrain_menu_actions
+    from AnkiBrainModule import (remove_ankibrain_menu_actions)
     remove_ankibrain_menu_actions()
 
 
