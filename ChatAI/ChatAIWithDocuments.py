@@ -59,7 +59,7 @@ class ChatAIWithDocuments(ChatInterface):
         self.text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100, length_function=len)
 
         temperature = 0
-        model_name = 'gpt-3.5-turbo'
+        model_name = 'gpt-4o-mini'
         with open(settings_path, 'r') as f:
             data = json.load(f)
             temperature = data['temperature']
