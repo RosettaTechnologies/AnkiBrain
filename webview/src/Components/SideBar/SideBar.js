@@ -136,24 +136,24 @@ export function SideBar(props) {
                   Add Balance
                 </a>
               </Button>
-              <Button mt={3} alignItems={"center"} p={0}>
-                <a
-                  href={"https://forms.gle/tjz6LRomcaBVpc7CA"}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}
-                >
-                  <LiaMoneyBillWaveAltSolid
-                    size={30}
-                    style={{ marginRight: 7.5 }}
-                  />
-                  Request Free Credits
-                </a>
-              </Button>
+              {/*<Button mt={3} alignItems={"center"} p={0}>*/}
+              {/*  <a*/}
+              {/*    href={"https://forms.gle/tjz6LRomcaBVpc7CA"}*/}
+              {/*    style={{*/}
+              {/*      width: "100%",*/}
+              {/*      height: "100%",*/}
+              {/*      display: "flex",*/}
+              {/*      justifyContent: "center",*/}
+              {/*      alignItems: "center",*/}
+              {/*    }}*/}
+              {/*  >*/}
+              {/*    <LiaMoneyBillWaveAltSolid*/}
+              {/*      size={30}*/}
+              {/*      style={{ marginRight: 7.5 }}*/}
+              {/*    />*/}
+              {/*    Request Free Credits*/}
+              {/*  </a>*/}
+              {/*</Button>*/}
             </Flex>
           ),
           onClose: async () => {

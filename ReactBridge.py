@@ -5,7 +5,7 @@ from typing import List
 
 from aqt import mw
 
-from AnkiBrain import AnkiBrain
+from AnkiBrainModule import AnkiBrain
 from AnkiBrainDocument import AnkiBrainDocument
 from InterprocessCommand import InterprocessCommand as IC
 from cards import add_basic_card, add_cloze_card

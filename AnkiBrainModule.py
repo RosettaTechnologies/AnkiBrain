@@ -22,7 +22,8 @@ from changelog import ChangelogDialog
 from project_paths import dotenv_path
 from util import run_win_install, run_macos_install, run_linux_install, UserMode
 
-
+#The "GUIThreadSignaler" class allows the non-UI thread to modify/update the UI thread. Some uses include
+#resetting the UI, opening a file browser, showing dialogs for missing API keys
 class GUIThreadSignaler(QObject):
     """
     Required class for calling UI updates from the non-UI thread.
@@ -83,7 +84,8 @@ class GUIThreadSignaler(QObject):
         # elif user_mode == UserMode.LOCAL:
         #     mw.ankiBrain.reactBridge.trigger(IC.ADD_DOCUMENTS, documents=documents)
 
-
+#The "AnkiBrain" class is the main class. It is responsible for initializing the application, UI setup, file browser interactions,
+#webview load handling. 
 class AnkiBrain:
     def __init__(self, user_mode: UserMode = UserMode.LOCAL):
         self.user_mode = user_mode
