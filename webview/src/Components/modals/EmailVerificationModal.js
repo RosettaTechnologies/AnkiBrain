@@ -33,10 +33,6 @@ export function EmailVerificationModal(props) {
             <Text fontSize={20}>
               If you don't see the code, <b>check your spam folder.</b>
             </Text>
-            <Text>
-              If you are still having issues, email ankibrain@rankmd.org for
-              manual verification.
-            </Text>
             <Input
               placeholder={"Verification code..."}
               value={verificationCode}
