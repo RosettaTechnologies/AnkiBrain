@@ -3,6 +3,7 @@
 # 1.0.1
 - Fix the highlight-to-interact feature (Explain/Talk buttons)
 - Update webview tooling to use Yarn v4 and Vite with TypeScript support
+- Add build script for packaging into an Anki addon
 
 # 1.0.0
 - Upgrade available models to GPT 5.6 (Luna, Terra, Sol)
