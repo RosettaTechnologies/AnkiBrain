@@ -16,8 +16,11 @@ buttonStyle = '''
 
 
 class ExplainTalkButtons:
-    def __init__(self, mw, position):
-        self.widget = QWidget(mw)
+    def __init__(self, parent, position: QPoint):
+        # Plain child widget of the window showing the card. A child widget is
+        # positioned by Qt itself, which also works under Wayland, unlike a
+        # top-level popup window whose move() is ignored by the compositor.
+        self.widget = QWidget(parent)
 
         self.explainButton = QPushButton('Explain', self.widget)
         self.talkButton = QPushButton('Talk', self.widget)
@@ -28,8 +31,8 @@ class ExplainTalkButtons:
         self.widget.setLayout(self.layout)
 
         self.position = position
-        self.widget.move(position['x'], position['y'] + 50)
         self.widget.setFixedSize(QSize(200, 60))
+        self.widget.move(position.x(), position.y() + 6)
 
         self.explainButton.setFixedSize(QSize(90, 40))
         self.explainButton.setStyleSheet(buttonStyle)
@@ -37,6 +40,7 @@ class ExplainTalkButtons:
         self.talkButton.setStyleSheet(buttonStyle)
 
         self.widget.show()
+        self.widget.raise_()
 
     def on_explain_button_click(self, func):
         self.explainButton.clicked.connect(func)

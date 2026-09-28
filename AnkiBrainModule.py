@@ -4,7 +4,6 @@ import platform
 import signal
 import threading
 
-from anki.hooks import addHook
 from aqt import mw, gui_hooks
 from aqt.qt import *
 from aqt.utils import showInfo
@@ -123,7 +122,14 @@ class AnkiBrain:
         self.openai_api_key_dialog.on_key_save(self.handle_openai_api_key_save)
 
         # Hook for injecting custom javascript into Anki cards.
-        addHook("prepareQA", handle_card_will_show)
+        # Anki 25 removed the legacy `prepareQA` hook. Its replacement is the
+        # `card_will_show` filter, which is called with (text, card, type) for
+        # question and answer content in the reviewer, card preview and template editor.
+        gui_hooks.card_will_show.append(handle_card_will_show)
+
+        # Dismiss the Explain/Talk popup when a new card's question is shown, since
+        # advancing with the keyboard never fires the card's mousedown handler.
+        gui_hooks.reviewer_did_show_question.append(self.handle_card_changed)
 
         # Hook for Anki's card webview JS function `pycmd`
         gui_hooks.webview_did_receive_js_message.append(self.handle_anki_card_webview_pycmd)
@@ -284,7 +290,7 @@ class AnkiBrain:
             data = json.loads(cmd)
             if data['cmd'] == 'selectedText':
                 print('detected text selection')
-                self.handle_text_selected(text=data['text'], position=data['position'])
+                self.handle_text_selected(text=data['text'], position=data['position'], context=context)
                 return True, None
             elif data['cmd'] == 'mousedown':
                 print('detected mousedown')
@@ -296,15 +302,43 @@ class AnkiBrain:
             print(e)
             return handled
 
-    def handle_text_selected(self, text='', position=None):
+    def handle_text_selected(self, text='', position=None, context=None):
         if self.explainTalkButtons is not None:
             self.explainTalkButtons.destroy()
 
         self.selectedText = text
 
-        self.explainTalkButtons = ExplainTalkButtons(mw, position)
+        if not isinstance(position, dict):
+            return
+
+        # The position from the card javascript is in the webview's viewport
+        # coordinates. Convert it to coordinates within the top-level window that
+        # hosts the webview (reviewer, browser preview window, etc.) so the popup
+        # lands directly below the selection. The popup is then a plain child
+        # widget of that window: top-level popup windows cannot be positioned
+        # programmatically under Wayland, which would leave the popup wherever
+        # the compositor decides to place it.
+        # The reviewer hosts several webviews (card + bottom bar), so the card
+        # webview is the one that contains the selection.
+        anchor = context if isinstance(context, QWidget) else mw
+        if isinstance(anchor, QWebEngineView):
+            webview = anchor
+        else:
+            views = anchor.findChildren(QWebEngineView)
+            webview = max(views, key=lambda v: v.width() * v.height()) if views else anchor
+
+        page_pos = QPoint(int(position.get('x', 0)), int(position.get('y', 0)))
+        parent_win = anchor.window()
+        win_pos = webview.mapTo(parent_win, page_pos)
+
+        self.explainTalkButtons = ExplainTalkButtons(parent_win, win_pos)
         self.explainTalkButtons.on_explain_button_click(self.handle_explain_text_pressed)
         self.explainTalkButtons.on_talk_button_click(self.handle_talk_text_pressed)
+
+    # Called when a new card's question is shown. Any popup left over from the
+    # previous card's selection must disappear.
+    def handle_card_changed(self, card):
+        self.handle_mousedown()
 
     # Basically detecting highlight release.
     def handle_mousedown(self):

@@ -1,5 +1,8 @@
 # Changelog
 
+# 1.0.1
+- Fix the highlight-to-interact feature (Explain/Talk buttons)
+
 # 1.0.0
 - Upgrade available models to GPT 5.6 (Luna, Terra, Sol)
 - Move sidebar to bottom navigation bar to save screen space
