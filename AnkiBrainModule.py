@@ -318,22 +318,41 @@ class AnkiBrain:
         # widget of that window: top-level popup windows cannot be positioned
         # programmatically under Wayland, which would leave the popup wherever
         # the compositor decides to place it.
-        # The reviewer hosts several webviews (card + bottom bar), so the card
-        # webview is the one that contains the selection.
-        anchor = context if isinstance(context, QWidget) else mw
-        if isinstance(anchor, QWebEngineView):
-            webview = anchor
-        else:
-            views = anchor.findChildren(QWebEngineView)
-            webview = max(views, key=lambda v: v.width() * v.height()) if views else anchor
-
+        # The webview the message came from must be resolved from the bridge
+        # context (see _find_sender_webview), because picking one by size alone
+        # lands on the AnkiBrain side panel whenever it is bigger than the card.
+        webview = self._find_sender_webview(context)
+        parent_win = webview.window()
         page_pos = QPoint(int(position.get('x', 0)), int(position.get('y', 0)))
-        parent_win = anchor.window()
         win_pos = webview.mapTo(parent_win, page_pos)
 
         self.explainTalkButtons = ExplainTalkButtons(parent_win, win_pos)
         self.explainTalkButtons.on_explain_button_click(self.handle_explain_text_pressed)
         self.explainTalkButtons.on_talk_button_click(self.handle_talk_text_pressed)
+
+    # Resolve which webview sent a pycmd message. Anki hands the bridge's owner
+    # object to the hook as `context`: the reviewer's is the Reviewer instance
+    # (whose `.web` is the card webview), the browser's is a Previewer (whose
+    # `._web` is the preview webview), the editor's is the Editor instance, and
+    # on older Anki versions it is the webview itself. Resolving the actual
+    # sender beats any size heuristic: anki's layout puts the card webview and
+    # AnkiBrain's dock webview in the same window, and a side panel wider than
+    # the card area would otherwise win a biggest-webview contest and drag the
+    # popup over the panel.
+    def _find_sender_webview(self, context):
+        if isinstance(context, QWebEngineView):
+            return context
+        for attr in ('web', '_web'):
+            candidate = getattr(context, attr, None)
+            if isinstance(candidate, QWebEngineView):
+                return candidate
+        # Unknown context: fall back to the largest webview in the main window,
+        # excluding AnkiBrain's own side panel so it never skews the result.
+        views = [
+            view for view in mw.findChildren(QWebEngineView)
+            if view is not self.sidePanel.webview
+        ]
+        return max(views, key=lambda v: v.width() * v.height()) if views else mw
 
     # Called when a new card's question is shown. Any popup left over from the
     # previous card's selection must disappear.
