@@ -14,7 +14,7 @@ import {setLockCheckoutSession} from "../../redux/slices/lockCheckoutSession";
 export async function _fetch(url, options) {
   store.dispatch(setLockCheckoutSession(true));
 
-  let standalone = process.env.REACT_APP_ENV === "STANDALONE";
+  let standalone = import.meta.env.VITE_APP_ENV === "STANDALONE";
   try {
     let verb = options.method;
     let data = options.body ? options.body : {};

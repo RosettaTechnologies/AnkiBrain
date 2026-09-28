@@ -16,7 +16,7 @@ class SidePanel(QDockWidget):
 
         html_path = os.path.abspath(
             os.path.join(
-                root_project_dir, 'webview', 'build', 'index.html'
+                root_project_dir, 'webview', 'dist', 'index.html'
             )
         )
 

@@ -125,7 +125,7 @@ export async function splitDocument(dispatch = store.dispatch) {
 }
 
 export async function importDocuments(dispatch = store.dispatch) {
-  if (process.env.REACT_APP_ENV === "STANDALONE") {
+  if (import.meta.env.VITE_APP_ENV === "STANDALONE") {
     return;
   }
 

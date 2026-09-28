@@ -218,7 +218,7 @@ export async function handlePythonDataReceived(
         }
       }
       if (!loggedIn) {
-        if (process.env.REACT_APP_ENV !== "STANDALONE") {
+        if (import.meta.env.VITE_APP_ENV !== "STANDALONE") {
           await logout(); // sets user to null in the store and in python layer
         }
       }
@@ -305,7 +305,7 @@ function _sendToPython(data) {
 }
 
 export function sendPythonCommand(cmd, params = {}) {
-  if (process.env.REACT_APP_ENV === "STANDALONE") {
+  if (import.meta.env.VITE_APP_ENV === "STANDALONE") {
     return true;
   }
 
@@ -332,7 +332,7 @@ let commandResolvers = new Map();
 let commandIdCounter = 0;
 
 export async function asendPythonCommand(cmd, params = {}) {
-  if (process.env.REACT_APP_ENV === "STANDALONE") {
+  if (import.meta.env.VITE_APP_ENV === "STANDALONE") {
     return true;
   }
 

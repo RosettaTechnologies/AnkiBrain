@@ -55,7 +55,7 @@ function App() {
 
     (async function () {
       // If in standalone mode
-      if (process.env && process.env.REACT_APP_ENV === "STANDALONE") {
+      if (import.meta.env.VITE_APP_ENV === "STANDALONE") {
         await handlePythonDataReceived(
           {
             cmd: InterprocessCommand.DID_LOAD_SETTINGS,

@@ -13,7 +13,7 @@ export function uploadDocument(path, url, accessToken) {
     return;
   }
 
-  if (process.env.REACT_APP_ENV === "STANDALONE") {
+  if (import.meta.env.VITE_APP_ENV === "STANDALONE") {
     // todo
   } else {
     return asendPythonCommand(InterprocessCommand.UPLOAD_DOCUMENT, {

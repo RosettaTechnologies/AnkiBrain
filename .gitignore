@@ -25,6 +25,7 @@ anki-chatgpt/venv/
 !.yarn/versions
 
 build/
+dist/
 .chroma/
 chroma-persist/
 
@@ -48,6 +49,7 @@ chroma-persist/
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store

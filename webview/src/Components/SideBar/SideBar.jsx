@@ -123,7 +123,7 @@ export function SideBar(props) {
       <div className="TopHeader-left">
         <span className="TopHeader-brand">AnkiBrain</span>
         <span className="TopHeader-meta">v{currentVersion}{currentVersion < "1" ? " Beta" : ""}</span>
-        {process.env.REACT_APP_ENV === "DEV" && (
+        {import.meta.env.VITE_APP_ENV === "DEV" && (
           <span className="TopHeader-meta">Dev</span>
         )}
         <span className="TopHeader-language">{language}</span>
