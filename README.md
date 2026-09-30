@@ -73,7 +73,7 @@ To resolve this, simply install Anki from the official website using the .deb pa
    4. `python -m venv venv`
 
 4. Activate Python virtual environment
-   1. Windows: `.\venv\Scripts\active`
+   1. Windows: `.\venv\Scripts\activate`
    2. MacOS/Linux: `./venv/bin/activate`
 5. Install python dependencies
    1. `pip install -r requirements.txt`
