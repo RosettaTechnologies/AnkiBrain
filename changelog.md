@@ -1,6 +1,15 @@
 # Changelog
 
 # 1.1.0
+- Generate cards from documents now include images: figures and diagrams found in
+  PDFs and DOCX files are extracted and attached to the flashcards generated from
+  the surrounding text (no vision model required).
+- Images always appear on the ANSWER side only: the Back field for basic cards,
+  the Extra field for cloze cards — the question side never reveals them.
+- Preview generated cards with image thumbnails before adding them, and remove
+  individual images you don't want.
+- Works in both Regular (server) and Local modes. Requires the poppler utility
+  `pdfimages` on the AnkiBrain server for PDF image extraction.
 
 # 1.0.1
 - Fix the highlight-to-interact feature (Explain/Talk buttons)

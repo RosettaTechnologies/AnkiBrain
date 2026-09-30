@@ -9,6 +9,7 @@ from AnkiBrainModule import AnkiBrain
 from AnkiBrainDocument import AnkiBrainDocument
 from InterprocessCommand import InterprocessCommand as IC
 from cards import add_basic_card, add_cloze_card
+from media_images import store_server_split_images, resolve_card_image_paths
 from networking import fetch, postDocument
 
 
@@ -116,13 +117,20 @@ class ReactBridge:
                     for card in data['cards']:
                         card_type = card['type']
                         tags = card['tags']
+                        # Cards carry 'images' as media_tmp ids; resolve to
+                        # on-disk paths here so full bytes never cross the
+                        # JS<->Python bridge. Missing ids are skipped with a
+                        # warning (e.g. purged by the startup cleanup).
+                        image_paths = resolve_card_image_paths(card)
                         if card_type == 'basic':
                             front = card['front']
                             back = card['back']
-                            add_basic_card(front, back, deck_name=deck_name, tags=tags)
+                            add_basic_card(front, back, deck_name=deck_name, tags=tags,
+                                           image_paths=image_paths)
                         elif card_type == 'cloze':
                             text = card['text']
-                            add_cloze_card(text, deck_name=deck_name, tags=tags)
+                            add_cloze_card(text, deck_name=deck_name, tags=tags,
+                                           image_paths=image_paths)
                     self.send_cmd(IC.DID_ADD_CARDS, commandId=commandId)
                 except Exception as e:
                     self.send_cmd(IC.DID_ADD_CARDS, error=str(e), commandId=commandId)
@@ -177,6 +185,14 @@ class ReactBridge:
                     url = data['url']
                     accessToken = data['accessToken']
                     res = await postDocument(path, url, accessToken)
+
+                    # A /document/split response can carry extracted document
+                    # images as base64. Write them to media_tmp now and hand
+                    # the webview id/url references only.
+                    if isinstance(res, dict) and isinstance(res.get('data'), dict) \
+                            and res['data'].get('images'):
+                        res['data']['images'] = store_server_split_images(res['data']['images'])
+
                     self.send_cmd(IC.DID_UPLOAD_DOCUMENT, data=res, commandId=commandId)
                 except Exception as e:
                     self.send_cmd(IC.DID_UPLOAD_DOCUMENT, error=str(e), commandId=commandId)

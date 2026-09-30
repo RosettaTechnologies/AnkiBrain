@@ -54,7 +54,19 @@ export async function splitDocument(dispatch = store.dispatch) {
         path,
       });
 
-      return res.chunks;
+      // Local mode: python wrote extracted images into media_tmp itself and
+      // returns chunk/image JSON strings over the bridge.
+      let chunks = res.chunks;
+      if (typeof chunks === "string") {
+        chunks = JSON.parse(chunks);
+      }
+
+      let images = res.images || [];
+      if (typeof images === "string") {
+        images = JSON.parse(images);
+      }
+
+      return { chunks, images };
     } catch (err) {
       errorToast("Error", err.message);
     }
@@ -117,8 +129,15 @@ export async function splitDocument(dispatch = store.dispatch) {
       chunks = JSON.parse(chunks);
     }
 
-    chunks = chunks.map((chunk) => chunk.pageContent);
-    return chunks;
+    if (chunks.length > 0 && typeof chunks[0] === "object") {
+      chunks = chunks.map((chunk) => chunk.pageContent);
+    }
+
+    // Server mode: the python layer already wrote image bytes to
+    // media_tmp; what remains here are {id, url, mediaType, anchorChunk}.
+    let images = res.data.images || [];
+
+    return { chunks, images };
   } catch (err) {
     errorToast("Error attempting request", err);
   }

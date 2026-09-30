@@ -20,7 +20,8 @@ function convertAsterisksToCloze(text) {
 async function handleCardsRawString(
   rawString,
   cardType,
-  dispatch = store.dispatch
+  dispatch = store.dispatch,
+  imageIds = []
 ) {
   // Try converting to json
   try {
@@ -31,6 +32,14 @@ async function handleCardsRawString(
       }
       if (!card.tags) {
         card.tags = [];
+      }
+
+      // Positional image attachment: cards generated from a batch inherit
+      // the images found near that batch's text. The card only carries ids;
+      // the bytes live in media_tmp and are embedded on the ANSWER side
+      // (Back for basic cards, Extra for cloze cards) when added to Anki.
+      if (imageIds && imageIds.length > 0 && !card.images) {
+        card.images = [...imageIds];
       }
 
       /*
@@ -68,7 +77,8 @@ export async function generateCards(
   customPrompt = "",
   cardType = "basic",
   language = store.getState().language.value,
-  dispatch = store.dispatch
+  dispatch = store.dispatch,
+  imageIds = []
 ) {
   dispatch(setMakeCardsLoading(true));
   try {
@@ -78,7 +88,7 @@ export async function generateCards(
 
       let cardsRawString = res.cardsRawString;
       if (cardsRawString) {
-        handleCardsRawString(cardsRawString, cardType, dispatch);
+        handleCardsRawString(cardsRawString, cardType, dispatch, imageIds);
       }
     } else {
       let res = await generateCardsRequest(
@@ -92,7 +102,7 @@ export async function generateCards(
       if (res.status === "success") {
         dispatch(updateUser(res.data.user));
         let rawString = res.data.response.content;
-        handleCardsRawString(rawString, cardType, dispatch);
+        handleCardsRawString(rawString, cardType, dispatch, imageIds);
       }
     }
   } catch (err) {

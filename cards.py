@@ -1,9 +1,39 @@
+import os
+
 from anki.models import NoteType
 from anki.notes import Note
 from aqt import mw
 
 
-def add_basic_card(front_text: str, back_text: str, deck_name='AnkiBrain', tags: list[str] = None):
+def _images_html(image_paths: list) -> str:
+    """
+    Add each image file to the collection media folder and build the HTML.
+    Anki dedupes identical media by checksum, and our files are content-hash
+    named, so repeated images across cards only ever store once.
+    """
+    if not image_paths:
+        return ''
+
+    col = mw.col
+    tags = []
+    for image_path in image_paths:
+        if not os.path.isfile(image_path):
+            # Image store was GC'd or the path was tampered with; skip, but
+            # still add the card.
+            print(f'(cards) Image file no longer available, skipping: {image_path}')
+            continue
+        try:
+            media_name = col.media.add_file(image_path)
+        except Exception as e:
+            print(f'(cards) Could not add media file {image_path}: {e}')
+            continue
+        tags.append(f'<img src="{media_name}">')
+
+    return ''.join(tags)
+
+
+def add_basic_card(front_text: str, back_text: str, deck_name='AnkiBrain', tags: list[str] = None,
+                   image_paths: list = None):
     col = mw.col
 
     deck_id = col.decks.id(deck_name)
@@ -21,10 +51,15 @@ def add_basic_card(front_text: str, back_text: str, deck_name='AnkiBrain', tags:
         col.models.add_template(ab_basic_type, template)
         col.models.add(ab_basic_type)
 
-    model = col.models.by_name('Ankibrain-Basic')
+    model = col.models.by_name('AnkiBrain-Basic')
     model['did'] = deck_id
     col.models.set_current(model)
     col.models.save(model)
+
+    # Images always go on the answer side only, never the question side.
+    images_html = _images_html(image_paths)
+    if images_html:
+        back_text = f'{back_text}<br>{images_html}'
 
     fields = {'Front': front_text, 'Back': back_text}
     note = Note(col, model)
@@ -37,7 +72,13 @@ def add_basic_card(front_text: str, back_text: str, deck_name='AnkiBrain', tags:
     mw.ankiBrain.guiThreadSignaler.resetUISignal.emit()
 
 
-def add_cloze_card(cloze_text: str, deck_name: str = 'AnkiBrain', tags: list[str] = None):
+def add_cloze_card(cloze_text: str, deck_name: str = 'AnkiBrain', tags: list[str] = None,
+                   image_paths: list = None):
+    # The cloze template renders {{cloze:Text}} on BOTH card sides, so images
+    # never go into Text. 'Extra' is the answer-side-only field (afmt shows it
+    # after the question), which keeps images hidden until the card is flipped.
+    extra_html = _images_html(image_paths)
+
     col = mw.col
 
     deck_id = col.decks.id(deck_name)
@@ -83,6 +124,8 @@ def add_cloze_card(cloze_text: str, deck_name: str = 'AnkiBrain', tags: list[str
 
     note = Note(col, model)
     note['Text'] = cloze_text
+    if extra_html:
+        note['Extra'] = extra_html
     note.tags = tags
 
     col.addNote(note)

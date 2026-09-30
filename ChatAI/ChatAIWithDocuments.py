@@ -14,6 +14,13 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
 
 from ChatInterface import ChatInterface
+from document_images import (
+    extract_pdf_images_and_pages,
+    extract_docx_text_and_images,
+    split_text_with_markers,
+    store_extracted_images,
+    new_run_id,
+)
 
 
 def get_file_extension(file_name: str) -> str:
@@ -181,6 +188,53 @@ class ChatAIWithDocuments(ChatInterface):
 
         docs = self.split_document(docpath)
         self.add_documents(docs)
+
+    def split_document_for_cards(self, docpath: str, chunk_size: int):
+        """
+        Card-generation split: like split_document but also extracts document
+        images (PDF embedded images, DOCX inline images) and reports each
+        image's anchor chunk so the webview can attach images to cards
+        positionally. Returns (chunk_texts, images) where images items are
+        {'id', 'url', 'mediaType', 'anchorChunk'} files already written to
+        user_files/media_tmp.
+        """
+        ext = get_file_extension(docpath).lower()
+        splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=0,
+                                                  length_function=len)
+
+        if ext == '.pdf':
+            loader = PyPDFLoader(docpath)
+            documents = splitter.split_documents(loader.load())
+            chunk_texts = [doc.page_content for doc in documents]
+
+            def anchor_for_page(page_index):
+                for i, doc in enumerate(documents):
+                    doc_page = doc.metadata.get('page')
+                    if doc_page is not None and doc_page >= page_index:
+                        return i
+                return len(chunk_texts)
+
+            raw_images = [
+                {
+                    'data': data,
+                    'mediaType': media_type,
+                    'anchorChunk': anchor_for_page(page_index),
+                }
+                for (page_index, data, media_type) in extract_pdf_images_and_pages(docpath)
+            ]
+        elif ext == '.docx':
+            text, raw_images = extract_docx_text_and_images(docpath)
+            chunk_texts, anchors = split_text_with_markers(text, splitter)
+            for i, image in enumerate(raw_images):
+                image['anchorChunk'] = anchors.get(i, len(chunk_texts))
+        else:
+            # txt/pptx/html and anything else: same behavior as before, no images.
+            documents = self.split_document(docpath, chunk_size=chunk_size)
+            chunk_texts = [doc.page_content for doc in documents]
+            raw_images = []
+
+        images = store_extracted_images(raw_images, new_run_id())
+        return chunk_texts, images
 
     def clear_documents(self):
         self.vectorstore.delete_collection()

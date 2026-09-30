@@ -18,6 +18,7 @@ from SidePanel import SidePanel
 from UserModeDialog import show_user_mode_dialog
 from card_injection import handle_card_will_show
 from changelog import ChangelogDialog
+from media_images import cleanup_media_tmp
 from project_paths import dotenv_path
 from util import run_win_install, run_macos_install, run_linux_install, UserMode
 
@@ -89,6 +90,13 @@ class AnkiBrain:
     def __init__(self, user_mode: UserMode = UserMode.LOCAL):
         self.user_mode = user_mode
         self.loop = None
+
+        # Purge stale extracted images from previous sessions.
+        try:
+            cleanup_media_tmp()
+        except Exception as e:
+            print(f'AnkiBrain media_tmp cleanup failed: {e}')
+
         self.sidePanel = SidePanel("AnkiBrain", mw)
         self.sidePanel.webview.page().loadFinished.connect(self.on_webengine_load_finished)
         self.webview_loaded = False

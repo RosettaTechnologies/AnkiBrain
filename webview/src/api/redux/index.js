@@ -31,6 +31,7 @@ import { deleteCardsAfterAdding } from "./slices/deleteCardsAfterAdding";
 import { showBootReminderDialog } from "./slices/showBootReminderDialog";
 import { appDidBoot } from "./slices/appDidBoot";
 import { customPrompts } from "./slices/customPrompts";
+import { imagesRegistry } from "./slices/imagesRegistry";
 
 const showLoginModalSlice = createSlice({
   name: "showLoginModal",
@@ -100,6 +101,7 @@ export const store = configureStore({
     documents: documentsSlice.reducer,
     documentsLoading: documentsLoadingSlice.reducer,
     failedCards: failedCards.reducer,
+    imagesRegistry: imagesRegistry.reducer,
     language: languageSlice.reducer,
     loadingText: loadingText.reducer,
     lockCheckoutSession: lockCheckoutSession.reducer,

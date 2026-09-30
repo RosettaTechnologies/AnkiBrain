@@ -16,6 +16,7 @@ import {
   CardBody,
   Flex,
   Heading,
+  IconButton,
   Input,
   InputGroup,
   InputLeftAddon,
@@ -46,9 +47,10 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { pyAddCards } from "../../../api/PythonBridge/senders/pyAddCards";
-import { AddIcon, DeleteIcon, StarIcon } from "@chakra-ui/icons";
+import { AddIcon, CloseIcon, DeleteIcon, StarIcon } from "@chakra-ui/icons";
 import { generateCards } from "../../../api/cards";
 import { deleteCardAtIndex, setCards } from "../../../api/redux/slices/cards";
+import { addImages } from "../../../api/redux/slices/imagesRegistry";
 import { setBoolShowCardsJsonEditor } from "../../../api/redux/slices/bShowCardsJsonEditor";
 import {
   setMakeCardsLoading,
@@ -60,7 +62,7 @@ import { isLocalMode } from "../../../api/user";
 import { pyEditSetting } from "../../../api/PythonBridge/senders/pyEditSetting";
 import { store } from "../../../api/redux";
 import {
-  batchChunks,
+  batchChunksWithImages,
   getCardGenChunkSize,
 } from "../../../api/batching";
 import { CustomPromptMakeCardsModal } from "./CustomPromptMakeCardsModal";
@@ -98,8 +100,19 @@ function ClearCardsAlert(props) {
   );
 }
 
-function renderCard(card, key, modifyCard) {
+function renderCard(card, key, modifyCard, imagesById = {}) {
   const { colorMode } = useColorMode();
+
+  const removeImage = (imageId) => {
+    modifyCard(key, (c) => {
+      let cardCopy = cloneDeep(c);
+      cardCopy.images = (cardCopy.images || []).filter((id) => id !== imageId);
+      return cardCopy;
+    });
+  };
+
+  const cardImages = card.images || [];
+
   return (
     <Card
       mb={3}
@@ -134,6 +147,51 @@ function renderCard(card, key, modifyCard) {
                 </Heading>
                 <Text>{card.type === "basic" ? card.back : ""}</Text>
               </VStack>
+
+              {cardImages.length > 0 && (
+                <VStack mb={15} align={"center"}>
+                  <Heading size={"xs"} color={"gray"}>
+                    Images (answer side)
+                  </Heading>
+                  <Flex direction={"row"} flexWrap={"wrap"} justifyContent={"center"}>
+                    {cardImages.map((imageId) => {
+                      const image = imagesById[imageId];
+                      return (
+                        <Box key={imageId} m={1} position={"relative"}>
+                          {image ? (
+                            <img
+                              src={image.url}
+                              alt={imageId}
+                              style={{
+                                maxWidth: 140,
+                                maxHeight: 100,
+                                display: "block",
+                              }}
+                            />
+                          ) : (
+                            <Text fontSize={10} color={"gray"}>
+                              image unavailable
+                            </Text>
+                          )}
+                          <IconButton
+                            aria-label={"Remove image"}
+                            icon={<CloseIcon boxSize={2.5} />}
+                            size={"xs"}
+                            colorScheme={"red"}
+                            position={"absolute"}
+                            top={0}
+                            right={0}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              removeImage(imageId);
+                            }}
+                          />
+                        </Box>
+                      );
+                    })}
+                  </Flex>
+                </VStack>
+              )}
             </VStack>
             <Spacer />
 
@@ -216,6 +274,7 @@ export function CardMakingScreen() {
   const deleteCardsAfterAdding = useSelector(
     (state) => state.deleteCardsAfterAdding.value
   );
+  const imagesById = useSelector((state) => state.imagesRegistry.value);
 
   const formatTime = (seconds) => {
     const hours = Math.floor(seconds / 3600);
@@ -347,19 +406,25 @@ export function CardMakingScreen() {
     // Same implementation for local/server modes.
     try {
       dispatch(setMakeCardsLoading(true));
-      let chunks = await splitDocument(dispatch);
-      if (!chunks) {
+      let splitResult = await splitDocument(dispatch);
+      if (!splitResult || !splitResult.chunks) {
         dispatch(setMakeCardsLoading(false));
         return;
       }
 
+      let chunks = splitResult.chunks;
       if (typeof chunks === "string") {
         chunks = JSON.parse(chunks);
       }
+      let images = splitResult.images || [];
+
+      // Keep extracted images available for previews and for ADD_CARDS,
+      // which resolves ids to files in media_tmp.
+      dispatch(addImages(images));
 
       const model = store.getState().appSettings.ai.llmModel;
       const maxCharsPerBatch = getCardGenChunkSize(model);
-      const batches = batchChunks(chunks, maxCharsPerBatch);
+      const batches = batchChunksWithImages(chunks, images, maxCharsPerBatch);
 
       dispatch(setMakeCardsLoading(false));
       successToast(
@@ -380,15 +445,16 @@ export function CardMakingScreen() {
 
           // In local mode, the chatAI just returns the text as the chunk itself
           // i.e. chunks: [str]
-          let text = batches[i];
+          let batch = batches[i];
           let progress = (i / (batches.length - 1)) * 100;
           setMakeCardsFromDocProgress(progress.toFixed(2));
           await generateCards(
-            text,
+            batch.text,
             customPromptMakeCards,
             selectedCardType,
             language,
-            dispatch
+            dispatch,
+            batch.imageIds
           );
           dispatch(setMakeCardsLoading(true));
 
@@ -801,7 +867,9 @@ export function CardMakingScreen() {
         </Flex>
 
         <Box maxHeight={500} overflowY={"auto"} p={5}>
-          {cards.map((card, i) => renderCard(card, i, modifyCard))}
+          {cards.map((card, i) =>
+            renderCard(card, i, modifyCard, imagesById)
+          )}
         </Box>
       </div>
     </div>
