@@ -1,5 +1,7 @@
 # Changelog
 
+# 1.1.0
+
 # 1.0.1
 - Fix the highlight-to-interact feature (Explain/Talk buttons)
 - Update webview tooling to use Yarn v4 and Vite with TypeScript support
