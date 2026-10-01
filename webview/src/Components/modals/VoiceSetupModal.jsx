@@ -64,7 +64,7 @@ export function VoiceSetupModal() {
           {unsupported && (
             <Text mb={4}>
               {(status && status.reason) ||
-                "This platform is not supported by the local voice engine."}
+                "This platform is not supported by the voice engine."}
             </Text>
           )}
 
@@ -72,8 +72,8 @@ export function VoiceSetupModal() {
             <>
               <Text mb={3}>
                 {alreadyInstalled
-                  ? "Reinstall or repair the local Kokoro voice engine. Already-downloaded parts are reused from cache, so repairs are fast and free."
-                  : "Synthesize speech locally on your computer with Kokoro-82M — no servers, works offline after setup, in both Local and Regular mode."}
+                  ? "Reinstall or repair the Kokoro voice engine."
+                  : "Free text-to-speech (TTS) with Kokoro voice engine."}
               </Text>
               <Text fontSize={13} color="gray.500" mb={1}>
                 Download ≈ {estimate.download_mb} MB · Disk ≈ {estimate.disk_mb} MB
