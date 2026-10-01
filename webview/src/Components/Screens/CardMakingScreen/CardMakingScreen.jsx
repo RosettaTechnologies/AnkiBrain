@@ -50,7 +50,7 @@ import {
 import { RiPriceTag3Line } from "react-icons/ri";
 import { generateCards } from "../../../api/cards";
 import { deleteCardAtIndex, setCards } from "../../../api/redux/slices/cards";
-import { addImages } from "../../../api/redux/slices/imagesRegistry";
+import { addImages, clearImages } from "../../../api/redux/slices/imagesRegistry";
 import {
   setDocumentContext,
 } from "../../../api/redux/slices/documentContext";
@@ -110,6 +110,51 @@ function ClearCardsAlert(props) {
 }
 
 /*
+ * Confirmation for the images sidebar's "Clear All" button. Mirrors
+ * ClearCardsAlert; notes when images are currently attached to cards, since
+ * clearing detaches them too.
+ */
+function ClearImagesAlert(props) {
+  const cancelRef = useRef();
+  return (
+    <AlertDialog
+      leastDestructiveRef={cancelRef}
+      isOpen={props.isOpen}
+      onClose={props.onCancel}
+    >
+      <AlertDialogOverlay>
+        <AlertDialogContent>
+          <AlertDialogHeader fontSize={"lg"} fontWeight={"bold"}>
+            Clear All Images
+          </AlertDialogHeader>
+          <AlertDialogBody>
+            <Text>Are you sure? You can't undo this action.</Text>
+            {props.usedImageCount > 0 && (
+              <Text>
+                <b>Note</b>: this also detaches {props.usedImageCount}{" "}
+                image{props.usedImageCount === 1 ? "" : "s"} currently inserted
+                on cards.
+              </Text>
+            )}
+            <Text>
+              <b>Note</b>: this only clears images in AnkiBrain, not Anki.
+            </Text>
+          </AlertDialogBody>
+          <AlertDialogFooter>
+            <Button ref={cancelRef} onClick={props.onCancel}>
+              Cancel
+            </Button>
+            <Button colorScheme="red" onClick={props.onOK} ml={3}>
+              Clear All
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialogOverlay>
+    </AlertDialog>
+  );
+}
+
+/*
  * One non-breaking group of toolbar controls. The toolbar wraps between
  * groups at narrow widths, never inside one.
  */
@@ -138,6 +183,7 @@ export function CardMakingScreen() {
   const [deck, setDeck] = useState("");
   const [tag, setTag] = useState("");
   const [showClearCardsAlert, setShowClearCardsAlert] = useState(false);
+  const [showClearImagesAlert, setShowClearImagesAlert] = useState(false);
   const [showMakeCardsFromDocumentAlert, setShowMakeCardsFromDocumentAlert] =
     useState(false);
   const cancelRef = useRef();
@@ -287,6 +333,27 @@ export function CardMakingScreen() {
     dispatch(setCards([]));
     await pyEditSetting("tempCards", []);
     successToast("Cards Cleared", "Your cards have been cleared.");
+  };
+
+  // "Clear All" in the images sidebar: empties the extracted-image registry
+  // and detaches every reference from the pending cards in the same step.
+  // Detaching matters: card previews resolve urls through the registry, and
+  // the restart-resolve effect would otherwise try to re-fetch dangling ids.
+  // The debounced tempCards save fires on the setCards change, so persistence
+  // needs no extra call here.
+  const handleClearAllImages = () => {
+    dispatch(clearImages());
+    const cardsCopy = cloneDeep(cards);
+    for (const card of cardsCopy) {
+      if (card.images && card.images.length > 0) {
+        card.images = [];
+      }
+    }
+    dispatch(setCards(cardsCopy));
+    successToast(
+      "Images Cleared",
+      "Extracted images were removed from the library."
+    );
   };
 
   const clearAllTags = () => {
@@ -500,6 +567,7 @@ export function CardMakingScreen() {
     usageCounts,
     cards,
     onInsert: handleInsertImage,
+    onClearAll: () => setShowClearImagesAlert(true),
     compact: true,
   };
 
@@ -528,6 +596,20 @@ export function CardMakingScreen() {
         onOK={async () => {
           await handleClearCards();
           setShowClearCardsAlert(false);
+        }}
+      />
+
+      <ClearImagesAlert
+        isOpen={showClearImagesAlert}
+        usedImageCount={
+          Object.values(usageCounts).filter((count) => count > 0).length
+        }
+        onCancel={() => {
+          setShowClearImagesAlert(false);
+        }}
+        onOK={() => {
+          handleClearAllImages();
+          setShowClearImagesAlert(false);
         }}
       />
 

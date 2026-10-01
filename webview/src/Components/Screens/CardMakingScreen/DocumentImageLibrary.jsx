@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   Badge,
   Box,
@@ -12,12 +12,11 @@ import {
   ModalHeader,
   ModalOverlay,
   SimpleGrid,
-  Spacer,
   Text,
   useColorMode,
   VStack,
 } from "@chakra-ui/react";
-import { AddIcon } from "@chakra-ui/icons";
+import { AddIcon, DeleteIcon } from "@chakra-ui/icons";
 import { cardSnippet } from "./EditableCard";
 
 /*
@@ -30,6 +29,8 @@ import { cardSnippet } from "./EditableCard";
  *
  * compact=true renders it as a narrow side panel: single-column list with
  * larger thumbnails and a sticky header (the panel itself scrolls).
+ * "Clear All" empties the library via the parent's onClearAll (which also
+ * detaches the images from pending cards).
  */
 export function DocumentImageLibrary(props) {
   const {
@@ -37,23 +38,11 @@ export function DocumentImageLibrary(props) {
     usageCounts = {},
     cards = [],
     onInsert,
+    onClearAll,
     compact = false,
   } = props;
   const { colorMode } = useColorMode();
-  const [showOnlyUnused, setShowOnlyUnused] = useState(false);
   const [previewImageId, setPreviewImageId] = useState(null);
-
-  const visibleImages = useMemo(() => {
-    if (!showOnlyUnused) {
-      return images;
-    }
-    return images.filter((image) => (usageCounts[image.id] || 0) === 0);
-  }, [images, usageCounts, showOnlyUnused]);
-
-  const unusedCount = useMemo(
-    () => images.filter((image) => (usageCounts[image.id] || 0) === 0).length,
-    [images, usageCounts]
-  );
 
   const previewImage = previewImageId
     ? images.find((image) => image.id === previewImageId) || null
@@ -71,9 +60,7 @@ export function DocumentImageLibrary(props) {
 
   return (
     <Box>
-      <Flex
-        direction={"row"}
-        align={"center"}
+      <Box
         mb={2}
         position={compact ? "sticky" : "static"}
         top={0}
@@ -84,19 +71,15 @@ export function DocumentImageLibrary(props) {
         <Heading size={"sm"}>
           Images found in your document ({images.length})
         </Heading>
-        <Spacer />
         {images.length > 0 && (
-          <Button
-            size={"xs"}
-            variant={showOnlyUnused ? "accent" : "outline"}
-            onClick={() => setShowOnlyUnused((v) => !v)}
-          >
-            {showOnlyUnused
-              ? "Showing unused"
-              : `Show unused only (${unusedCount})`}
-          </Button>
+          <Flex justify={"end"} mt={1.5}>
+            <Button size={"xs"} onClick={onClearAll}>
+              <DeleteIcon me={1.5} boxSize={3} />
+              Clear All
+            </Button>
+          </Flex>
         )}
-      </Flex>
+      </Box>
 
       {images.length === 0 ? (
         <Text fontSize={13} color={"gray"}>
@@ -104,16 +87,12 @@ export function DocumentImageLibrary(props) {
           collect every image embedded in it here — you can then insert them
           into cards before adding the cards to Anki.
         </Text>
-      ) : visibleImages.length === 0 ? (
-        <Text fontSize={13} color={"gray"}>
-          Every image from this document is already on at least one card.
-        </Text>
       ) : (
         <SimpleGrid
           columns={compact ? 1 : { base: 3, md: 4, lg: 5 }}
           spacing={3}
         >
-          {visibleImages.map((image) => {
+          {images.map((image) => {
             const usedOn = usageCounts[image.id] || 0;
             return (
               <Box
