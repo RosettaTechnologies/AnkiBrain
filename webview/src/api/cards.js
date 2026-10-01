@@ -7,6 +7,7 @@ import { generateCardsRequest } from "./server-api/cards";
 import { errorToast, infoToast, successToast } from "./toast";
 import { addFailedCards } from "./redux/slices/failedCards";
 import { pyEditSetting } from "./PythonBridge/senders/pyEditSetting";
+import { assignImagesToCard } from "./batching";
 
 function convertAsterisksToCloze(text) {
   let counter = 1;
@@ -21,7 +22,7 @@ async function handleCardsRawString(
   rawString,
   cardType,
   dispatch = store.dispatch,
-  imageIds = []
+  imageAssignment = null
 ) {
   // Try converting to json
   try {
@@ -34,13 +35,15 @@ async function handleCardsRawString(
         card.tags = [];
       }
 
-      // Positional image attachment: cards generated from a batch inherit
-      // the images found near that batch's text. The card only carries ids;
-      // the bytes live in media_tmp and are embedded on the ANSWER side
-      // (Back for basic cards, Extra for cloze cards) when added to Anki.
-      if (imageIds && imageIds.length > 0 && !card.images) {
-        card.images = [...imageIds];
-      }
+      // Positional image attachment: the batch prompt asked the model to
+      // cite the source chunk of each card, so images anchor to that card
+      // specifically instead of every card in the batch. Missing/garbage
+      // citations fall back to the batch's images (capped). The card only
+      // carries ids; bytes live in media_tmp and are embedded on the ANSWER
+      // side (Back for basic cards, Extra for cloze cards) when added to
+      // Anki.
+      assignImagesToCard(card, imageAssignment);
+      delete card.chunk;
 
       /*
        * If cloze, we are expecting the text field to have **double asterisks** surrounding
@@ -78,7 +81,7 @@ export async function generateCards(
   cardType = "basic",
   language = store.getState().language.value,
   dispatch = store.dispatch,
-  imageIds = []
+  imageAssignment = null
 ) {
   dispatch(setMakeCardsLoading(true));
   try {
@@ -88,7 +91,12 @@ export async function generateCards(
 
       let cardsRawString = res.cardsRawString;
       if (cardsRawString) {
-        handleCardsRawString(cardsRawString, cardType, dispatch, imageIds);
+        handleCardsRawString(
+          cardsRawString,
+          cardType,
+          dispatch,
+          imageAssignment
+        );
       }
     } else {
       let res = await generateCardsRequest(
@@ -102,7 +110,7 @@ export async function generateCards(
       if (res.status === "success") {
         dispatch(updateUser(res.data.user));
         let rawString = res.data.response.content;
-        handleCardsRawString(rawString, cardType, dispatch, imageIds);
+        handleCardsRawString(rawString, cardType, dispatch, imageAssignment);
       }
     }
   } catch (err) {

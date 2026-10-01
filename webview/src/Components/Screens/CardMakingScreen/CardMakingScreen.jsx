@@ -448,13 +448,25 @@ export function CardMakingScreen() {
           let batch = batches[i];
           let progress = (i / (batches.length - 1)) * 100;
           setMakeCardsFromDocProgress(progress.toFixed(2));
+
+          // With images, send the "[Chunk N]"-labeled text so the model
+          // cites each card's source chunk and images attach per-card.
+          // Without images the assignment is null and the plain batch
+          // text keeps the historical prompt exactly.
+          const hasImages = batch.images && batch.images.length > 0;
           await generateCards(
-            batch.text,
+            hasImages ? batch.promptText : batch.text,
             customPromptMakeCards,
             selectedCardType,
             language,
             dispatch,
-            batch.imageIds
+            hasImages
+              ? {
+                  images: batch.images,
+                  chunkStart: batch.chunkStart,
+                  chunkEnd: batch.chunkEnd,
+                }
+              : null
           );
           dispatch(setMakeCardsLoading(true));
 
