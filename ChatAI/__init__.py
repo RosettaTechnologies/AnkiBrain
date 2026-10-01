@@ -8,6 +8,12 @@ ankibrain_project_root_dir = path.join(module_dir, '..')
 user_data_dir = path.join(ankibrain_project_root_dir, 'user_files')
 dotenv_path = path.join(user_data_dir, '.env')
 
+# One source of truth for the interprocess command enum, shared with the Anki
+# process: the addon root, one level up (the ChatAI copy was deleted).
+# Appended, never inserted: this directory's own modules keep resolving first
+# and site-packages still outrank the addon tree.
+sys.path.append(path.abspath(ankibrain_project_root_dir))
+
 import json
 from dotenv import load_dotenv
 
