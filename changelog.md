@@ -6,6 +6,7 @@
   their surrounding text.
 - Regular (server) mode: use a login/signup gate to reduce confusion as app is not usable
   in server mode without an account
+- Local mode: fix Ubuntu/Debian auto-install script
 
 # 1.0.1
 - Fix the highlight-to-interact feature (Explain/Talk buttons)

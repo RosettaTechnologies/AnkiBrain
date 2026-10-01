@@ -400,14 +400,19 @@ class AnkiBrain:
 
 def reinstall():
     system = platform.system()
+    launched = True
     if system == 'Windows':
         run_win_install()
     elif system == 'Darwin':
         run_macos_install()
     elif system == 'Linux':
-        run_linux_install()
+        from InstallDialog import linux_manual_install_text
+        launched = run_linux_install()
+        if not launched:
+            QMessageBox.warning(None, 'Could not open a terminal', linux_manual_install_text())
 
-    showInfo('Terminal updater has been launched. Restart Anki after install is completed.')
+    if launched:
+        showInfo('Terminal updater has been launched. Restart Anki after install is completed.')
 
 
 def show_changelog():

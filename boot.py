@@ -59,8 +59,10 @@ def load_ankibrain_local_mode():
         ankiBrain = AnkiBrain(user_mode=UserMode.LOCAL)
         mw.ankiBrain = ankiBrain
     else:
+        # Local mode without a completed install: open the installer right
+        # away instead of leaving it hidden until the user finds the menu.
         mw.installDialog = InstallDialog(mw)
-        mw.installDialog.hide()
+        mw.installDialog.show()
 
         from AnkiBrainModule import add_ankibrain_menu_item
         add_ankibrain_menu_item('Install...', show_install_dialog)

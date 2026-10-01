@@ -3,7 +3,7 @@ import webbrowser
 
 from aqt.qt import *
 
-from util import run_win_install, run_macos_install, run_linux_install
+from util import run_win_install, run_macos_install, run_linux_install, root_dir
 
 pyenv_generic_instr = '''
 Create a python 3.9.13 venv:
@@ -48,6 +48,23 @@ def show_manual_install_instr():
     webbrowser.open('https://www.reddit.com/r/ankibrain/comments/14ej1bq/how_to_install_ankibrain/')
 
 
+def linux_manual_install_text():
+    return (
+        'AnkiBrain could not open a terminal window on this system.\n\n'
+        'Please open a terminal yourself and run:\n\n'
+        f'    cd {root_dir} && ./linux-install.sh\n\n'
+        'Then restart Anki.'
+    )
+
+
+def run_linux_install_with_feedback():
+    # The dialog itself lists the final step (restart Anki), so only the
+    # failure case needs an extra message.
+    if run_linux_install():
+        return
+    QMessageBox.warning(None, 'Could not open a terminal', linux_manual_install_text())
+
+
 class InstallDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -68,7 +85,7 @@ class InstallDialog(QDialog):
         elif system == 'Linux':
             install_instr = macos_linux_auto_install_instr
             install_button = QPushButton('Run Ubuntu/Debian Installer')
-            install_button.clicked.connect(run_linux_install)
+            install_button.clicked.connect(run_linux_install_with_feedback)
 
         label = QLabel()
         label.setText(install_instr)
