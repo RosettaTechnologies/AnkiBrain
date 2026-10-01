@@ -63,3 +63,4 @@ yarn-debug.log*
 yarn-error.log*
 .yarn
 /meta.json
+/user_files/media_tmp/

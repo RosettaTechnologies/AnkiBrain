@@ -42,6 +42,8 @@ export function batchChunks(chunks, maxChars) {
  * then map images into their batch by anchor. Images anchored past the last
  * chunk (trailing images) attach to the final batch.
  */
+export const MAX_IMAGES_PER_BATCH = 4;
+
 export function batchChunksWithImages(chunks, images, maxChars) {
   const batches = []; // [{text, chunkStart, chunkEnd, imageIds: []}]
   let currentBatch = null;
@@ -70,7 +72,13 @@ export function batchChunksWithImages(chunks, images, maxChars) {
   closeBatch(chunks.length);
 
   const attach = (batch, imageId) => {
-    if (batch && !batch.imageIds.includes(imageId)) {
+    if (!batch) return;
+    if (batch.imageIds.length >= MAX_IMAGES_PER_BATCH) {
+      // Keep batches from becoming image dumps; earliest-positioned images
+      // win. The rest are still shown as "not attached" if ever wired up.
+      return;
+    }
+    if (!batch.imageIds.includes(imageId)) {
       batch.imageIds.push(imageId);
     }
   };

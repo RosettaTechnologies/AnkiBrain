@@ -68,6 +68,7 @@ function App() {
               user_mode: "SERVER",
               user: null,
               devMode: false,
+              canToggleDevMode: true,
               apiBaseUrl: PROD_SERVER_URL,
             },
           },

@@ -139,7 +139,13 @@ export async function handlePythonDataReceived(
         tempCards,
         showBootReminderDialog,
         showCardBottomHint,
+        canToggleDevMode,
       } = data;
+
+      // Python only sets canToggleDevMode in dev checkouts; packaged
+      // installs leave window.developerMode false so the SettingsScreen
+      // Developer Mode switch stays locked ("No Access").
+      window.developerMode = canToggleDevMode === true;
 
       if (aiLanguage) {
         dispatch(setLanguage(aiLanguage));
@@ -184,7 +190,7 @@ export async function handlePythonDataReceived(
       if (colorMode) {
         dispatch(setColorMode(colorMode));
       }
-      if (devMode !== null || devMode !== undefined) {
+      if (devMode !== null && devMode !== undefined) {
         dispatch(setDevMode(devMode));
         setupServerAPI();
       }

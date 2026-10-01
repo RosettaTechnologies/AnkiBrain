@@ -19,7 +19,7 @@ from UserModeDialog import show_user_mode_dialog
 from card_injection import handle_card_will_show
 from changelog import ChangelogDialog
 from media_images import cleanup_media_tmp
-from project_paths import dotenv_path
+from project_paths import dotenv_path, is_dev_checkout
 from util import run_win_install, run_macos_install, run_linux_install, UserMode
 
 #The "GUIThreadSignaler" class allows the non-UI thread to modify/update the UI thread. Some uses include
@@ -166,7 +166,12 @@ class AnkiBrain:
         self.webview_loaded = True
 
     async def load_user_settings(self):
-        settings = mw.settingsManager.settings
+        # Copy the settings dict so the runtime-only canToggleDevMode flag
+        # never lands in settings.json through a later SettingsManager.save().
+        settings = {
+            **mw.settingsManager.settings,
+            'canToggleDevMode': is_dev_checkout(),
+        }
         print('Sending DID_LOAD_USER_FILES')
         self.reactBridge.send_cmd(IC.DID_LOAD_SETTINGS, settings)
 
