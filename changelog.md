@@ -3,9 +3,7 @@
 # 1.1.0
 - Generate cards from documents now include images: figures and diagrams found in
   PDFs and DOCX files are extracted and attached to the flashcards generated from
-  their surrounding text. Each card cites the source section it came from, so it
-  carries that section's figures instead of every image nearby (no vision model
-  required)
+  their surrounding text.
 
 # 1.0.1
 - Fix the highlight-to-interact feature (Explain/Talk buttons)
