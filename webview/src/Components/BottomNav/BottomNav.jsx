@@ -23,8 +23,8 @@ export function BottomNav() {
   const [showHelpModal, setShowHelpModal] = useState(false);
 
   const navItems = [
-    { path: PATHS.TOPIC_EXPLANATION, icon: "bi bi-book", label: "Explain" },
     { path: PATHS.MAKE_CARDS, icon: "bi bi-stack", label: "Make Cards" },
+    { path: PATHS.TOPIC_EXPLANATION, icon: "bi bi-book", label: "Explain" },
     { path: PATHS.TALK, icon: "bi bi-chat-fill", label: "Talk" },
     { path: PATHS.IMPORT, icon: "bi bi-folder", label: "Import" },
     { path: PATHS.SETTINGS, icon: "settings", label: "Settings" },
