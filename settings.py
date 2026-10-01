@@ -51,6 +51,13 @@ default_settings = {
     'showCardBottomHint': True,
     'showSidePanel': True,
     'tempCards': [],
+    # ── AnkiBrain Voice (Kokoro TTS) ─────────────────────────────────────────
+    'ttsEnabled': True,            # master switch for all speak features
+    'ttsVoice': 'af_heart',        # kokoro voice id; its first letter is the lang code
+    'ttsSpeed': 1.0,
+    'ttsEmbedCardAudio': True,     # synthesize + attach [sound:...] when ADD_CARDS runs
+    'ttsCardAudioSides': 'answer',  # answer | question | both (basic cards)
+    'ttsEngineRoot': '',           # voice data root override; empty = user_files/voice
 }
 
 

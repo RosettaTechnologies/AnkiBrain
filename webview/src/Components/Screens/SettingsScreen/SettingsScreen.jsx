@@ -44,6 +44,189 @@ import { store } from "../../../api/redux";
 import { setAutomaticallyAddCards } from "../../../api/redux/slices/automaticallyAddCards";
 import { setDeleteCardsAfterAdding } from "../../../api/redux/slices/deleteCardsAfterAdding";
 import { setShowBootReminderDialog } from "../../../api/redux/slices/showBootReminderDialog";
+import { Slider, SliderTrack, SliderFilledTrack, SliderThumb } from "@chakra-ui/react";
+import { useEffect } from "react";
+import { openSetupModal, refreshTtsStatus, speak } from "../../../api/tts";
+import { editTtsSettingLocal } from "../../../api/redux/slices/tts";
+
+const VoiceSettings = (props) => {
+  const dispatch = useDispatch();
+  const tts = useSelector((state) => state.tts);
+  const settings = tts.settings;
+  const status = tts.status;
+
+  useEffect(() => {
+    refreshTtsStatus();
+  }, []);
+
+  const setTts = async (key, value) => {
+    dispatch(editTtsSettingLocal({ key, value }));
+    await pyEditSetting(key, value);
+  };
+
+  const languages = (status && status.languages) || {};
+  const langCodes = Object.keys(languages);
+  const currentVoice = settings.ttsVoice || "af_heart";
+  const currentLang =
+    langCodes.find((code) => (languages[code].voices || []).includes(currentVoice)) ||
+    (currentVoice[0] in languages ? currentVoice[0] : "a");
+  const voices = (languages[currentLang] && languages[currentLang].voices) || [];
+
+  const installed = status && status.status === "supported-and-installed";
+  const needsSync = status && status.status === "supported-and-needs-sync";
+  const unsupported = status && status.status === "unsupported";
+
+  return (
+    <Flex direction={"column"} mt={5} width={325}>
+      <Divider />
+      <Flex direction={"row"} alignItems={"center"} mt={3} mb={2}>
+        <i className={"bi bi-volume-up-fill"} style={{ fontSize: 22, marginRight: 10 }} />
+        <Text fontWeight={"bold"}>Voice (Text-to-Speech)</Text>
+      </Flex>
+
+      <Flex direction={"row"} alignItems={"center"} mb={2}>
+        <Switch
+          isChecked={!!settings.ttsEnabled}
+          onChange={async (e) => {
+            await setTts("ttsEnabled", e.target.checked);
+          }}
+        />
+        <Text ml={3}>Enable spoken audio</Text>
+      </Flex>
+
+      {!unsupported && (
+        <Text fontSize={12} color={"gray.500"} mb={2}>
+          {installed
+            ? "Kokoro-82M engine installed" +
+              (status.ja_pack ? " (incl. Japanese)" : "") +
+              "."
+            : needsSync
+              ? "Engine needs a small update after an AnkiBrain upgrade."
+              : "Not installed yet — one click below (~" +
+                ((status && status.estimate && status.estimate.download_mb) || 700) +
+                " MB)."}
+        </Text>
+      )}
+      {unsupported && (
+        <Text fontSize={12} color={"gray.500"} mb={2}>
+          {status.reason}
+        </Text>
+      )}
+
+      {!unsupported && (
+        <Button
+          mb={3}
+          onClick={() => {
+            openSetupModal(null);
+          }}
+        >
+          {installed || needsSync ? "Repair voice engine" : "Install voice engine"}
+        </Button>
+      )}
+
+      {settings.ttsEnabled && !unsupported && installed && (
+        <>
+          <Text fontSize={13} mb={1}>
+            Language
+          </Text>
+          <Select
+            mb={2}
+            size={"sm"}
+            value={currentLang}
+            onChange={(e) => {
+              const code = e.target.value;
+              const first = (languages[code].voices || [])[0];
+              if (first) setTts("ttsVoice", first);
+            }}
+          >
+            {langCodes.map((code) => (
+              <option key={code} value={code}>
+                {languages[code].name}
+                {languages[code].pack === "ja" && !status.ja_pack ? " (needs ja pack)" : ""}
+              </option>
+            ))}
+          </Select>
+
+          <Text fontSize={13} mb={1}>
+            Voice
+          </Text>
+          <Select
+            mb={2}
+            size={"sm"}
+            value={currentVoice}
+            onChange={async (e) => {
+              await setTts("ttsVoice", e.target.value);
+            }}
+          >
+            {voices.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </Select>
+
+          <Text fontSize={13} mb={1}>
+            Speed ({Number(settings.ttsSpeed || 1).toFixed(2)}×)
+          </Text>
+          <Slider
+            min={0.5}
+            max={2}
+            step={0.05}
+            value={Number(settings.ttsSpeed || 1)}
+            mb={3}
+            onChangeEnd={async (v) => {
+              await setTts("ttsSpeed", v);
+            }}
+            onChange={(v) => {
+              dispatch(editTtsSettingLocal({ key: "ttsSpeed", value: v }));
+            }}
+          >
+            <SliderTrack>
+              <SliderFilledTrack />
+            </SliderTrack>
+            <SliderThumb />
+          </Slider>
+
+          <Flex direction={"row"} alignItems={"center"} mb={2}>
+            <Switch
+              isChecked={!!settings.ttsEmbedCardAudio}
+              onChange={async (e) => {
+                await setTts("ttsEmbedCardAudio", e.target.checked);
+              }}
+            />
+            <Text ml={3}>Add audio to generated cards</Text>
+          </Flex>
+
+          {settings.ttsEmbedCardAudio && (
+            <Select
+              size={"sm"}
+              mb={3}
+              value={settings.ttsCardAudioSides || "answer"}
+              onChange={async (e) => {
+                await setTts("ttsCardAudioSides", e.target.value);
+              }}
+            >
+              <option value={"answer"}>Audio on answer side</option>
+              <option value={"question"}>Audio on question side</option>
+              <option value={"both"}>Audio on both sides</option>
+            </Select>
+          )}
+
+          <Button
+            mb={2}
+            variant={"outline"}
+            onClick={() => {
+              speak("Hello! This is how AnkiBrain voice sounds.", {});
+            }}
+          >
+            <i className={"bi bi-play-fill"} style={{ marginRight: 6 }} />
+            Preview voice
+          </Button>
+        </>
+      )}
+    </Flex>
+  );
+};
 
 const AdvancedSettings = (props) => {
   const temperature = useSelector((state) => state.appSettings.ai.temperature);
@@ -602,6 +785,8 @@ export const SettingsScreen = (props) => {
                     <ModalFooter></ModalFooter>
                   </ModalContent>
                 </Modal>
+
+                <VoiceSettings />
 
                 <Button
                   width={325}

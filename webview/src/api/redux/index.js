@@ -30,6 +30,7 @@ import { deleteCardsAfterAdding } from "./slices/deleteCardsAfterAdding";
 import { showBootReminderDialog } from "./slices/showBootReminderDialog";
 import { appDidBoot } from "./slices/appDidBoot";
 import { checkedAuth } from "./slices/checkedAuth";
+import { ttsSlice } from "./slices/tts";
 import { customPrompts } from "./slices/customPrompts";
 import { imagesRegistry } from "./slices/imagesRegistry";
 import { documentContextSlice } from "./slices/documentContext";
@@ -116,6 +117,7 @@ export const store = configureStore({
     showCardBottomHint: showCardBottomHint.reducer,
     showLoginModal: showLoginModalSlice.reducer,
     topicExplanation: topicExplanationSlice.reducer,
+    tts: ttsSlice.reducer,
     useDocuments: useDocuments.reducer,
     user: userSlice.reducer,
     userMode: userMode.reducer,

@@ -41,6 +41,26 @@ class InterprocessCommand(Enum):
     RESOLVE_IMAGES = 'RESOLVE_IMAGES'
     DID_RESOLVE_IMAGES = 'DID_RESOLVE_IMAGES'
 
+    # ── AnkiBrain Voice (Kokoro TTS) ──────────────────────────────────────
+    # SYNTHESIZE_SPEECH -> DID_SYNTHESIZE_SPEECH {path,url,...} (promise-style;
+    # JS resolves via commandId). TTS_STATUS reports installed/platform/voices.
+    # TTS_INSTALL kicks off the bootstrap; progress arrives via pushed
+    # TTS_INSTALL_PROGRESS events + a final TTS_INSTALL_DONE (no commandId —
+    # installs outlive any single request).
+    SYNTHESIZE_SPEECH = 'SYNTHESIZE_SPEECH'
+    DID_SYNTHESIZE_SPEECH = 'DID_SYNTHESIZE_SPEECH'
+
+    TTS_STATUS = 'TTS_STATUS'
+    DID_TTS_STATUS = 'DID_TTS_STATUS'
+
+    TTS_INSTALL = 'TTS_INSTALL'
+    DID_TTS_INSTALL = 'DID_TTS_INSTALL'          # {started: bool} ack
+    TTS_INSTALL_PROGRESS = 'TTS_INSTALL_PROGRESS'  # push: bootstrap stage event
+    TTS_INSTALL_DONE = 'TTS_INSTALL_DONE'          # push: {ok, error?}
+    TTS_CANCEL_INSTALL = 'TTS_CANCEL_INSTALL'
+
+    ADD_TTS_AUDIO = 'ADD_TTS_AUDIO'  # python-initiated speak of card selection
+
     SET_OPENAI_API_KEY = 'SET_OPENAI_API_KEY'
     DID_SET_OPENAI_API_KEY = 'DID_SET_OPENAI_API_KEY'
 

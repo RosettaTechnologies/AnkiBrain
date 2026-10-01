@@ -1,5 +1,18 @@
 # Changelog
 
+# 1.2.0
+- AnkiBrain Voice: fully local text-to-speech powered by Kokoro-82M, running on your
+  own machine in BOTH Regular and Local mode (no servers, no API keys, offline after setup)
+- Highlight any text on a card and press "Speak" to hear it; every AI chat reply has a
+  speaker button; generated cards can include [sound:] audio automatically
+- 9 languages out of the box: English (US/GB), Spanish, French, Hindi, Italian,
+  Portuguese, Chinese; Japanese via an optional voice pack
+- Voice engine installs with one click (~700 MB) into the add-on folder using a pinned,
+  checksum-verified runtime (dedicated Python 3.11 venv via uv - isolated from the AI
+  engine's venv and from Anki's Python; no admin, no pyenv, Linux/macOS/Windows)
+- Progress bars, cancel/retry, repair, and offline/air-gapped drop-in support via
+  Settings > Voice
+
 # 1.1.0
 - Generate cards from documents now include images: figures and diagrams found in
   PDFs and DOCX files are extracted and attached to the flashcards generated from

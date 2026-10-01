@@ -22,10 +22,12 @@ import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../api/constants";
 import { useDispatch } from "react-redux";
 import { setMakeCardsText } from "../../../api/redux/slices/makeCardsText";
+import { speak } from "../../../api/tts";
 
 export const AIMessage = (props) => {
   const [showPopover, setShowPopover] = useState(false);
   const [selectedText, setSelectedText] = useState("");
+  const [speaking, setSpeaking] = useState(false);
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { colorMode } = useColorMode();
@@ -123,6 +125,26 @@ export const AIMessage = (props) => {
             <i className={"bi bi-share-fill"}></i>
           </Box>
         </PopoverAnchor>
+
+        <Box
+          me={5}
+          className={"SpeakButton"}
+          title="Listen to this reply (Kokoro Voice)"
+          style={{
+            position: "absolute",
+            right: 0,
+            top: 4,
+            cursor: "pointer",
+            opacity: speaking ? 0.4 : 0.85,
+          }}
+          onClick={() => {
+            if (speaking) return;
+            setSpeaking(true);
+            speak(props.messageData.text).finally(() => setSpeaking(false));
+          }}
+        >
+          <i className={speaking ? "bi bi-hourglass-split" : "bi bi-volume-up-fill"}></i>
+        </Box>
       </Box>
 
       <PopoverContent width={250}>

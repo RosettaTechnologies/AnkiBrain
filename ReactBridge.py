@@ -8,6 +8,7 @@ from aqt import mw
 from AnkiBrainModule import AnkiBrain
 from AnkiBrainDocument import AnkiBrainDocument
 from InterprocessCommand import InterprocessCommand as IC
+from KokoroTTSAdapter import TTSNotInstalledError, TTSUnsupportedError
 from cards import add_basic_card, add_cloze_card
 from media_images import store_server_split_images, resolve_card_image_paths, resolve_image_entry
 from networking import fetch, postDocument
@@ -114,7 +115,44 @@ class ReactBridge:
             elif cmd == IC.ADD_CARDS:
                 try:
                     deck_name = data['deckName']
-                    for card in data['cards']:
+                    cards = data['cards']
+
+                    # AnkiBrain Voice: synthesize card audio up front so the
+                    # [sound:] tags ride in with the fields. Degrades to
+                    # "cards without audio" (never a blocked add) and tells
+                    # JS why, so it can offer the engine install once.
+                    settings = mw.settingsManager.settings
+                    embed = bool(settings.get('ttsEnabled', True)) and bool(settings.get('ttsEmbedCardAudio', True))
+                    sides = settings.get('ttsCardAudioSides') or 'answer'
+                    tts_note = None
+                    audio_back = {}
+                    audio_front = {}
+                    if embed:
+                        avail, _reason = self.app.tts.availability()
+                        if avail in ('unsupported', 'absent'):
+                            embed = False
+                            tts_note = avail
+                        else:
+                            for i, card in enumerate(cards):
+                                try:
+                                    if card.get('type') == 'cloze':
+                                        d = await self.app.tts.speak_clean(card.get('text', ''), is_cloze=True)
+                                        if d:
+                                            audio_back[i] = [d['path']]
+                                    else:
+                                        if sides in ('answer', 'both'):
+                                            d = await self.app.tts.speak_clean(card.get('back', ''))
+                                            if d:
+                                                audio_back.setdefault(i, []).append(d['path'])
+                                        if sides in ('question', 'both'):
+                                            d = await self.app.tts.speak_clean(card.get('front', ''))
+                                            if d:
+                                                audio_front.setdefault(i, []).append(d['path'])
+                                except Exception as e:
+                                    print(f'(ReactBridge) card audio synth failed, adding card without it: {e}')
+                                    tts_note = 'error'
+
+                    for i, card in enumerate(cards):
                         card_type = card['type']
                         tags = card['tags']
                         # Cards carry 'images' as media_tmp ids; resolve to
@@ -126,12 +164,16 @@ class ReactBridge:
                             front = card['front']
                             back = card['back']
                             add_basic_card(front, back, deck_name=deck_name, tags=tags,
-                                           image_paths=image_paths)
+                                           image_paths=image_paths,
+                                           front_audio_paths=audio_front.get(i),
+                                           back_audio_paths=audio_back.get(i))
                         elif card_type == 'cloze':
                             text = card['text']
                             add_cloze_card(text, deck_name=deck_name, tags=tags,
-                                           image_paths=image_paths)
-                    self.send_cmd(IC.DID_ADD_CARDS, commandId=commandId)
+                                           image_paths=image_paths,
+                                           audio_paths=audio_back.get(i))
+                    payload = {} if tts_note is None else {'tts_note': tts_note}
+                    self.send_cmd(IC.DID_ADD_CARDS, payload or None, commandId=commandId)
                 except Exception as e:
                     self.send_cmd(IC.DID_ADD_CARDS, error=str(e), commandId=commandId)
 
@@ -220,6 +262,61 @@ class ReactBridge:
                 except Exception as e:
                     self.send_cmd(IC.DID_RESOLVE_IMAGES, error=str(e), commandId=commandId)
 
+            # ── AnkiBrain Voice (Kokoro TTS) ─────────────────────────────────
+            elif cmd == IC.SYNTHESIZE_SPEECH:
+                try:
+                    voice = data.get('voice') or await self.app.tts.default_voice()
+                    speed = data.get('speed') or await self.app.tts.default_speed()
+                    if not self.app.tts.voice_allowed(voice):
+                        # ja pipeline needs its pack; tell JS precisely.
+                        self.send_cmd(IC.DID_SYNTHESIZE_SPEECH, error='TTS_PACK_MISSING:' + voice,
+                                      commandId=commandId)
+                    else:
+                        out = await self.app.tts.speak_clean(data.get('text', ''), voice=voice, speed=speed)
+                        if out is None:
+                            self.send_cmd(IC.DID_SYNTHESIZE_SPEECH, {'url': None}, commandId=commandId)
+                        else:
+                            self.send_cmd(IC.DID_SYNTHESIZE_SPEECH, out, commandId=commandId)
+                except TTSNotInstalledError:
+                    # Stable sentinel the webview maps to the setup modal.
+                    self.send_cmd(IC.DID_SYNTHESIZE_SPEECH, error='TTS_NOT_INSTALLED',
+                                  commandId=commandId)
+                except TTSUnsupportedError as e:
+                    self.send_cmd(IC.DID_SYNTHESIZE_SPEECH, error=f'TTS_UNSUPPORTED:{e}',
+                                  commandId=commandId)
+                except Exception as e:
+                    self.send_cmd(IC.DID_SYNTHESIZE_SPEECH, error=str(e), commandId=commandId)
+
+            elif cmd == IC.TTS_STATUS:
+                try:
+                    self.send_cmd(IC.DID_TTS_STATUS, self.app.tts.status(), commandId=commandId)
+                except Exception as e:
+                    self.send_cmd(IC.DID_TTS_STATUS, error=str(e), commandId=commandId)
+
+            elif cmd == IC.TTS_INSTALL:
+                # Fire-and-forget: the ack just says "started"; the real story
+                # arrives as pushed TTS_INSTALL_PROGRESS + TTS_INSTALL_DONE
+                # events (an install outlives any single request promise).
+                groups = tuple(data.get('groups') or ['core'])
+
+                def _progress(ev):
+                    self.send_cmd(IC.TTS_INSTALL_PROGRESS, ev)
+
+                def _done(res):
+                    self.send_cmd(IC.TTS_INSTALL_DONE, res)
+
+                started = self.app.tts.start_install(groups=groups, on_event=_progress, on_done=_done)
+                self.send_cmd(IC.DID_TTS_INSTALL, {'started': bool(started)}, commandId=commandId)
+
+            elif cmd == IC.TTS_CANCEL_INSTALL:
+                self.app.tts.cancel_install()
+                self.send_cmd(IC.DID_TTS_INSTALL, {'cancelled': True}, commandId=commandId)
+
+            elif cmd == IC.ADD_TTS_AUDIO:
+                # Python-side flow (Speak button on a card selection): synth
+                # here, then hand the playable file:// url to the webview.
+                await self.speak_text(data.get('text', ''))
+
             elif cmd == IC.NETWORK_REQUEST:
                 url = data['url']
                 verb = data['verb']
@@ -259,3 +356,24 @@ class ReactBridge:
                     If you still need help, go to https://www.reddit.com/r/ankibrain/.
                     '''
             })
+
+    async def speak_text(self, text: str):
+        """
+        Python-initiated speech (the card selection 'Speak' button). The
+        webview is the only thing with an audio device here: we synthesize,
+        then push a plain playTtsAudio command with the file:// url — same
+        pattern as talkSelectedText/explainSelectedText, no promise needed.
+        """
+        if not text:
+            return
+        try:
+            voice = await self.app.tts.default_voice()
+            speed = await self.app.tts.default_speed()
+            out = await self.app.tts.speak_clean(text, voice=voice, speed=speed)
+            if out and out.get('url'):
+                self.send_to_js({'cmd': 'playTtsAudio', 'url': out['url'], 'text': text[:80]})
+        except (TTSNotInstalledError, TTSUnsupportedError):
+            self.send_to_js({'cmd': 'ttsSetupRequired', 'pendingText': text})
+        except Exception as e:
+            print(f'(ReactBridge) speak_text failed: {e}')
+            self.send_to_js({'cmd': 'ttsError', 'message': str(e)})
