@@ -1,6 +1,6 @@
 import "./CardMakingScreen.css";
 import { useDispatch, useSelector } from "react-redux";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cloneDeep, debounce } from "lodash";
 import {
   AlertDialog,
@@ -12,11 +12,8 @@ import {
   AlertDialogOverlay,
   Box,
   Button,
-  Card,
-  CardBody,
   Flex,
   Heading,
-  IconButton,
   Input,
   InputGroup,
   InputLeftAddon,
@@ -30,7 +27,6 @@ import {
   ModalOverlay,
   Progress,
   Select,
-  Spacer,
   Spinner,
   Tab,
   TabList,
@@ -38,8 +34,6 @@ import {
   TabPanels,
   Tabs,
   Tag,
-  TagCloseButton,
-  TagLabel,
   Text,
   Textarea,
   useColorMode,
@@ -47,10 +41,17 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { pyAddCards } from "../../../api/PythonBridge/senders/pyAddCards";
-import { AddIcon, CloseIcon, DeleteIcon, StarIcon } from "@chakra-ui/icons";
+import { AddIcon, DeleteIcon, StarIcon } from "@chakra-ui/icons";
 import { generateCards } from "../../../api/cards";
 import { deleteCardAtIndex, setCards } from "../../../api/redux/slices/cards";
 import { addImages } from "../../../api/redux/slices/imagesRegistry";
+import {
+  setDocumentContext,
+} from "../../../api/redux/slices/documentContext";
+import {
+  pyResolveImages,
+  collectCardImageIds,
+} from "../../../api/PythonBridge/senders/pyResolveImages";
 import { setBoolShowCardsJsonEditor } from "../../../api/redux/slices/bShowCardsJsonEditor";
 import {
   setMakeCardsLoading,
@@ -66,6 +67,9 @@ import {
   getCardGenChunkSize,
 } from "../../../api/batching";
 import { CustomPromptMakeCardsModal } from "./CustomPromptMakeCardsModal";
+import { EditableCard } from "./EditableCard";
+import { ImagePickerModal } from "./ImagePickerModal";
+import { DocumentImageLibrary } from "./DocumentImageLibrary";
 
 function ClearCardsAlert(props) {
   const cancelRef = useRef();
@@ -97,135 +101,6 @@ function ClearCardsAlert(props) {
         </AlertDialogContent>
       </AlertDialogOverlay>
     </AlertDialog>
-  );
-}
-
-function renderCard(card, key, modifyCard, imagesById = {}) {
-  const { colorMode } = useColorMode();
-
-  const removeImage = (imageId) => {
-    modifyCard(key, (c) => {
-      let cardCopy = cloneDeep(c);
-      cardCopy.images = (cardCopy.images || []).filter((id) => id !== imageId);
-      return cardCopy;
-    });
-  };
-
-  const cardImages = card.images || [];
-
-  return (
-    <Card
-      mb={3}
-      backgroundColor={colorMode === "light" ? "offWhite" : "customPurple.800"}
-      color={colorMode === "light" ? "customBlack" : "white"}
-    >
-      <CardBody>
-        <Flex flexDirection={"row"}>
-          <Flex
-            width={"100%"}
-            height={"100%"}
-            flexDirection={"row"}
-            justifyContent={"center"}
-            alignItems={"center"}
-            mb={5}
-          >
-            <Box>
-              <Tag me={5}>{card.type}</Tag>
-            </Box>
-            <Spacer />
-            <VStack alignSelf={"center"}>
-              <VStack mb={15}>
-                <Heading size={"sm"}>
-                  {card.type === "basic" ? "Front" : ""}
-                </Heading>
-                <Text>{card.type === "basic" ? card.front : card.text}</Text>
-              </VStack>
-
-              <VStack mb={15}>
-                <Heading size={"sm"}>
-                  {card.type === "basic" ? "Back" : ""}
-                </Heading>
-                <Text>{card.type === "basic" ? card.back : ""}</Text>
-              </VStack>
-
-              {cardImages.length > 0 && (
-                <VStack mb={15} align={"center"}>
-                  <Heading size={"xs"} color={"gray"}>
-                    Images (answer side)
-                  </Heading>
-                  <Flex direction={"row"} flexWrap={"wrap"} justifyContent={"center"}>
-                    {cardImages.map((imageId) => {
-                      const image = imagesById[imageId];
-                      return (
-                        <Box key={imageId} m={1} position={"relative"}>
-                          {image ? (
-                            <img
-                              src={image.url}
-                              alt={imageId}
-                              style={{
-                                maxWidth: 140,
-                                maxHeight: 100,
-                                display: "block",
-                              }}
-                            />
-                          ) : (
-                            <Text fontSize={10} color={"gray"}>
-                              image unavailable
-                            </Text>
-                          )}
-                          <IconButton
-                            aria-label={"Remove image"}
-                            icon={<CloseIcon boxSize={2.5} />}
-                            size={"xs"}
-                            colorScheme={"red"}
-                            position={"absolute"}
-                            top={0}
-                            right={0}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              removeImage(imageId);
-                            }}
-                          />
-                        </Box>
-                      );
-                    })}
-                  </Flex>
-                </VStack>
-              )}
-            </VStack>
-            <Spacer />
-
-            <Flex maxWidth={"50%"} justifyContent={"end"} flexWrap={"wrap"}>
-              {card.tags.map((tag, tagIndex) => (
-                <Tag size={"lg"} me={2} mb={2} colorScheme={"green"}>
-                  <TagLabel>{tag}</TagLabel>
-                  <TagCloseButton
-                    onClick={(e) => {
-                      e.preventDefault();
-                      modifyCard(key, () => {
-                        let cardCopy = cloneDeep(card);
-                        cardCopy.tags.splice(tagIndex, 1);
-                        return cardCopy;
-                      });
-                    }}
-                  />
-                </Tag>
-              ))}
-            </Flex>
-          </Flex>
-          <Flex>
-            <Button
-              colorScheme={"red"}
-              onClick={() => {
-                store.dispatch(deleteCardAtIndex(key));
-              }}
-            >
-              Delete
-            </Button>
-          </Flex>
-        </Flex>
-      </CardBody>
-    </Card>
   );
 }
 
@@ -275,6 +150,71 @@ export function CardMakingScreen() {
     (state) => state.deleteCardsAfterAdding.value
   );
   const imagesById = useSelector((state) => state.imagesRegistry.value);
+  const documentContext = useSelector((state) => state.documentContext.value);
+
+  // The card whose image picker is open (null = closed). Manual image adds
+  // are uncapped; the picker lists every image found in any processed
+  // document so cards can pull from earlier runs too.
+  const [pickerCardIndex, setPickerCardIndex] = useState(null);
+
+  const allImages = useMemo(() => Object.values(imagesById), [imagesById]);
+
+  // How many cards each image is currently attached to — powers the library
+  // badges and lets the picker show "on N cards".
+  const usageCounts = useMemo(() => {
+    const counts = {};
+    for (let card of cards) {
+      for (let imageId of card.images || []) {
+        counts[imageId] = (counts[imageId] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [cards]);
+
+  // Images from the most recently processed document first (ids are
+  // "runId/filename"), then anything left over from earlier runs.
+  const sortedImages = useMemo(() => {
+    if (!documentContext.runId) {
+      return allImages;
+    }
+    const prefix = documentContext.runId + "/";
+    const current = allImages.filter((image) => image.id.startsWith(prefix));
+    const others = allImages.filter((image) => !image.id.startsWith(prefix));
+    return [...current, ...others];
+  }, [allImages, documentContext.runId]);
+
+  // Persist manual card edits (text, tags, image adds/removals) so the
+  // review list survives closing and reopening Anki. Generation paths
+  // already saved tempCards; edits until now did not.
+  const debouncedSaveTempCards = useRef(
+    debounce((cardsCopy) => {
+      pyEditSetting("tempCards", cardsCopy);
+    }, 700)
+  ).current;
+
+  useEffect(() => {
+    debouncedSaveTempCards(cloneDeep(cards));
+  }, [cards]);
+
+  // After a restart the registry is empty while restored cards still carry
+  // ids; ask python to resolve what survives in media_tmp so their previews
+  // (and the picker) work again. Each id is attempted once per session —
+  // ids purged from media_tmp will never resolve, so don't re-ask on every
+  // keystroke.
+  const imageResolveAttemptedRef = useRef(new Set());
+
+  useEffect(() => {
+    const missing = collectCardImageIds(cards).filter(
+      (imageId) => !imageResolveAttemptedRef.current.has(imageId)
+    );
+    if (missing.length === 0) {
+      return;
+    }
+    for (let imageId of missing) {
+      imageResolveAttemptedRef.current.add(imageId);
+    }
+    pyResolveImages(missing);
+  }, [cards]);
 
   const formatTime = (seconds) => {
     const hours = Math.floor(seconds / 3600);
@@ -291,6 +231,15 @@ export function CardMakingScreen() {
     let cardsCopy = cloneDeep(cards);
     cardsCopy[i] = fn(cardsCopy[i]);
     dispatch(setCards(cardsCopy));
+  };
+
+  // One image id -> one card. Manual inserts are uncapped and deduped.
+  const handleInsertImage = (imageId, cardIndex) => {
+    modifyCard(cardIndex, (c) => {
+      let cardCopy = cloneDeep(c);
+      cardCopy.images = [...new Set([...(cardCopy.images || []), imageId])];
+      return cardCopy;
+    });
   };
 
   const handleClearCards = async () => {
@@ -421,6 +370,21 @@ export function CardMakingScreen() {
       // Keep extracted images available for previews and for ADD_CARDS,
       // which resolves ids to files in media_tmp.
       dispatch(addImages(images));
+
+      // Record what this run found so the tab can show a status line and so
+      // the library/picker can sort "images from this document" first.
+      dispatch(
+        setDocumentContext({
+          docName: splitResult.doc
+            ? splitResult.doc.file_name_with_extension ||
+              splitResult.doc.file_name ||
+              ""
+            : "",
+          runId: images.length > 0 ? images[0].id.split("/")[0] : "",
+          chunksCount: chunks.length,
+          imagesCount: images.length,
+        })
+      );
 
       const model = store.getState().appSettings.ai.llmModel;
       const maxCharsPerBatch = getCardGenChunkSize(model);
@@ -606,11 +570,122 @@ export function CardMakingScreen() {
 
         <Tabs>
           <TabList>
-            <Tab>From Text</Tab>
             <Tab>From Documents</Tab>
+            <Tab>From Text</Tab>
             {failedCards.length > 0 && <Tab>Failed Cards</Tab>}
           </TabList>
           <TabPanels>
+            <TabPanel>
+              <VStack align={"stretch"} spacing={4}>
+                <Flex direction={"row"} align={"center"} flexWrap={"wrap"}>
+                  <Button
+                    width={325}
+                    variant={"accent"}
+                    isDisabled={makeCardsLoading}
+                    onClick={() => {
+                      setShowMakeCardsFromDocumentAlert(true);
+                    }}
+                  >
+                    <Flex flexDirection={"row"} alignItems={"center"}>
+                      {makeCardsLoading ? (
+                        <Spinner />
+                      ) : (
+                        <>
+                          <AddIcon me={3} />
+                          Make Cards From Entire Document
+                        </>
+                      )}
+                    </Flex>
+                  </Button>
+
+                  <Flex
+                    direction={"column"}
+                    p={0}
+                    m={0}
+                    ms={4}
+                    mt={{ base: 2, lg: 0 }}
+                  >
+                    <Text fontSize={10} color={"gray"} p={0} m={0}>
+                      Max {isLocalMode() ? "1 GB" : "100 MB"} per file. Every
+                      image embedded in your document is collected below, so
+                      you can insert images into cards before adding them to
+                      Anki.
+                    </Text>
+                    {automaticallyAddCards && (
+                      <Text fontSize={10} color={"gray"} p={0} m={0}>
+                        Every 100 cards will automatically be added to Anki
+                        (change this in Settings)
+                      </Text>
+                    )}
+                  </Flex>
+                </Flex>
+
+                {makeCardsLoading && (
+                  <Flex direction={"column"}>
+                    <Tag
+                      justifyContent={"center"}
+                      alignSelf={"center"}
+                      width={325}
+                    >
+                      Document Processing: {makeCardsFromDocProgress}% (ETA:{" "}
+                      {formatTime(eta)})
+                    </Tag>
+                    <Progress
+                      mt={1}
+                      mb={3}
+                      hasStripe
+                      value={makeCardsFromDocProgress}
+                    />
+
+                    <Button
+                      alignSelf={"center"}
+                      width={325}
+                      mt={2}
+                      colorScheme={"red"}
+                      onClick={() => {
+                        infoToast(
+                          "Processing Will Stop",
+                          "Your document will stop processing after the current chunk is finished."
+                        );
+                        terminateMakingCardsFromDoc.current = true;
+                      }}
+                    >
+                      Stop
+                    </Button>
+                  </Flex>
+                )}
+
+                {documentContext.docName && (
+                  <Flex
+                    direction={"row"}
+                    align={"center"}
+                    flexWrap={"wrap"}
+                    p={2}
+                    borderRadius={"md"}
+                    backgroundColor={
+                      colorMode === "light"
+                        ? "rgba(0, 0, 0, 0.05)"
+                        : "customPurple.800"
+                    }
+                  >
+                    <Text fontSize={12}>
+                      Last processed: <b>{documentContext.docName}</b>
+                    </Text>
+                    <Text fontSize={12} color={"gray"} ms={4}>
+                      {documentContext.chunksCount} text sections ·{" "}
+                      {documentContext.imagesCount} images found
+                    </Text>
+                  </Flex>
+                )}
+
+                <DocumentImageLibrary
+                  images={sortedImages}
+                  usageCounts={usageCounts}
+                  cards={cards}
+                  onInsert={handleInsertImage}
+                />
+              </VStack>
+            </TabPanel>
             <TabPanel>
               <Flex direction={"column"}>
                 <Textarea
@@ -676,74 +751,6 @@ export function CardMakingScreen() {
                     this in Settings)
                   </Text>
                 </>
-              )}
-            </TabPanel>
-            <TabPanel>
-              <Button
-                mt={3}
-                width={325}
-                variant={"accent"}
-                onClick={() => {
-                  setShowMakeCardsFromDocumentAlert(true);
-                }}
-              >
-                <Flex flexDirection={"row"} alignItems={"center"}>
-                  {makeCardsLoading ? (
-                    <Spinner />
-                  ) : (
-                    <>
-                      <AddIcon me={3} />
-                      Make Cards From Entire Document
-                    </>
-                  )}
-                </Flex>
-              </Button>
-
-              <Flex direction={"column"} p={0} m={0}>
-                <Text fontSize={10} color={"gray"} p={0} m={0}>
-                  Max {isLocalMode() ? "1 GB" : "100 MB"} per file.{" "}
-                </Text>
-                {automaticallyAddCards && (
-                  <Text fontSize={10} color={"gray"} p={0} m={0}>
-                    Every 100 cards will automatically be added to Anki (change
-                    this in Settings)
-                  </Text>
-                )}
-              </Flex>
-
-              {makeCardsLoading && (
-                <Flex direction={"column"} mt={3}>
-                  <Tag
-                    justifyContent={"center"}
-                    alignSelf={"center"}
-                    width={325}
-                  >
-                    Document Processing: {makeCardsFromDocProgress}% (ETA:{" "}
-                    {formatTime(eta)})
-                  </Tag>
-                  <Progress
-                    mt={1}
-                    mb={3}
-                    hasStripe
-                    value={makeCardsFromDocProgress}
-                  />
-
-                  <Button
-                    alignSelf={"center"}
-                    width={325}
-                    mt={2}
-                    colorScheme={"red"}
-                    onClick={() => {
-                      infoToast(
-                        "Processing Will Stop",
-                        "Your document will stop processing after the current chunk is finished."
-                      );
-                      terminateMakingCardsFromDoc.current = true;
-                    }}
-                  >
-                    Stop
-                  </Button>
-                </Flex>
               )}
             </TabPanel>
             <TabPanel>
@@ -878,11 +885,55 @@ export function CardMakingScreen() {
           </Button>
         </Flex>
 
-        <Box maxHeight={500} overflowY={"auto"} p={5}>
-          {cards.map((card, i) =>
-            renderCard(card, i, modifyCard, imagesById)
-          )}
+        <Box mt={2} px={5}>
+          <Heading size={"sm"}>Review & edit cards ({cards.length})</Heading>
+          <Text fontSize={12} color={"gray"}>
+            Edit text and tags, or add/remove images on each card before
+            adding them to Anki. Images always appear on the answer side.
+          </Text>
         </Box>
+
+        <Box maxHeight={600} overflowY={"auto"} p={5}>
+          {cards.map((card, i) => (
+            <EditableCard
+              key={i}
+              card={card}
+              index={i}
+              imagesById={imagesById}
+              modifyCard={modifyCard}
+              onDelete={(index) => {
+                store.dispatch(deleteCardAtIndex(index));
+              }}
+              onOpenImagePicker={(index) => {
+                setPickerCardIndex(index);
+              }}
+            />
+          ))}
+        </Box>
+
+        <ImagePickerModal
+          isOpen={pickerCardIndex !== null}
+          onClose={() => {
+            setPickerCardIndex(null);
+          }}
+          images={sortedImages}
+          currentImages={
+            pickerCardIndex !== null && cards[pickerCardIndex]
+              ? cards[pickerCardIndex].images || []
+              : []
+          }
+          usageCounts={usageCounts}
+          onConfirm={(newImageIds) => {
+            if (pickerCardIndex === null) {
+              return;
+            }
+            modifyCard(pickerCardIndex, (c) => {
+              let cardCopy = cloneDeep(c);
+              cardCopy.images = [...new Set(newImageIds)];
+              return cardCopy;
+            });
+          }}
+        />
       </div>
     </div>
   );

@@ -1,0 +1,252 @@
+import { useState } from "react";
+import { cloneDeep } from "lodash";
+import {
+  Box,
+  Button,
+  Card,
+  CardBody,
+  Flex,
+  Heading,
+  IconButton,
+  Input,
+  Spacer,
+  Tag,
+  TagCloseButton,
+  TagLabel,
+  Text,
+  Textarea,
+  useColorMode,
+  VStack,
+} from "@chakra-ui/react";
+import { AddIcon, CloseIcon, DeleteIcon } from "@chakra-ui/icons";
+
+export function cardSnippet(card) {
+  const text =
+    card.type === "cloze" ? card.text || "" : card.front || card.text || "";
+  const flat = text.replace(/\s+/g, " ").trim();
+  return flat.length > 64 ? flat.slice(0, 64) + "…" : flat || "(empty card)";
+}
+
+/*
+ * One reviewable, editable card in the Make Cards review list.
+ *
+ * Editing model: every change goes through modifyCard(index, fn), which the
+ * CardMakingScreen uses to update the redux `cards` list (persisted back to
+ * python's tempCards setting on a debounce). Images are referenced by their
+ * media_tmp ids; the webview previews them via file:// urls from
+ * imagesRegistry, and ADD_CARDS resolves the ids to bytes at import time.
+ *
+ * Manual image adds are intentionally uncapped — the MAX_IMAGES_PER_CARD
+ * limit only governs automatic attachment during generation.
+ */
+export function EditableCard(props) {
+  const { card, index, imagesById, modifyCard, onDelete, onOpenImagePicker } =
+    props;
+  const { colorMode } = useColorMode();
+  const [newTag, setNewTag] = useState("");
+
+  const setField = (field, value) => {
+    modifyCard(index, (c) => {
+      const cardCopy = cloneDeep(c);
+      cardCopy[field] = value;
+      return cardCopy;
+    });
+  };
+
+  const removeImage = (imageId) => {
+    modifyCard(index, (c) => {
+      const cardCopy = cloneDeep(c);
+      cardCopy.images = (cardCopy.images || []).filter((id) => id !== imageId);
+      return cardCopy;
+    });
+  };
+
+  const handleAddTag = () => {
+    const value = newTag.trim();
+    if (value === "" || value.includes(" ")) {
+      return;
+    }
+    modifyCard(index, (c) => {
+      const cardCopy = cloneDeep(c);
+      if (!cardCopy.tags.includes(value)) {
+        cardCopy.tags.push(value);
+      }
+      return cardCopy;
+    });
+    setNewTag("");
+  };
+
+  const cardImages = card.images || [];
+
+  return (
+    <Card
+      mb={3}
+      backgroundColor={colorMode === "light" ? "offWhite" : "customPurple.800"}
+      color={colorMode === "light" ? "customBlack" : "white"}
+    >
+      <CardBody>
+        <Flex direction={"row"} align={"start"}>
+          <VStack flex={1} align={"stretch"} spacing={3} me={3}>
+            <Flex direction={"row"} align={"center"}>
+              <Tag me={3}>
+                {index + 1} · {card.type}
+              </Tag>
+              <Spacer />
+              <Button
+                size={"sm"}
+                colorScheme={"red"}
+                variant={"ghost"}
+                onClick={() => onDelete(index)}
+              >
+                <DeleteIcon me={2} boxSize={3} />
+                Delete
+              </Button>
+            </Flex>
+
+            {card.type === "cloze" ? (
+              <VStack align={"stretch"} spacing={1}>
+                <Heading size={"xs"} color={"gray"}>
+                  Cloze text (deletions look like {"{{c1::answer}}"})
+                </Heading>
+                <Textarea
+                  size={"sm"}
+                  value={card.text || ""}
+                  onChange={(e) => setField("text", e.target.value)}
+                  bg={colorMode === "light" ? "white" : "customPurple.700"}
+                  focusBorderColor={"accent"}
+                />
+              </VStack>
+            ) : (
+              <>
+                <VStack align={"stretch"} spacing={1}>
+                  <Heading size={"xs"} color={"gray"}>
+                    Front
+                  </Heading>
+                  <Textarea
+                    size={"sm"}
+                    value={card.front || ""}
+                    onChange={(e) => setField("front", e.target.value)}
+                    bg={colorMode === "light" ? "white" : "customPurple.700"}
+                    focusBorderColor={"accent"}
+                  />
+                </VStack>
+                <VStack align={"stretch"} spacing={1}>
+                  <Heading size={"xs"} color={"gray"}>
+                    Back
+                  </Heading>
+                  <Textarea
+                    size={"sm"}
+                    value={card.back || ""}
+                    onChange={(e) => setField("back", e.target.value)}
+                    bg={colorMode === "light" ? "white" : "customPurple.700"}
+                    focusBorderColor={"accent"}
+                  />
+                </VStack>
+              </>
+            )}
+
+            <VStack align={"stretch"} spacing={2}>
+              <Flex direction={"row"} align={"center"}>
+                <Heading size={"xs"} color={"gray"}>
+                  Images (answer side)
+                </Heading>
+                <Spacer />
+                <Button
+                  size={"xs"}
+                  variant={"outline"}
+                  onClick={() => onOpenImagePicker(index)}
+                >
+                  <AddIcon me={2} boxSize={2.5} />
+                  Add image
+                </Button>
+              </Flex>
+
+              {cardImages.length > 0 ? (
+                <Flex direction={"row"} flexWrap={"wrap"}>
+                  {cardImages.map((imageId) => {
+                    const image = imagesById[imageId];
+                    return (
+                      <Box key={imageId} m={1} position={"relative"}>
+                        {image ? (
+                          <img
+                            src={image.url}
+                            alt={imageId}
+                            style={{
+                              maxWidth: 140,
+                              maxHeight: 100,
+                              display: "block",
+                            }}
+                          />
+                        ) : (
+                          <Text fontSize={10} color={"gray"}>
+                            image unavailable
+                          </Text>
+                        )}
+                        <IconButton
+                          aria-label={"Remove image"}
+                          icon={<CloseIcon boxSize={2.5} />}
+                          size={"xs"}
+                          colorScheme={"red"}
+                          position={"absolute"}
+                          top={0}
+                          right={0}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            removeImage(imageId);
+                          }}
+                        />
+                      </Box>
+                    );
+                  })}
+                </Flex>
+              ) : (
+                <Text fontSize={11} color={"gray"}>
+                  No images on this card yet.
+                </Text>
+              )}
+            </VStack>
+
+            <Flex direction={"row"} align={"center"} flexWrap={"wrap"}>
+              {card.tags.map((tag, tagIndex) => (
+                <Tag
+                  key={tag + tagIndex}
+                  size={"md"}
+                  me={2}
+                  mb={2}
+                  colorScheme={"green"}
+                >
+                  <TagLabel>{tag}</TagLabel>
+                  <TagCloseButton
+                    onClick={(e) => {
+                      e.preventDefault();
+                      modifyCard(index, () => {
+                        let cardCopy = cloneDeep(card);
+                        cardCopy.tags.splice(tagIndex, 1);
+                        return cardCopy;
+                      });
+                    }}
+                  />
+                </Tag>
+              ))}
+              <Input
+                size={"sm"}
+                width={140}
+                placeholder={"Add tag..."}
+                value={newTag}
+                onChange={(e) => setNewTag(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleAddTag();
+                  }
+                }}
+              />
+              <Button size={"sm"} ml={2} onClick={handleAddTag}>
+                Add
+              </Button>
+            </Flex>
+          </VStack>
+        </Flex>
+      </CardBody>
+    </Card>
+  );
+}

@@ -66,7 +66,7 @@ export async function splitDocument(dispatch = store.dispatch) {
         images = JSON.parse(images);
       }
 
-      return { chunks, images };
+      return { chunks, images, doc: document };
     } catch (err) {
       errorToast("Error", err.message);
     }
@@ -137,7 +137,7 @@ export async function splitDocument(dispatch = store.dispatch) {
     // media_tmp; what remains here are {id, url, mediaType, anchorChunk}.
     let images = res.data.images || [];
 
-    return { chunks, images };
+    return { chunks, images, doc };
   } catch (err) {
     errorToast("Error attempting request", err);
   }

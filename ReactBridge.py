@@ -9,7 +9,7 @@ from AnkiBrainModule import AnkiBrain
 from AnkiBrainDocument import AnkiBrainDocument
 from InterprocessCommand import InterprocessCommand as IC
 from cards import add_basic_card, add_cloze_card
-from media_images import store_server_split_images, resolve_card_image_paths
+from media_images import store_server_split_images, resolve_card_image_paths, resolve_image_entry
 from networking import fetch, postDocument
 
 
@@ -204,6 +204,21 @@ class ReactBridge:
                     self.send_cmd(IC.DID_SPLIT_DOCUMENT, data=res, commandId=commandId)
                 except Exception as e:
                     self.send_cmd(IC.DID_SPLIT_DOCUMENT, error=str(e), commandId=commandId)
+
+            elif cmd == IC.RESOLVE_IMAGES:
+                try:
+                    # Re-hydrate the webview's images registry for ids
+                    # referenced by cards restored from tempCards. Ids whose
+                    # files were purged from media_tmp are dropped; the card
+                    # still adds to Anki with whatever images remain.
+                    images = []
+                    for image_id in (data.get('ids') or []):
+                        entry = resolve_image_entry(image_id)
+                        if entry is not None:
+                            images.append(entry)
+                    self.send_cmd(IC.DID_RESOLVE_IMAGES, {'images': images}, commandId=commandId)
+                except Exception as e:
+                    self.send_cmd(IC.DID_RESOLVE_IMAGES, error=str(e), commandId=commandId)
 
             elif cmd == IC.NETWORK_REQUEST:
                 url = data['url']

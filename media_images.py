@@ -113,6 +113,28 @@ def resolve_image_path(image_id: str):
     return candidate if path.isfile(candidate) else None
 
 
+MEDIA_TYPE_BY_EXT = {ext: mime for mime, ext in EXT_BY_MEDIA_TYPE.items()}
+
+
+def resolve_image_entry(image_id: str):
+    """
+    Resolve a media_tmp image id to an imagesRegistry descriptor
+    {'id', 'url', 'mediaType'}, or None when the file is gone. Used to
+    re-hydrate previews for cards restored from tempCards after a restart,
+    while the media_tmp files themselves live (see cleanup_media_tmp).
+    """
+    resolved = resolve_image_path(image_id)
+    if resolved is None:
+        return None
+
+    ext = path.splitext(resolved)[1].lower().lstrip('.')
+    return {
+        'id': image_id,
+        'url': Path(resolved).as_uri(),
+        'mediaType': MEDIA_TYPE_BY_EXT.get(ext, 'image/png'),
+    }
+
+
 def resolve_card_image_paths(card: dict) -> list:
     """
     Resolve a card's 'images' id list to on-disk paths, skipping missing files.
