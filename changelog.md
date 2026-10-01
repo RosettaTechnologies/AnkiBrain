@@ -4,6 +4,8 @@
 - Generate cards from documents now include images: figures and diagrams found in
   PDFs and DOCX files are extracted and attached to the flashcards generated from
   their surrounding text.
+- Regular (server) mode: use a login/signup gate to reduce confusion as app is not usable
+  in server mode without an account
 
 # 1.0.1
 - Fix the highlight-to-interact feature (Explain/Talk buttons)

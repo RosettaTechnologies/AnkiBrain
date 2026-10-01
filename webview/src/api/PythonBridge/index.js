@@ -36,6 +36,7 @@ import { setDeleteCardsAfterAdding } from "../redux/slices/deleteCardsAfterAddin
 import { setShowBootReminderDialog } from "../redux/slices/showBootReminderDialog";
 import { pyEditSetting } from "./senders/pyEditSetting";
 import { setAppDidBoot } from "../redux/slices/appDidBoot";
+import { setCheckedAuth } from "../redux/slices/checkedAuth";
 import {
   setCustomPromptChat,
   setCustomPromptMakeCards,
@@ -215,18 +216,24 @@ export async function handlePythonDataReceived(
 
       // We have an access token, refresh user from server.
       // If this is not the case, don't set user in the store.
-      let loggedIn = false;
-      if (user && user.accessToken) {
-        let res = await getUser(user.accessToken);
-        if (res.status === "success") {
-          await setUser(res.data.user);
-          loggedIn = true;
+      // checkedAuth must flip even if the round trip throws, otherwise the
+      // server-mode login gate would sit forever on "Checking your session...".
+      try {
+        let loggedIn = false;
+        if (user && user.accessToken) {
+          let res = await getUser(user.accessToken);
+          if (res.status === "success") {
+            await setUser(res.data.user);
+            loggedIn = true;
+          }
         }
-      }
-      if (!loggedIn) {
-        if (import.meta.env.VITE_APP_ENV !== "STANDALONE") {
-          await logout(); // sets user to null in the store and in python layer
+        if (!loggedIn) {
+          if (import.meta.env.VITE_APP_ENV !== "STANDALONE") {
+            await logout(); // sets user to null in the store and in python layer
+          }
         }
+      } finally {
+        dispatch(setCheckedAuth(true));
       }
 
       break;

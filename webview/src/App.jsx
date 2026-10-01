@@ -15,6 +15,7 @@ import { PATHS } from "./api/constants";
 import { useDispatch, useSelector } from "react-redux";
 import { handlePythonDataReceived, initPythonBridge } from "./api/PythonBridge";
 import { ImportScreen } from "./Components/Screens/ImportScreen/ImportScreen";
+import { AuthScreen } from "./Components/Screens/AuthScreen/AuthScreen";
 import { GlobalLoadingIndicator } from "./Components/GlobalLoadingIndicator";
 import { setBoolGlobalLoadingIndicator } from "./api/redux/slices/bGlobalLoadingIndicator";
 import { AppAlertModal } from "./Components/modals/AppAlertModal";
@@ -39,6 +40,8 @@ function App() {
     (state) => state.showBootReminderDialog.value
   );
   const showLoginModal = useSelector((state) => state.showLoginModal.value);
+  const userMode = useSelector((state) => state.userMode.value);
+  const user = useSelector((state) => state.user.value);
   const appAlertModal = useSelector((state) => state.appAlertModal.value);
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -46,6 +49,16 @@ function App() {
     (state) => state.bGlobalLoadingIndicator.value
   );
   const { colorMode, toggleColorMode } = useColorMode();
+
+  // Server-mode gate: until a verified session exists, the whole app shell
+  // (SideBar, screens, BottomNav) is replaced by the AuthScreen login/signup
+  // gate. STANDALONE dev mode is exempt so the app can still be previewed
+  // without an account.
+  const needsAuth =
+    import.meta.env.VITE_APP_ENV !== "STANDALONE" &&
+    userMode === "SERVER" &&
+    appDidBoot &&
+    !(user && user.isVerified);
 
 
   //Function that can be called globally to render the loading screen
@@ -177,19 +190,25 @@ function App() {
             flexDirection: "column",
           }}
         >
-          {showLoginModal && <LoginModal isOpen={showLoginModal} />}
+          {!needsAuth && showLoginModal && <LoginModal isOpen={showLoginModal} />}
 
           {globalLoading && <GlobalLoadingIndicator />}
           <AppAlertModal />
-          <BootReminderModal
-            show={showBootReminderModalNow}
-            onClose={() => {
-              setShowBootReminderModalNow(false);
-            }}
-          />
-          <EmailVerificationModal />
+          {!needsAuth && (
+            <>
+              <BootReminderModal
+                show={showBootReminderModalNow}
+                onClose={() => {
+                  setShowBootReminderModalNow(false);
+                }}
+              />
+              <EmailVerificationModal />
+            </>
+          )}
 
-          {!globalLoading && (
+          {!globalLoading && needsAuth && <AuthScreen />}
+
+          {!globalLoading && !needsAuth && (
             <>
               <SideBar />
 

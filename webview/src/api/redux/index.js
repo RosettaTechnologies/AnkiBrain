@@ -29,6 +29,7 @@ import { automaticallyAddCards } from "./slices/automaticallyAddCards";
 import { deleteCardsAfterAdding } from "./slices/deleteCardsAfterAdding";
 import { showBootReminderDialog } from "./slices/showBootReminderDialog";
 import { appDidBoot } from "./slices/appDidBoot";
+import { checkedAuth } from "./slices/checkedAuth";
 import { customPrompts } from "./slices/customPrompts";
 import { imagesRegistry } from "./slices/imagesRegistry";
 import { documentContextSlice } from "./slices/documentContext";
@@ -90,6 +91,7 @@ export const store = configureStore({
     bGlobalLoadingIndicator: bGlobalLoadingIndicatorSlice.reducer,
     cards: cardsSlice.reducer,
     chatLoading: chatLoadingSlice.reducer,
+    checkedAuth: checkedAuth.reducer,
     colorMode: colorMode.reducer,
     cost: cost.reducer,
     currentChatInput: currentChatInputSlice.reducer,
