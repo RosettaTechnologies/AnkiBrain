@@ -21,15 +21,24 @@ import { AddIcon } from "@chakra-ui/icons";
 import { cardSnippet } from "./EditableCard";
 
 /*
- * "Images found in your document" panel on the From Documents tab.
+ * "Images found in your document" panel.
  *
  * Shows every image extracted from the processed document (imagesRegistry).
  * Clicking a thumbnail opens a preview where the image can be inserted into
  * one or more cards — the same ids the generation pipeline auto-attaches, so
  * manually placed images flow through ADD_CARDS unchanged.
+ *
+ * compact=true renders it as a narrow side panel: single-column list with
+ * larger thumbnails and a sticky header (the panel itself scrolls).
  */
 export function DocumentImageLibrary(props) {
-  const { images, usageCounts = {}, cards = [], onInsert } = props;
+  const {
+    images,
+    usageCounts = {},
+    cards = [],
+    onInsert,
+    compact = false,
+  } = props;
   const { colorMode } = useColorMode();
   const [showOnlyUnused, setShowOnlyUnused] = useState(false);
   const [previewImageId, setPreviewImageId] = useState(null);
@@ -50,18 +59,43 @@ export function DocumentImageLibrary(props) {
     ? images.find((image) => image.id === previewImageId) || null
     : null;
 
+  // The sticky header must match the surface it floats over: the fixed
+  // column paints customPurple.800 / a light gray wash; the drawer body
+  // uses the theme background.
+  const headerBg =
+    colorMode === "light"
+      ? compact
+        ? "rgb(249,249,249)"
+        : "white"
+      : "customPurple.800";
+
   return (
     <Box>
-      <Flex direction={"row"} align={"center"} mb={2}>
-        <Heading size={"sm"}>Images found in your document ({images.length})</Heading>
+      <Flex
+        direction={"row"}
+        align={"center"}
+        mb={2}
+        position={compact ? "sticky" : "static"}
+        top={0}
+        zIndex={compact ? 1 : "auto"}
+        bg={compact ? headerBg : "transparent"}
+        py={compact ? 1.5 : 0}
+      >
+        <Heading size={"sm"}>
+          Images found in your document ({images.length})
+        </Heading>
         <Spacer />
-        <Button
-          size={"xs"}
-          variant={showOnlyUnused ? "accent" : "outline"}
-          onClick={() => setShowOnlyUnused((v) => !v)}
-        >
-          {showOnlyUnused ? "Showing unused" : `Show unused only (${unusedCount})`}
-        </Button>
+        {images.length > 0 && (
+          <Button
+            size={"xs"}
+            variant={showOnlyUnused ? "accent" : "outline"}
+            onClick={() => setShowOnlyUnused((v) => !v)}
+          >
+            {showOnlyUnused
+              ? "Showing unused"
+              : `Show unused only (${unusedCount})`}
+          </Button>
+        )}
       </Flex>
 
       {images.length === 0 ? (
@@ -75,7 +109,10 @@ export function DocumentImageLibrary(props) {
           Every image from this document is already on at least one card.
         </Text>
       ) : (
-        <SimpleGrid columns={{ base: 3, md: 4, lg: 5 }} spacing={3}>
+        <SimpleGrid
+          columns={compact ? 1 : { base: 3, md: 4, lg: 5 }}
+          spacing={3}
+        >
           {visibleImages.map((image) => {
             const usedOn = usageCounts[image.id] || 0;
             return (
@@ -96,7 +133,7 @@ export function DocumentImageLibrary(props) {
                     alt={image.id}
                     style={{
                       width: "100%",
-                      maxHeight: 110,
+                      maxHeight: compact ? 160 : 110,
                       objectFit: "contain",
                       display: "block",
                     }}

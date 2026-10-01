@@ -7,7 +7,6 @@ import { bGlobalLoadingIndicatorSlice } from "./slices/bGlobalLoadingIndicator";
 import { chatLoadingSlice } from "./slices/chatLoading";
 import { documentsLoadingSlice } from "./slices/documentsLoadingSlice";
 import { cardsSlice } from "./slices/cards";
-import { bShowCardsJsonEditor } from "./slices/bShowCardsJsonEditor";
 import { useDocuments } from "./slices/useDocuments";
 import { makeCardsSettings } from "./slices/makeCardsSettings";
 import { appAlertModal } from "./slices/appAlertModal";
@@ -89,7 +88,6 @@ export const store = configureStore({
     appSettings: appSettings.reducer,
     automaticallyAddCards: automaticallyAddCards.reducer,
     bGlobalLoadingIndicator: bGlobalLoadingIndicatorSlice.reducer,
-    bShowCardsJsonEditor: bShowCardsJsonEditor.reducer,
     cards: cardsSlice.reducer,
     chatLoading: chatLoadingSlice.reducer,
     colorMode: colorMode.reducer,

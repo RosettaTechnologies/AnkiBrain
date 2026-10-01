@@ -12,36 +12,42 @@ import {
   AlertDialogOverlay,
   Box,
   Button,
+  Drawer,
+  DrawerBody,
+  DrawerCloseButton,
+  DrawerContent,
+  DrawerHeader,
+  DrawerOverlay,
   Flex,
   Heading,
   Input,
-  InputGroup,
-  InputLeftAddon,
-  InputRightAddon,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  ModalOverlay,
+  Popover,
+  PopoverArrow,
+  PopoverBody,
+  PopoverCloseButton,
+  PopoverContent,
+  PopoverTrigger,
   Progress,
   Select,
   Spinner,
-  Tab,
-  TabList,
-  TabPanel,
-  TabPanels,
-  Tabs,
-  Tag,
   Text,
   Textarea,
+  useBreakpointValue,
   useColorMode,
   useToast,
-  VStack,
 } from "@chakra-ui/react";
 import { pyAddCards } from "../../../api/PythonBridge/senders/pyAddCards";
-import { AddIcon, DeleteIcon, StarIcon } from "@chakra-ui/icons";
+import {
+  AddIcon,
+  CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  DeleteIcon,
+  InfoIcon,
+  SettingsIcon,
+  StarIcon,
+} from "@chakra-ui/icons";
+import { RiPriceTag3Line } from "react-icons/ri";
 import { generateCards } from "../../../api/cards";
 import { deleteCardAtIndex, setCards } from "../../../api/redux/slices/cards";
 import { addImages } from "../../../api/redux/slices/imagesRegistry";
@@ -52,7 +58,6 @@ import {
   pyResolveImages,
   collectCardImageIds,
 } from "../../../api/PythonBridge/senders/pyResolveImages";
-import { setBoolShowCardsJsonEditor } from "../../../api/redux/slices/bShowCardsJsonEditor";
 import {
   setMakeCardsLoading,
   setMakeCardsText,
@@ -104,13 +109,21 @@ function ClearCardsAlert(props) {
   );
 }
 
+/*
+ * One non-breaking group of toolbar controls. The toolbar wraps between
+ * groups at narrow widths, never inside one.
+ */
+function ToolbarGroup(props) {
+  return (
+    <Flex gap={1.5} align={"center"} flexShrink={0} {...props}>
+      {props.children}
+    </Flex>
+  );
+}
+
 export function CardMakingScreen() {
   const dispatch = useDispatch();
-  const [tempCardsJson, setTempCardsJson] = useState("");
   const topicExplanation = useSelector((state) => state.topicExplanation.value);
-  const bShowCardsJsonEditor = useSelector(
-    (state) => state.bShowCardsJsonEditor.value
-  );
   const { colorMode } = useColorMode();
 
   const makeCardsText = useSelector((state) => state.makeCardsText.value);
@@ -133,6 +146,26 @@ export function CardMakingScreen() {
     (state) => state.customPrompts.value.makeCards
   );
   const toast = useToast();
+
+  // Which editor view is active. Replaces the old Tabs; the segment buttons
+  // live in the toolbar so all page actions sit in one wrapping strip.
+  const [view, setView] = useState("documents");
+
+  // The extracted-images side panel. Expanded by default; on narrow windows
+  // it floats as an overlay drawer instead of a fixed column. Separate
+  // states because the breakpoint resolves to "base" for a frame on mount,
+  // and an auto-opened drawer would cover the previewer at startup.
+  const [showImagesPanel, setShowImagesPanel] = useState(true);
+  const [imagesDrawerOpen, setImagesDrawerOpen] = useState(false);
+  const isDrawerMode = useBreakpointValue({ base: true, lg: false });
+  const panelOpen = isDrawerMode ? imagesDrawerOpen : showImagesPanel;
+  const toggleImagesPanel = () => {
+    if (isDrawerMode) {
+      setImagesDrawerOpen((v) => !v);
+    } else {
+      setShowImagesPanel((v) => !v);
+    }
+  };
 
   const [makeCardsFromDocProgress, setMakeCardsFromDocProgress] = useState(0);
   const makeCardsFromDocStartTimeRef = useRef(null);
@@ -195,6 +228,14 @@ export function CardMakingScreen() {
   useEffect(() => {
     debouncedSaveTempCards(cloneDeep(cards));
   }, [cards]);
+
+  // The Failed segment only exists while there are failed cards; if the last
+  // one is fixed/cleared while that view is open, fall back to Documents.
+  useEffect(() => {
+    if (view === "failed" && failedCards.length === 0) {
+      setView("documents");
+    }
+  }, [view, failedCards.length]);
 
   // After a restart the registry is empty while restored cards still carry
   // ids; ask python to resolve what survives in media_tmp so their previews
@@ -296,11 +337,6 @@ export function CardMakingScreen() {
   };
 
   useEffect(() => {
-    if (!bShowCardsJsonEditor) return;
-    setTempCardsJson(JSON.stringify(cards));
-  }, [bShowCardsJsonEditor]);
-
-  useEffect(() => {
     (async function () {
       // If we have > 100 cards in the collection now, add to anki and clear the cards. (if user settings allow)
       if (automaticallyAddCards && cards.length > 100) {
@@ -322,30 +358,6 @@ export function CardMakingScreen() {
       }
     })();
   }, [cards]);
-
-  const handleEditModalClose = () => {
-    try {
-      const newCards = JSON.parse(tempCardsJson);
-      dispatch(setCards(newCards));
-      dispatch(setBoolShowCardsJsonEditor(false));
-    } catch (e) {
-      // TODO alert the user
-      window.alert(e);
-    }
-  };
-
-  function sanitizeJSON(jsonString) {
-    // Replace control characters with their escaped equivalents
-    let sanitizedString = jsonString
-      .replace(/[\b]/g, "\\b")
-      .replace(/\f/g, "\\f")
-      .replace(/\n/g, "\\n")
-      .replace(/\r/g, "\\r")
-      .replace(/\t/g, "\\t")
-      .replace(/"/g, '\\"')
-      .replace(/[^\x20-\x7E]/g, "");
-    return sanitizedString;
-  }
 
   async function makeCardsFromDocument() {
     if (makeCardsLoading) {
@@ -461,360 +473,236 @@ export function CardMakingScreen() {
     } finally {
       dispatch(setMakeCardsLoading(false));
     }
-  }
+  };
+
+  const handleAddCardsToAnki = async () => {
+    // Make sure global tag is applied.
+    const cardsCopy = cloneDeep(cards);
+    for (let card of cardsCopy) {
+      if (!card.tags.includes(tag)) {
+        card.tags.push(tag);
+      }
+    }
+
+    await pyAddCards(cardsCopy, deck, deleteCardsAfterAdding);
+  };
+
+  const handleMakeFromTextClick = async () => {
+    if (makeCardsText.trim().split(/\s+/).length <= 750) {
+      await handleMakeCards(makeCardsText, customPromptMakeCards, selectedCardType);
+    } else {
+      errorToast("Too many tokens");
+    }
+  };
+
+  const libraryProps = {
+    images: sortedImages,
+    usageCounts,
+    cards,
+    onInsert: handleInsertImage,
+    compact: true,
+  };
+
+  const segmentPill = (key, label) => (
+    <Button
+      size={"sm"}
+      variant={view === key ? "accent" : "ghost"}
+      fontWeight={view === key ? "bold" : "normal"}
+      color={view === key ? "customBlack" : "gray"}
+      boxShadow={view === key ? "0 0 0 2px rgba(243,206,255,0.35)" : "none"}
+      borderRadius={"full"}
+      px={5}
+      onClick={() => setView(key)}
+    >
+      {label}
+    </Button>
+  );
 
   return (
     <div className={"CardMakingScreen"}>
-      <div style={{ height: "100%", width: "100%" }}>
-        <ClearCardsAlert
-          isOpen={showClearCardsAlert}
-          onCancel={() => {
-            setShowClearCardsAlert(false);
-          }}
-          onOK={async () => {
-            await handleClearCards();
-            setShowClearCardsAlert(false);
-          }}
-        />
+      <ClearCardsAlert
+        isOpen={showClearCardsAlert}
+        onCancel={() => {
+          setShowClearCardsAlert(false);
+        }}
+        onOK={async () => {
+          await handleClearCards();
+          setShowClearCardsAlert(false);
+        }}
+      />
 
-        <AlertDialog
-          leastDestructiveRef={cancelRef}
-          isOpen={showMakeCardsFromDocumentAlert}
-          onClose={() => {
-            setShowMakeCardsFromDocumentAlert(false);
-          }}
-        >
-          <AlertDialogOverlay>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <Text>Make Cards From Document</Text>
-                <AlertDialogCloseButton />
-              </AlertDialogHeader>
-              <AlertDialogBody>
-                <Text>
-                  AnkiBrain can make cards out of an entire document up to{" "}
-                  {isLocalMode() ? "1 GB" : "100 MB"} in size.
-                </Text>
-                <Text>
-                  AnkiBrain will read <b>every single word</b> in your document,
-                  including author names, table of contents, indices, etc.
-                </Text>
-                <Text fontSize={24}>
-                  To reduce junk cards, <b>you must remove irrelevant pages</b>{" "}
-                  from your document!
-                </Text>
-              </AlertDialogBody>
-              <AlertDialogFooter>
-                <Button
-                  me={5}
-                  ref={cancelRef}
-                  onClick={() => {
-                    setShowMakeCardsFromDocumentAlert(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant={"accent"}
-                  onClick={async () => {
-                    setShowMakeCardsFromDocumentAlert(false);
-                    await makeCardsFromDocument();
-                  }}
-                >
-                  I understand, proceed
-                </Button>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialogOverlay>
-        </AlertDialog>
-
-        <CustomPromptMakeCardsModal
-          isOpen={showCustomPromptModal}
-          onClose={() => {
-            setShowCustomPromptModal(false);
-          }}
-        />
-
-        <Modal isOpen={bShowCardsJsonEditor} onClose={handleEditModalClose}>
-          <ModalOverlay />
-          <ModalContent>
-            <ModalHeader>Edit Cards JSON</ModalHeader>
-            <ModalCloseButton />
-            <ModalBody>
-              <Textarea
-                value={tempCardsJson}
-                onChange={(e) => {
-                  setTempCardsJson(e.target.value);
+      <AlertDialog
+        leastDestructiveRef={cancelRef}
+        isOpen={showMakeCardsFromDocumentAlert}
+        onClose={() => {
+          setShowMakeCardsFromDocumentAlert(false);
+        }}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <Text>Make Cards From Document</Text>
+              <AlertDialogCloseButton />
+            </AlertDialogHeader>
+            <AlertDialogBody>
+              <Text>
+                AnkiBrain can make cards out of an entire document up to{" "}
+                {isLocalMode() ? "1 GB" : "100 MB"} in size.
+              </Text>
+              <Text>
+                AnkiBrain will read <b>every single word</b> in your document,
+                including author names, table of contents, indices, etc.
+              </Text>
+              <Text fontSize={24}>
+                To reduce junk cards, <b>you must remove irrelevant pages</b>{" "}
+                from your document!
+              </Text>
+            </AlertDialogBody>
+            <AlertDialogFooter>
+              <Button
+                me={5}
+                ref={cancelRef}
+                onClick={() => {
+                  setShowMakeCardsFromDocumentAlert(false);
                 }}
-              />
-            </ModalBody>
-            <ModalFooter>
-              <Button colorScheme="blue" mr={3} onClick={handleEditModalClose}>
-                Close
+              >
+                Cancel
               </Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
-
-        <Flex direction={"row"} justifyContent={"center"}>
-          <Text color={"gray"} fontSize={12} me={3}>
-            Model: {model}
-          </Text>
-          <Text color={"gray"} fontSize={12} me={3}>
-            Temperature: {temperature}
-          </Text>
-          <Text fontSize={12} color={"gray"}>
-            Language: {language}
-          </Text>
-        </Flex>
-
-        <Tabs>
-          <TabList>
-            <Tab>From Documents</Tab>
-            <Tab>From Text</Tab>
-            {failedCards.length > 0 && <Tab>Failed Cards</Tab>}
-          </TabList>
-          <TabPanels>
-            <TabPanel>
-              <VStack align={"stretch"} spacing={4}>
-                <Flex direction={"row"} align={"center"} flexWrap={"wrap"}>
-                  <Button
-                    width={325}
-                    variant={"accent"}
-                    isDisabled={makeCardsLoading}
-                    onClick={() => {
-                      setShowMakeCardsFromDocumentAlert(true);
-                    }}
-                  >
-                    <Flex flexDirection={"row"} alignItems={"center"}>
-                      {makeCardsLoading ? (
-                        <Spinner />
-                      ) : (
-                        <>
-                          <AddIcon me={3} />
-                          Make Cards From Entire Document
-                        </>
-                      )}
-                    </Flex>
-                  </Button>
-
-                  <Flex
-                    direction={"column"}
-                    p={0}
-                    m={0}
-                    ms={4}
-                    mt={{ base: 2, lg: 0 }}
-                  >
-                    <Text fontSize={10} color={"gray"} p={0} m={0}>
-                      Max {isLocalMode() ? "1 GB" : "100 MB"} per file. Every
-                      image embedded in your document is collected below, so
-                      you can insert images into cards before adding them to
-                      Anki.
-                    </Text>
-                    {automaticallyAddCards && (
-                      <Text fontSize={10} color={"gray"} p={0} m={0}>
-                        Every 100 cards will automatically be added to Anki
-                        (change this in Settings)
-                      </Text>
-                    )}
-                  </Flex>
-                </Flex>
-
-                {makeCardsLoading && (
-                  <Flex direction={"column"}>
-                    <Tag
-                      justifyContent={"center"}
-                      alignSelf={"center"}
-                      width={325}
-                    >
-                      Document Processing: {makeCardsFromDocProgress}% (ETA:{" "}
-                      {formatTime(eta)})
-                    </Tag>
-                    <Progress
-                      mt={1}
-                      mb={3}
-                      hasStripe
-                      value={makeCardsFromDocProgress}
-                    />
-
-                    <Button
-                      alignSelf={"center"}
-                      width={325}
-                      mt={2}
-                      colorScheme={"red"}
-                      onClick={() => {
-                        infoToast(
-                          "Processing Will Stop",
-                          "Your document will stop processing after the current chunk is finished."
-                        );
-                        terminateMakingCardsFromDoc.current = true;
-                      }}
-                    >
-                      Stop
-                    </Button>
-                  </Flex>
-                )}
-
-                {documentContext.docName && (
-                  <Flex
-                    direction={"row"}
-                    align={"center"}
-                    flexWrap={"wrap"}
-                    p={2}
-                    borderRadius={"md"}
-                    backgroundColor={
-                      colorMode === "light"
-                        ? "rgba(0, 0, 0, 0.05)"
-                        : "customPurple.800"
-                    }
-                  >
-                    <Text fontSize={12}>
-                      Last processed: <b>{documentContext.docName}</b>
-                    </Text>
-                    <Text fontSize={12} color={"gray"} ms={4}>
-                      {documentContext.chunksCount} text sections ·{" "}
-                      {documentContext.imagesCount} images found
-                    </Text>
-                  </Flex>
-                )}
-
-                <DocumentImageLibrary
-                  images={sortedImages}
-                  usageCounts={usageCounts}
-                  cards={cards}
-                  onInsert={handleInsertImage}
-                />
-              </VStack>
-            </TabPanel>
-            <TabPanel>
-              <Flex direction={"column"}>
-                <Textarea
-                  bg={colorMode === "light" ? "white" : "customPurple.800"}
-                  focusBorderColor={"accent"}
-                  mt={1}
-                  style={{ minHeight: 200 }}
-                  onChange={(event) => {
-                    const text = event.target.value;
-                    const currentWordCount = text.trim().split(/\s+/).length;
-                    if (currentWordCount < 750) {
-                      debouncedCardsTextChangeHandler(text);
-                    }
-                  }}
-                  placeholder={
-                    "You can generate in Topic Explanation or copy-paste any information into here..."
-                  }
-                >
-                  {makeCardsText}
-                </Textarea>
-                <Text
-                  alignSelf={"end"}
-                  fontSize={12}
-                  color={"gray"}
-                  p={0}
-                  m={0}
-                >
-                  {makeCardsText.trim().split(/\s+/).length}/750
-                </Text>
-              </Flex>
-
               <Button
                 variant={"accent"}
-                isDisabled={makeCardsText === "" || makeCardsLoading}
                 onClick={async () => {
-                  if (makeCardsText.trim().split(/\s+/).length <= 750) {
-                    await handleMakeCards(
-                      makeCardsText,
-                      customPromptMakeCards,
-                      selectedCardType
-                    );
-                  } else {
-                    errorToast("Too many tokens");
-                  }
+                  setShowMakeCardsFromDocumentAlert(false);
+                  await makeCardsFromDocument();
                 }}
-                width={250}
               >
-                <Flex flexDirection={"row"} alignItems={"center"}>
+                I understand, proceed
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
+
+      <CustomPromptMakeCardsModal
+        isOpen={showCustomPromptModal}
+        onClose={() => {
+          setShowCustomPromptModal(false);
+        }}
+      />
+
+      {/* ───────────────────────── Toolbar ───────────────────────── */}
+      <Box
+        className="card-toolbar"
+        flexShrink={0}
+        px={3}
+        py={2}
+        bg={colorMode === "light" ? "offWhite" : "customPurple.800"}
+        borderBottomWidth={"1px"}
+        borderBottomColor={
+          colorMode === "light" ? "rgba(0,0,0,0.1)" : "customPurple.700"
+        }
+      >
+        {/* Row 1: pill navigation — visually separate from the action strip */}
+        <Flex
+          align={"center"}
+          gap={2}
+          pb={2}
+          mb={2}
+          borderBottomWidth={"1px"}
+          borderBottomColor={
+            colorMode === "light" ? "rgba(0,0,0,0.08)" : "customPurple.700"
+          }
+        >
+          {segmentPill("documents", "From Documents")}
+          {segmentPill("text", "From Text")}
+          {failedCards.length > 0 &&
+            segmentPill("failed", `Failed Cards (${failedCards.length})`)}
+        </Flex>
+
+        {/* Row 2+: action strip, wraps between groups at narrow widths */}
+        <Flex wrap={"wrap"} align={"center"} gap={2}>
+          {/* Primary action (context-aware) + card type */}
+          {view !== "failed" && (
+            <ToolbarGroup>
+              {view === "documents" ? (
+                <Button
+                  size={"sm"}
+                  variant={"accent"}
+                  isDisabled={makeCardsLoading}
+                  onClick={() => {
+                    setShowMakeCardsFromDocumentAlert(true);
+                  }}
+                >
                   {makeCardsLoading ? (
-                    <Spinner />
+                    <>
+                      <Spinner size={"sm"} me={2} />
+                      Generating…
+                    </>
                   ) : (
                     <>
-                      <StarIcon me={3} />
+                      <AddIcon me={2} />
+                      Make Cards From Document
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  size={"sm"}
+                  variant={"accent"}
+                  isDisabled={makeCardsText === "" || makeCardsLoading}
+                  onClick={handleMakeFromTextClick}
+                >
+                  {makeCardsLoading ? (
+                    <>
+                      <Spinner size={"sm"} me={2} />
+                      Generating…
+                    </>
+                  ) : (
+                    <>
+                      <StarIcon me={2} />
                       Make Cards From Text
                     </>
                   )}
-                </Flex>
-              </Button>
-              {automaticallyAddCards && (
-                <>
-                  <Text fontSize={10} color={"gray"} p={0} m={0}>
-                    Every 100 cards will automatically be added to Anki (change
-                    this in Settings)
-                  </Text>
-                </>
+                </Button>
               )}
-            </TabPanel>
-            <TabPanel>
-              <Flex
-                direction={"column"}
-                maximumHeight={1000}
-                overflowY={"scroll"}
-              >
-                {failedCards.map((rawString) => (
-                  <Text mb={5}>{rawString}</Text>
-                ))}
-              </Flex>
-            </TabPanel>
-          </TabPanels>
-        </Tabs>
+              <ToolbarGroup ms={1} h={"32px"} gap={2}>
+                <Text
+                  fontSize={12}
+                  color={"gray"}
+                  lineHeight={"32px"}
+                  whiteSpace={"nowrap"}
+                >
+                  Type
+                </Text>
+                <Select
+                  size={"sm"}
+                  width={100}
+                  value={selectedCardType}
+                  onChange={(e) => {
+                    setSelectedCardType(e.target.value);
+                  }}
+                >
+                  <option value={"basic"}>Basic</option>
+                  <option value={"cloze"}>Cloze</option>
+                </Select>
+              </ToolbarGroup>
+            </ToolbarGroup>
+          )}
 
-        <Flex flexDirection={"column"} alignItems={"center"}>
-          <Flex direction={"row"}>
-            <Tag borderRightRadius={0} width={150} justifyContent={"center"}>
-              Card Type
-            </Tag>
-            <Select
-              value={selectedCardType}
-              onChange={(e) => {
-                setSelectedCardType(e.target.value);
-              }}
-            >
-              <option value={"basic"}>Basic</option>
-              <option value={"cloze"}>Cloze</option>
-            </Select>
-          </Flex>
-        </Flex>
-
-        <Button
-          mt={5}
-          onClick={() => {
-            setShowCustomPromptModal(true);
-          }}
-        >
-          Customize Prompt
-        </Button>
-
-        <Flex
-          justifyContent={"center"}
-          mt={5}
-          flexWrap={{
-            base: "wrap",
-            lg: "nowrap",
-          }}
-        >
-          <InputGroup alignSelf={"center"} width={350} me={5}>
-            <InputLeftAddon children={"Deck Name (optional)"} />
+          {/* Deck + global tag */}
+          <ToolbarGroup>
             <Input
-              placeholder={"Deck to add cards to..."}
+              size={"sm"}
+              width={160}
+              placeholder={"Deck (optional)"}
               value={deck}
               onChange={(e) => {
                 setDeck(e.target.value);
               }}
             />
-          </InputGroup>
-          <InputGroup width={350} mt={{ base: 2.5, lg: 0 }}>
-            <InputLeftAddon children={"Global Tag"} />
             <Input
-              placeholder={"Tag to add..."}
+              size={"sm"}
+              width={140}
+              placeholder={"Global tag"}
               value={tag}
               onChange={(e) => {
                 setTag(e.target.value);
@@ -825,75 +713,179 @@ export function CardMakingScreen() {
                 }
               }}
             />
-            <InputRightAddon
-              p={0}
-              children={<Button onClick={handleAddTag}>Add</Button>}
+            <Button size={"sm"} onClick={handleAddTag} aria-label={"Apply tag"}>
+              <AddIcon boxSize={3} />
+            </Button>
+          </ToolbarGroup>
+
+          {/* Push the secondary cluster to the right on wide windows */}
+          <Box flex={1} display={{ base: "none", xl: "block" }} />
+
+          {/* Secondary actions */}
+          <ToolbarGroup>
+            <Button
+              size={"xs"}
+              variant={"secondary"}
+              isDisabled={cards.length <= 0}
+              onClick={handleAddCardsToAnki}
+            >
+              <CheckIcon me={1.5} />
+              Add to Anki
+            </Button>
+            <Button
+              size={"xs"}
+              onClick={() => {
+                setShowClearCardsAlert(true);
+              }}
+            >
+              <DeleteIcon me={1.5} />
+              Clear Cards ({cards.length})
+            </Button>
+            <Button size={"xs"} onClick={clearAllTags}>
+              <RiPriceTag3Line style={{ marginRight: "4px" }} size={13} />
+              Clear Tags
+            </Button>
+            <Button
+              size={"xs"}
+              onClick={() => {
+                setShowCustomPromptModal(true);
+              }}
+            >
+              <SettingsIcon me={1.5} />
+              Prompt
+            </Button>
+
+            {/* Model / notes popover — absorbs the old gray-info rows */}
+            <Popover placement={"bottom-end"}>
+              <PopoverTrigger>
+                <Button size={"xs"}>
+                  <InfoIcon me={1.5} />
+                  Details
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent>
+                <PopoverArrow />
+                <PopoverCloseButton />
+                <PopoverBody>
+                  <Flex direction={"column"} gap={1}>
+                    <Text fontSize={12}>
+                      Model: <b>{model}</b> · Temperature: <b>{temperature}</b>{" "}
+                      · Language: <b>{language}</b>
+                    </Text>
+                    <Text fontSize={12} color={"gray"}>
+                      Max {isLocalMode() ? "1 GB" : "100 MB"} per document
+                      file.
+                    </Text>
+                    <Text fontSize={12} color={"gray"}>
+                      Every image embedded in your document is collected in the
+                      Images panel, so you can insert images into cards before
+                      adding them to Anki.
+                    </Text>
+                    {automaticallyAddCards && (
+                      <Text fontSize={12} color={"gray"}>
+                        Every 100 cards will automatically be added to Anki
+                        (change this in Settings)
+                      </Text>
+                    )}
+                    <Text fontSize={12} color={"gray"}>
+                      Edit text and tags, or add/remove images on each card
+                      before adding them to Anki. Images always appear on the
+                      answer side.
+                    </Text>
+                  </Flex>
+                </PopoverBody>
+              </PopoverContent>
+            </Popover>
+          </ToolbarGroup>
+        </Flex>
+
+        {/* Progress row — only while a document run is active */}
+        {makeCardsLoading && view === "documents" && (
+          <Flex align={"center"} gap={3} mt={2}>
+            <Progress
+              flex={1}
+              hasStripe
+              isAnimated
+              value={makeCardsFromDocProgress}
+              size={"sm"}
             />
-          </InputGroup>
-        </Flex>
-        <Flex
-          mt={5}
-          mb={5}
-          justifyContent={"center"}
-          flexWrap={{
-            base: "wrap",
-            lg: "nowrap",
-          }}
+            <Text fontSize={12} color={"gray"} whiteSpace={"nowrap"}>
+              {makeCardsFromDocProgress}% · ETA {formatTime(eta || 0)}
+            </Text>
+            <Button
+              size={"xs"}
+              colorScheme={"red"}
+              onClick={() => {
+                infoToast(
+                  "Processing Will Stop",
+                  "Your document will stop processing after the current chunk is finished."
+                );
+                terminateMakingCardsFromDoc.current = true;
+              }}
+            >
+              <DeleteIcon me={1.5} boxSize={3} />
+              Stop
+            </Button>
+          </Flex>
+        )}
+      </Box>
+
+      {/* ───────────────────────── Body ───────────────────────── */}
+      <Flex className="card-body" flex={1} minH={0} direction={"row"}>
+        {/* Left: view-specific editor + card previewer (scrolls internally) */}
+        <Box
+          className="card-previewer"
+          flex={1}
+          minW={0}
+          overflowY={"auto"}
+          pl={5}
+          pr={10}
+          py={3}
         >
-          <Button
-            variant={"secondary"}
-            isDisabled={cards.length <= 0}
-            onClick={async () => {
-              // Make sure global tag is applied.
-              const cardsCopy = cloneDeep(cards);
-              for (let card of cardsCopy) {
-                if (!card.tags.includes(tag)) {
-                  card.tags.push(tag);
+          {view === "text" && (
+            <Flex direction={"column"} mb={3}>
+              <Textarea
+                bg={colorMode === "light" ? "white" : "customPurple.800"}
+                focusBorderColor={"accent"}
+                style={{ minHeight: 200 }}
+                onChange={(event) => {
+                  const text = event.target.value;
+                  const currentWordCount = text.trim().split(/\s+/).length;
+                  if (currentWordCount < 750) {
+                    debouncedCardsTextChangeHandler(text);
+                  }
+                }}
+                placeholder={
+                  "You can generate in Topic Explanation or copy-paste any information into here..."
                 }
-              }
+              >
+                {makeCardsText}
+              </Textarea>
+              <Text alignSelf={"end"} fontSize={12} color={"gray"} p={0} m={0}>
+                {makeCardsText.trim().split(/\s+/).length}/750
+              </Text>
+            </Flex>
+          )}
 
-              await pyAddCards(cardsCopy, deck, deleteCardsAfterAdding);
-            }}
-            me={5}
-          >
-            <AddIcon me={3} />
-            Add Cards To Anki
-          </Button>
+          {view === "failed" && (
+            <Flex direction={"column"} mb={3}>
+              {failedCards.map((rawString) => (
+                <Text mb={5}>{rawString}</Text>
+              ))}
+            </Flex>
+          )}
 
-          <Button
-            me={5}
-            onClick={() => {
-              setShowClearCardsAlert(true);
-            }}
-          >
-            <DeleteIcon me={3} />
-            Clear All Cards ({cards.length})
-          </Button>
+          {view === "documents" && documentContext.docName && (
+            <Text fontSize={12} color={"gray"} mb={2}>
+              Last processed: <b>{documentContext.docName}</b> ·{" "}
+              {documentContext.chunksCount} text sections ·{" "}
+              {documentContext.imagesCount} images found
+            </Text>
+          )}
 
-          <Button onClick={clearAllTags} me={5} mt={{ base: 2.5, lg: 0 }}>
-            <DeleteIcon me={3} />
-            Clear All Tags
-          </Button>
-
-          <Button
-            onClick={() => {
-              dispatch(setBoolShowCardsJsonEditor(true));
-            }}
-            mt={{ base: 2.5, lg: 0 }}
-          >
-            Edit Cards (JSON)
-          </Button>
-        </Flex>
-
-        <Box mt={2} px={5}>
-          <Heading size={"sm"}>Review & edit cards ({cards.length})</Heading>
-          <Text fontSize={12} color={"gray"}>
-            Edit text and tags, or add/remove images on each card before
-            adding them to Anki. Images always appear on the answer side.
-          </Text>
-        </Box>
-
-        <Box maxHeight={600} overflowY={"auto"} p={5}>
+          <Heading size={"sm"} mb={2}>
+            Review & edit cards ({cards.length})
+          </Heading>
           {cards.map((card, i) => (
             <EditableCard
               key={i}
@@ -911,30 +903,88 @@ export function CardMakingScreen() {
           ))}
         </Box>
 
-        <ImagePickerModal
-          isOpen={pickerCardIndex !== null}
-          onClose={() => {
-            setPickerCardIndex(null);
-          }}
-          images={sortedImages}
-          currentImages={
-            pickerCardIndex !== null && cards[pickerCardIndex]
-              ? cards[pickerCardIndex].images || []
-              : []
-          }
-          usageCounts={usageCounts}
-          onConfirm={(newImageIds) => {
-            if (pickerCardIndex === null) {
-              return;
+        {/* Right: images side panel (fixed column on wide windows) */}
+        {!isDrawerMode && showImagesPanel && (
+          <Box
+            className="card-images-panel"
+            w={270}
+            flexShrink={0}
+            overflowY={"auto"}
+            pl={3}
+            pr={10}
+            py={3}
+            borderLeftWidth={"1px"}
+            borderLeftColor={
+              colorMode === "light" ? "rgba(0,0,0,0.1)" : "customPurple.700"
             }
-            modifyCard(pickerCardIndex, (c) => {
-              let cardCopy = cloneDeep(c);
-              cardCopy.images = [...new Set(newImageIds)];
-              return cardCopy;
-            });
-          }}
-        />
-      </div>
+            bg={colorMode === "light" ? "rgba(0,0,0,0.02)" : "customPurple.800"}
+          >
+            <DocumentImageLibrary {...libraryProps} />
+          </Box>
+        )}
+      </Flex>
+
+      {/* Panel toggle: a vertical tab pinned to the screen's right edge so
+          it reads as the sidebar's open/close handle, not a page button. */}
+      <Button
+        className="images-edge-toggle"
+        variant={"accent"}
+        onClick={toggleImagesPanel}
+        aria-label={
+          panelOpen ? "Collapse images panel" : "Expand images panel"
+        }
+        leftIcon={
+          panelOpen ? (
+            <ChevronRightIcon boxSize={3} />
+          ) : (
+            <ChevronLeftIcon boxSize={3} />
+          )
+        }
+      >
+        Images ({allImages.length})
+      </Button>
+
+      {/* Narrow windows: the panel floats as an overlay drawer instead */}
+      {isDrawerMode && (
+        <Drawer
+          isOpen={imagesDrawerOpen}
+          onClose={() => setImagesDrawerOpen(false)}
+          placement={"end"}
+        >
+          <DrawerOverlay />
+          <DrawerContent maxW={"300px"}>
+            <DrawerCloseButton />
+            <DrawerHeader fontSize={"md"}>Images found</DrawerHeader>
+            <DrawerBody>
+              <DocumentImageLibrary {...libraryProps} />
+            </DrawerBody>
+          </DrawerContent>
+        </Drawer>
+      )}
+
+      <ImagePickerModal
+        isOpen={pickerCardIndex !== null}
+        onClose={() => {
+          setPickerCardIndex(null);
+        }}
+        images={sortedImages}
+        currentImages={
+          pickerCardIndex !== null && cards[pickerCardIndex]
+            ? cards[pickerCardIndex].images || []
+            : []
+        }
+        usageCounts={usageCounts}
+        onConfirm={(newImageIds) => {
+          if (pickerCardIndex === null) {
+            return;
+          }
+          modifyCard(pickerCardIndex, (c) => {
+            let cardCopy = cloneDeep(c);
+            cardCopy.images = [...new Set(newImageIds)];
+            return cardCopy;
+          });
+        }}
+      />
     </div>
   );
 }

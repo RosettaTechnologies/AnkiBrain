@@ -5,3 +5,62 @@
     font-size: 22px;
     font-weight: bold;
 }
+
+/*
+ * Full-height column layout so the toolbar sits on top and the card
+ * previewer + images panel each scroll in their own column instead of the
+ * whole page scrolling. The parent (.MainAppArea) provides the height.
+ */
+.CardMakingScreen {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    position: relative;
+}
+
+.card-toolbar {
+    flex: 0 0 auto;
+}
+
+.card-body {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.card-previewer {
+    min-width: 0;
+}
+
+.card-images-panel {
+    scrollbar-width: thin;
+}
+
+/*
+ * Sidebar handle: a vertical accent tab pinned to the screen's right edge,
+ * mid-height. Stands out from the flat toolbar buttons and sits exactly
+ * where the panel edge is, so its open/close affordance is obvious.
+ */
+.images-edge-toggle {
+    /* Chakra Button's base style sets position:relative in a later-injected
+       emotion sheet; !important keeps the tab pinned to the edge. */
+    position: absolute !important;
+    top: 50% !important;
+    right: 0 !important;
+    transform: translateY(-50%) !important;
+    writing-mode: vertical-rl;
+    height: auto !important;
+    padding: 12px 5px !important;
+    border-radius: 8px 0 0 8px !important;
+    font-size: 12px;
+    letter-spacing: 0.4px;
+    z-index: 10;
+    box-shadow: -2px 2px 10px rgba(0, 0, 0, 0.45);
+    transition: transform 0.1s ease-in-out;
+}
+
+.images-edge-toggle:hover {
+    opacity: 1 !important;
+    transform: translateY(-50%) scale(1.04) !important;
+    background-color: var(--chakra-colors-accent);
+}
