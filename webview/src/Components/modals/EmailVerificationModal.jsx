@@ -1,68 +1,76 @@
 import {
-  Button,
-  Flex,
-  Input,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalHeader,
-  ModalOverlay,
-  Text,
-  useDisclosure,
-} from "@chakra-ui/react";
-import { useSelector } from "react-redux";
+  IonButton,
+  IonContent,
+  IonHeader,
+  IonInput,
+  IonModal,
+  IonTitle,
+  IonToolbar,
+} from "@ionic/react";
 import { useState } from "react";
+import { useSelector } from "react-redux";
 import { resendVerificationCode, verifyEmail } from "../../api/user";
+import "./EmailVerificationModal.css";
 
-export function EmailVerificationModal(props) {
+export function EmailVerificationModal() {
   const user = useSelector((state) => state.user.value);
   const [verificationCode, setVerificationCode] = useState("");
-  const { onClose } = useDisclosure();
-  return (
-    // Show if logged in but not verified.
-    <Modal isOpen={user && !user.isVerified} onClose={onClose}>
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>Validate Email</ModalHeader>
-        <ModalBody>
-          <Flex direction={"column"}>
-            <Text>
-              Please enter the verification code that was sent to your email
-              address.
-            </Text>
-            <Text fontSize={20}>
-              If you don't see the code, <b>check your spam folder.</b>
-            </Text>
-            <Input
-              placeholder={"Verification code..."}
-              value={verificationCode}
-              onChange={(e) => {
-                setVerificationCode(e.target.value);
-              }}
-            />
-          </Flex>
 
-          <Flex direction={"column"} mt={3}>
-            <Button
-              variant={"accent"}
-              onClick={async () => {
-                await verifyEmail(verificationCode, user.accessToken);
-              }}
-            >
-              Validate
-            </Button>
-            <Button
-              mt={3}
-              mb={3}
-              onClick={async () => {
-                await resendVerificationCode(user.accessToken);
-              }}
-            >
-              Resend verification code to my email
-            </Button>
-          </Flex>
-        </ModalBody>
-      </ModalContent>
-    </Modal>
+  // Show if logged in but not verified. Not user-dismissable (the account
+  // stays unverified until the code is entered); it closes itself when the
+  // store flips isVerified.
+  return (
+    <IonModal
+      isOpen={!!(user && !user.isVerified)}
+      backdropDismiss={false}
+      canDismiss={false}
+    >
+      <IonHeader>
+        <IonToolbar>
+          <IonTitle>Validate Email</IonTitle>
+        </IonToolbar>
+      </IonHeader>
+      <IonContent className="ion-padding">
+        <div className="EmailVerificationModal">
+          <p>
+            Please enter the verification code that was sent to your email
+            address.
+          </p>
+          <p className="EmailVerificationModal-loud">
+            If you don't see the code, <b>check your spam folder.</b>
+          </p>
+
+          <IonInput
+            className="EmailVerificationModal-input"
+            fill="solid"
+            placeholder={"Verification code..."}
+            value={verificationCode}
+            onIonInput={(e) => {
+              setVerificationCode(e.detail.value || "");
+            }}
+          />
+
+          <IonButton
+            color="accent"
+            expand="block"
+            onClick={async () => {
+              await verifyEmail(verificationCode, user.accessToken);
+            }}
+          >
+            Validate
+          </IonButton>
+          <IonButton
+            className="EmailVerificationModal-resendBtn"
+            color="light"
+            expand="block"
+            onClick={async () => {
+              await resendVerificationCode(user.accessToken);
+            }}
+          >
+            Resend verification code to my email
+          </IonButton>
+        </div>
+      </IonContent>
+    </IonModal>
   );
 }

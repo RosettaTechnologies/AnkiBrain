@@ -1,0 +1,24 @@
+.EmailVerificationModal {
+  display: flex;
+  flex-direction: column;
+}
+
+.EmailVerificationModal p {
+  margin: 0 0 12px 0;
+}
+
+.EmailVerificationModal-loud {
+  font-size: 20px;
+}
+
+.EmailVerificationModal-input {
+  --background: var(--app-input-bg);
+  --padding-start: 10px;
+  --padding-end: 10px;
+  margin-bottom: 16px;
+}
+
+.EmailVerificationModal-resendBtn {
+  margin-top: 12px;
+  margin-bottom: 12px;
+}

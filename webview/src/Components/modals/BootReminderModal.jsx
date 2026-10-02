@@ -1,22 +1,20 @@
 import {
-  Button,
-  Checkbox,
-  Flex,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalOverlay,
-  Text,
-} from "@chakra-ui/react";
-import { AiOutlineSmile } from "react-icons/ai";
-import { VscHeartFilled } from "react-icons/vsc";
-import { BiDonateHeart } from "react-icons/bi";
-import { MdOutlineRateReview } from "react-icons/md";
+  IonButton,
+  IonButtons,
+  IonCheckbox,
+  IonContent,
+  IonHeader,
+  IonIcon,
+  IonModal,
+  IonTitle,
+  IonToolbar,
+} from "@ionic/react";
+import { gift, happy, heart, star } from "ionicons/icons";
 import { setShowBootReminderDialog } from "../../api/redux/slices/showBootReminderDialog";
 import { pyEditSetting } from "../../api/PythonBridge/senders/pyEditSetting";
 import React from "react";
 import { useDispatch, useSelector } from "react-redux";
+import "./BootReminderModal.css";
 
 export function BootReminderModal(props) {
   const dispatch = useDispatch();
@@ -25,67 +23,60 @@ export function BootReminderModal(props) {
   );
 
   return (
-    <Modal isOpen={props.show} onClose={props.onClose}>
-      <ModalOverlay />
-      <ModalContent>
-        <ModalCloseButton />
-        <ModalBody>
-          <Flex direction={"column"} alignItems={"center"} p={5}>
-            <Text fontSize={26} fontFamily={"lato"} whiteSpace={"nowrap"}>
-              Hi there! Sorry for the interruption...
-            </Text>
-            <Text>
-              If you enjoy using AnkiBrain, please consider leaving a review on
-              AnkiWeb or donating to help keep the lights on! Thank you so much!{" "}
-            </Text>
-            <Flex mb={3}>
-              <AiOutlineSmile size={30} style={{ marginRight: 5 }} />
-              <VscHeartFilled size={30} color={"red"} />
-            </Flex>
+    <IonModal isOpen={props.show} onDidDismiss={props.onClose}>
+      <IonHeader>
+        <IonToolbar>
+          <IonTitle>AnkiBrain</IonTitle>
+          <IonButtons slot="end">
+            <IonButton onClick={props.onClose}>Close</IonButton>
+          </IonButtons>
+        </IonToolbar>
+      </IonHeader>
+      <IonContent className="ion-padding">
+        <div className="BootReminderModal">
+          <h2 className="BootReminderModal-title">
+            Hi there! Sorry for the interruption...
+          </h2>
+          <p>
+            If you enjoy using AnkiBrain, please consider leaving a review on
+            AnkiWeb or donating to help keep the lights on! Thank you so much!{" "}
+          </p>
+          <div className="BootReminderModal-icons">
+            <IonIcon icon={happy} />
+            <IonIcon icon={heart} style={{ color: "red" }} />
+          </div>
 
-            <Button mt={3} p={0} width={325} variant={"accent"}>
-              <a
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-                href={"https://donate.stripe.com/8x25kx8ZM7dx66RcMa7N600"}
-              >
-                <BiDonateHeart size={30} style={{ marginRight: 5 }} />
-                Donate
-              </a>
-            </Button>
-            <Button mt={3} width={325} p={0}>
-              <a
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-                href={"https://ankiweb.net/shared/info/1915225457"}
-              >
-                <MdOutlineRateReview size={28} style={{ marginRight: 5 }} />
-                Review on AnkiWeb
-              </a>
-            </Button>
-            <Checkbox
-              mt={5}
-              isChecked={showBootReminderDialog}
-              onChange={async (e) => {
-                dispatch(setShowBootReminderDialog(e.target.checked));
-                await pyEditSetting("showBootReminderDialog", e.target.checked);
-              }}
-            >
-              Show this reminder when AnkiBrain starts
-            </Checkbox>
-          </Flex>
-        </ModalBody>
-      </ModalContent>
-    </Modal>
+          <IonButton
+            color="accent"
+            className="BootReminderModal-btn"
+            href={"https://donate.stripe.com/8x25kx8ZM7dx66RcMa7N600"}
+          >
+            <IonIcon slot="start" icon={gift} />
+            Donate
+          </IonButton>
+          <IonButton
+            color="light"
+            className="BootReminderModal-btn"
+            href={"https://ankiweb.net/shared/info/1915225457"}
+          >
+            <IonIcon slot="start" icon={star} />
+            Review on AnkiWeb
+          </IonButton>
+          <IonCheckbox
+            className="BootReminderModal-checkbox"
+            checked={showBootReminderDialog}
+            onIonChange={async (e) => {
+              dispatch(setShowBootReminderDialog(e.detail.checked));
+              await pyEditSetting(
+                "showBootReminderDialog",
+                e.detail.checked
+              );
+            }}
+          >
+            Show this reminder when AnkiBrain starts
+          </IonCheckbox>
+        </div>
+      </IonContent>
+    </IonModal>
   );
 }

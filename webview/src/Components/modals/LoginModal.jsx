@@ -3,28 +3,23 @@ import { useDispatch, useSelector } from "react-redux";
 import { setShowLoginModal } from "../../api/redux";
 import { login, signup } from "../../api/user";
 import {
-  Box,
-  Button,
-  Checkbox,
-  Divider,
-  Flex,
-  Input,
-  Link,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  ModalOverlay,
-  Tag,
-  Text,
-} from "@chakra-ui/react";
+  IonButton,
+  IonButtons,
+  IonCheckbox,
+  IonContent,
+  IonHeader,
+  IonIcon,
+  IonInput,
+  IonModal,
+  IonTitle,
+  IonToolbar,
+} from "@ionic/react";
+import { arrowBack } from "ionicons/icons";
 import { errorToast, infoToast } from "../../api/toast";
-import { ArrowBackIcon } from "@chakra-ui/icons";
 import { getAPIEndpoints } from "../../api/server-api/networking";
 import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../api/constants";
+import "./LoginModal.css";
 
 export function LoginModal(props) {
   const [email, setEmail] = useState("");
@@ -50,186 +45,180 @@ export function LoginModal(props) {
     setTermsOfServiceLink(getAPIEndpoints().TERMS_OF_SERVICE);
   }, [devMode]);
 
+  const close = () => dispatch(setShowLoginModal(false));
+
   return (
-    <Modal
-      isOpen={props.isOpen}
-      onClose={() => {
-        dispatch(setShowLoginModal(false));
-      }}
-    >
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>
+    <IonModal isOpen={props.isOpen} onDidDismiss={close}>
+      <IonHeader>
+        <IonToolbar>
           {signupMode && (
-            <div>
-              <Button
-                me={3}
-                onClick={() => {
-                  setSignupMode(false);
+            <IonButtons slot="start">
+              <IonButton onClick={() => setSignupMode(false)}>
+                <IonIcon slot="icon-only" icon={arrowBack} />
+              </IonButton>
+            </IonButtons>
+          )}
+          <IonTitle>{signupMode ? "Sign Up" : "Login or Sign Up"}</IonTitle>
+          <IonButtons slot="end">
+            <IonButton onClick={close}>Close</IonButton>
+          </IonButtons>
+        </IonToolbar>
+      </IonHeader>
+
+      <IonContent className="ion-padding">
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (signupMode) {
+              if (!agreedPP || !agreedTOS) {
+                infoToast(
+                  "Info",
+                  "Please agree to both the Privacy Policy and Terms of Service before registering."
+                );
+                return;
+              }
+              if (password !== confirmPassword) {
+                errorToast(
+                  "Passwords do not match",
+                  "Make sure your password and password confirmation match."
+                );
+              } else {
+                await signup(email, password);
+              }
+            } else {
+              await login(email, password);
+            }
+          }}
+        >
+          <label className="LoginModal-label" htmlFor="login-email">
+            Email address
+          </label>
+          <IonInput
+            className="LoginModal-input"
+            fill="solid"
+            id="login-email"
+            type="email"
+            value={email}
+            onIonInput={(event) => {
+              setEmail(event.detail.value || "");
+            }}
+          />
+
+          <label className="LoginModal-label" htmlFor="login-password">
+            Password
+          </label>
+          <IonInput
+            className="LoginModal-input"
+            fill="solid"
+            id="login-password"
+            type="password"
+            value={password}
+            onIonInput={(event) => {
+              setPassword(event.detail.value || "");
+            }}
+          />
+
+          {signupMode && (
+            <>
+              <label className="LoginModal-label" htmlFor="login-confirm">
+                Confirm Password
+              </label>
+              <IonInput
+                className="LoginModal-input"
+                fill="solid"
+                id="login-confirm"
+                type="password"
+                value={confirmPassword}
+                onIonInput={(event) => {
+                  setConfirmPassword(event.detail.value || "");
+                }}
+              />
+            </>
+          )}
+
+          {!signupMode && (
+            <IonButton type="submit" color="accent" expand="block">
+              Login
+            </IonButton>
+          )}
+
+          {signupMode && (
+            <div className="LoginModal-signupBlock">
+              <IonCheckbox
+                className="LoginModal-checkbox"
+                checked={agreedPP}
+                onIonChange={(e) => {
+                  setAgreedPP(e.detail.checked);
                 }}
               >
-                <ArrowBackIcon fontSize={28} />
-              </Button>
+                <span className="LoginModal-checkboxLabel">
+                  I have read and agree to the{" "}
+                  <a
+                    className="LoginModal-link"
+                    href={privacyPolicyLink}
+                    target={"_blank"}
+                    rel="noreferrer"
+                  >
+                    Privacy Policy
+                  </a>
+                </span>
+              </IonCheckbox>
+              <IonCheckbox
+                className="LoginModal-checkbox"
+                checked={agreedTOS}
+                onIonChange={(e) => {
+                  setAgreedTOS(e.detail.checked);
+                }}
+              >
+                <span className="LoginModal-checkboxLabel">
+                  I have read and agree to the{" "}
+                  <a
+                    className="LoginModal-link"
+                    href={termsOfServiceLink}
+                    target={"_blank"}
+                    rel="noreferrer"
+                  >
+                    Terms of Service
+                  </a>
+                </span>
+              </IonCheckbox>
+              <IonButton
+                type="submit"
+                color="accent"
+                expand="block"
+                className="LoginModal-confirmBtn"
+              >
+                Confirm
+              </IonButton>
             </div>
           )}
-          {signupMode ? "Sign Up" : "Login or Sign Up"}
-        </ModalHeader>
-        <ModalCloseButton />
-        <ModalBody>
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (signupMode) {
-                if (!agreedPP || !agreedTOS) {
-                  infoToast(
-                    "Info",
-                    "Please agree to both the Privacy Policy and Terms of Service before registering."
-                  );
-                  return;
-                }
-                if (password !== confirmPassword) {
-                  errorToast(
-                    "Passwords do not match",
-                    "Make sure your password and password confirmation match."
-                  );
-                } else {
-                  await signup(email, password);
-                }
-              } else {
-                await login(email, password);
-              }
-            }}
-          >
-            <div className="mb-3">
-              <label htmlFor="email" className="form-label">
-                Email address
-              </label>
-              <Input
-                type="email"
-                onChange={(event) => {
-                  setEmail(event.target.value);
-                }}
-              />
+        </form>
+
+        {!signupMode && (
+          <>
+            <hr className="LoginModal-divider" />
+            <div className="LoginModal-or">
+              <span>OR</span>
             </div>
-            <div className="mb-3">
-              <label htmlFor="password" className="form-label">
-                Password
-              </label>
-              <Input
-                type="password"
-                onChange={(event) => {
-                  setPassword(event.target.value);
-                }}
-              />
-            </div>
+            <IonButton color="secondary" expand="block" onClick={() => setSignupMode(true)}>
+              Sign Up
+            </IonButton>
+          </>
+        )}
 
-            {signupMode && (
-              <div className={"mb-3"}>
-                <label htmlFor="password" className="form-label">
-                  Confirm Password
-                </label>
-                <Input
-                  type="password"
-                  onChange={(event) => {
-                    setConfirmPassword(event.target.value);
-                  }}
-                />
-              </div>
-            )}
-
-            {!signupMode && (
-              <Button type={"submit"} variant={"accent"}>
-                Login
-              </Button>
-            )}
-
-            {signupMode && (
-              <Flex direction={"column"} mt={5}>
-                <Checkbox
-                  isChecked={agreedPP}
-                  onChange={(e) => {
-                    setAgreedPP(e.target.checked);
-                  }}
-                >
-                  I have read and agree to the{" "}
-                  <Link color={"teal.500"} isExternal>
-                    <a
-                      href={privacyPolicyLink}
-                      target={"_blank"}
-                      style={{ width: "100%", height: "100%" }}
-                    >
-                      Privacy Policy ({privacyPolicyLink})
-                    </a>
-                  </Link>
-                </Checkbox>
-                <Checkbox
-                  mb={5}
-                  isChecked={agreedTOS}
-                  onChange={(e) => {
-                    setAgreedTOS(e.target.checked);
-                  }}
-                >
-                  I have read and agree to the{" "}
-                  <Link color={"teal.500"} isExternal>
-                    <a
-                      href={termsOfServiceLink}
-                      target={"_blank"}
-                      style={{ width: "100%", height: "100%" }}
-                    >
-                      Terms of Service ({termsOfServiceLink})
-                    </a>
-                  </Link>
-                </Checkbox>
-                <Button type="submit" variant={"accent"}>
-                  Confirm
-                </Button>
-              </Flex>
-            )}
-          </form>
-          <div className="modal-body">
-            {!signupMode && (
-              <>
-                <Divider />
-
-                <Box>
-                  <Tag>OR</Tag>
-                </Box>
-              </>
-            )}
-            {!signupMode && (
-              <Button
-                variant={"secondary"}
-                mt={5}
-                onClick={() => {
-                  setSignupMode(true);
-                }}
-              >
-                Sign Up
-              </Button>
-            )}
-          </div>
-          <Flex direction={"column"} alignSelf={"center"} mt={5} mb={5}>
-            <Text>Forgot password?</Text>
-            <Button
-              onClick={() => {
-                dispatch(setShowLoginModal(false));
-                navigate(PATHS.SETTINGS);
-              }}
-            >
-              Reset my password
-            </Button>
-          </Flex>
-        </ModalBody>
-        <ModalFooter>
-          <Button
+        <div className="LoginModal-forgot">
+          <p>Forgot password?</p>
+          <IonButton
+            fill="clear"
             onClick={() => {
               dispatch(setShowLoginModal(false));
+              navigate(PATHS.SETTINGS);
             }}
           >
-            Close
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+            Reset my password
+          </IonButton>
+        </div>
+      </IonContent>
+    </IonModal>
   );
 }

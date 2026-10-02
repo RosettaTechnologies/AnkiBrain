@@ -1,40 +1,44 @@
 import {
-  Button,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  ModalOverlay,
-} from "@chakra-ui/react";
+  IonButton,
+  IonButtons,
+  IonContent,
+  IonHeader,
+  IonModal,
+  IonTitle,
+  IonToolbar,
+} from "@ionic/react";
 import { useDispatch, useSelector } from "react-redux";
 import { setAppAlertModal } from "../../api/redux/slices/appAlertModal";
 
-export function AppAlertModal(props) {
+export function AppAlertModal() {
   const dispatch = useDispatch();
   const appAlertModal = useSelector((state) => state.appAlertModal.value);
 
-  const close = async () => {
+  const reset = () =>
     dispatch(setAppAlertModal({ show: false, header: "", alertText: "" }));
-    if (typeof appAlertModal.onClose === "function") {
-      await appAlertModal.onClose();
-    }
-  };
 
   return (
-    <Modal {...props} isOpen={appAlertModal.show} onClose={close}>
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>{appAlertModal.header}</ModalHeader>
-        <ModalCloseButton />
-        <ModalBody width={"100%"} height={"100%"} overflow={"auto"}>
-          {appAlertModal.alertText}
-        </ModalBody>
-        <ModalFooter>
-          <Button onClick={close}>Close</Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+    <IonModal
+      isOpen={appAlertModal.show}
+      onDidDismiss={async () => {
+        // Runs once on every close path (button, backdrop, escape); the
+        // stored onClose callback (if any) belongs here so it can't fire
+        // twice when a button also reset the store.
+        reset();
+        if (typeof appAlertModal.onClose === "function") {
+          await appAlertModal.onClose();
+        }
+      }}
+    >
+      <IonHeader>
+        <IonToolbar>
+          <IonTitle>{appAlertModal.header}</IonTitle>
+          <IonButtons slot="end">
+            <IonButton onClick={reset}>Close</IonButton>
+          </IonButtons>
+        </IonToolbar>
+      </IonHeader>
+      <IonContent className="ion-padding">{appAlertModal.alertText}</IonContent>
+    </IonModal>
   );
 }

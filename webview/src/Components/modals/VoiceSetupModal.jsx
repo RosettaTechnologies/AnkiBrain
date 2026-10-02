@@ -1,25 +1,20 @@
 import {
-  Box,
-  Button,
-  Checkbox,
-  CircularProgress,
-  Flex,
-  List,
-  ListItem,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalHeader,
-  ModalOverlay,
-  Progress,
-  Spinner,
-  Text,
-} from "@chakra-ui/react";
+  IonButton,
+  IonCheckbox,
+  IonContent,
+  IonHeader,
+  IonModal,
+  IonProgressBar,
+  IonSpinner,
+  IonTitle,
+  IonToolbar,
+} from "@ionic/react";
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { closeSetupModal, refreshTtsStatus } from "../../api/tts";
 import { pyTtsCancelInstall, pyTtsInstall } from "../../api/PythonBridge/senders/pyTtsInstall";
 import { setTtsInstallActive } from "../../api/redux/slices/tts";
+import "./VoiceSetupModal.css";
 
 /**
  * Voice setup: one honest screen — what this is, what it costs (bytes), one
@@ -148,38 +143,35 @@ export function VoiceSetupModal() {
   };
 
   return (
-    <Modal
-      isOpen={open}
-      onClose={handleCancel}
-      size="md"
-      closeOnOverlayClick={false}
-      closeOnEsc={false}
-    >
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>AnkiBrain Voice</ModalHeader>
-        <ModalBody pb={6}>
+    <IonModal isOpen={open} backdropDismiss={false} canDismiss={false}>
+      <IonHeader>
+        <IonToolbar>
+          <IonTitle>AnkiBrain Voice</IonTitle>
+        </IonToolbar>
+      </IonHeader>
+      <IonContent className="ion-padding">
+        <div className="VoiceSetupModal">
           {cancelling && (
-            <Flex direction="column" align="center" py={2}>
-              <CircularProgress isIndeterminate size={10} color="purple.400" mb={3} />
-              <Text mb={2}>Cancelling…</Text>
-              <Text fontSize={12} color="gray.500" textAlign="center">
+            <div className="VoiceSetupModal-center">
+              <IonSpinner name="circular" />
+              <p>Cancelling…</p>
+              <p className="VoiceSetupModal-hint">
                 {jaMode
                   ? "Stopping the installer. The installed voice engine is not affected."
                   : "Stopping the installer and removing downloaded files."}
-              </Text>
-            </Flex>
+              </p>
+            </div>
           )}
 
           {!cancelling && unsupported && (
             <>
-              <Text mb={4}>
+              <p>
                 {(status && status.reason) ||
                   "This platform is not supported by the voice engine."}
-              </Text>
-              <Button width="100%" variant="ghost" onClick={handleCancel}>
+              </p>
+              <IonButton expand="block" fill="clear" onClick={handleCancel}>
                 Cancel
-              </Button>
+              </IonButton>
             </>
           )}
 
@@ -187,190 +179,162 @@ export function VoiceSetupModal() {
             <>
               {jaMode ? (
                 <>
-                  <Text mb={3}>
+                  <p>
                     Add the Japanese language pack to the installed voice engine.
-                  </Text>
-                  <Text fontSize={13} color="gray.500" mb={4}>
+                  </p>
+                  <p className="VoiceSetupModal-hint">
                     Download ≈ {estimate.ja_extra_mb} MB · Japanese voices and
                     text-to-speech support.
-                  </Text>
-                  <Button
-                    width="100%"
-                    variant="accent"
-                    colorScheme="purple"
-                    mb={2}
+                  </p>
+                  <IonButton
+                    expand="block"
+                    color="accent"
+                    className="VoiceSetupModal-installBtn"
                     onClick={startInstall}
                   >
                     Install Japanese pack
-                  </Button>
+                  </IonButton>
                 </>
               ) : (
                 <>
-                  <Text mb={3}>
+                  <p>
                     {alreadyInstalled
                       ? "Reinstall or repair the Kokoro voice engine."
                       : "Free text-to-speech (TTS) with Kokoro voice engine."}
-                  </Text>
-                  <Text fontSize={13} color="gray.500" mb={1}>
+                  </p>
+                  <p className="VoiceSetupModal-hint">
                     Download ≈ {estimate.download_mb} MB · Disk ≈ {estimate.disk_mb} MB
-                  </Text>
-                  <Text fontSize={13} color="gray.500" mb={4}>
+                  </p>
+                  <p className="VoiceSetupModal-hint VoiceSetupModal-hint--low">
                     Languages: English, Spanish, French, Hindi, Italian, Portuguese,
                     Chinese.
-                  </Text>
-                  <Checkbox
-                    mb={4}
-                    isChecked={includeJa}
-                    onChange={(e) => setIncludeJa(e.target.checked)}
+                  </p>
+                  <IonCheckbox
+                    className="VoiceSetupModal-checkbox"
+                    checked={includeJa}
+                    onIonChange={(e) => setIncludeJa(e.detail.checked)}
                   >
                     Also install Japanese{" "}
-                    <Text as="span" fontSize={12} color="gray.500">
+                    <span className="VoiceSetupModal-hint">
                       (+{estimate.ja_extra_mb} MB)
-                    </Text>
-                  </Checkbox>
-                  <Button
-                    width="100%"
-                    variant="accent"
-                    colorScheme="purple"
-                    mb={2}
+                    </span>
+                  </IonCheckbox>
+                  <IonButton
+                    expand="block"
+                    color="accent"
+                    className="VoiceSetupModal-installBtn"
                     onClick={startInstall}
                   >
                     {alreadyInstalled ? "Repair voice engine" : "Install voice engine"}
-                  </Button>
+                  </IonButton>
                 </>
               )}
-              <Button width="100%" variant="ghost" onClick={handleCancel}>
+              <IonButton expand="block" fill="clear" onClick={handleCancel}>
                 Cancel
-              </Button>
+              </IonButton>
             </>
           )}
 
           {!cancelling && !unsupported && active && (
-            <Flex direction="column" py={2}>
-              <Flex align="center" mb={2}>
-                <Spinner size="sm" color="purple.400" mr={2} flexShrink={0} />
-                {/* m={0}: Bootstrap's `p { margin-bottom: 1rem }` beats
-                    Chakra's :where() reset, and flexbox centers the margin
-                    box — leaving this margin makes the text ride high. */}
-                <Text fontWeight="semibold" m={0}>
-                  {heading}
-                </Text>
-              </Flex>
+            <div className="VoiceSetupModal-active">
+              <div className="VoiceSetupModal-progressRow">
+                <IonSpinner name="dots" className="VoiceSetupModal-spinner" />
+                <span className="VoiceSetupModal-heading">{heading}</span>
+              </div>
               {event.estimate_mb > 0 && (
-                <Box width="100%" mb={3}>
-                  <Progress value={pct} size="sm" colorScheme="purple" borderRadius="full" />
-                  <Text fontSize={12} color="gray.500" textAlign="right">
+                <div className="VoiceSetupModal-progress">
+                  <IonProgressBar value={pct / 100} />
+                  <span className="VoiceSetupModal-hint VoiceSetupModal-progressText">
                     {event.received_mb || 0} / ~{event.estimate_mb} MB
-                  </Text>
-                </Box>
+                  </span>
+                </div>
               )}
-              <List spacing={1} fontSize={13} width="100%" my={3}>
+              <ul className="VoiceSetupModal-steps">
                 {steps.map((s) => {
                   const st = stages[s.stage] || "todo";
                   return (
-                    <ListItem key={s.stage}>
-                      {/* One flex row per step: the icon column and the label
-                          both vertically centered against each other. All
-                          Text nodes need m={0} — Bootstrap's `p` bottom
-                          margin otherwise offsets text from the centered
-                          icon/spinner (flex centers the whole margin box). */}
-                      <Flex align="center">
-                        <Flex width="20px" mr={2} justify="center" align="center" flexShrink={0}>
-                          {st === "done" ? (
-                            <Text color="green.500" fontWeight="bold" m={0}>
-                              ✓
-                            </Text>
-                          ) : st === "error" ? (
-                            <Text color="red.500" fontWeight="bold" m={0}>
-                              ✗
-                            </Text>
-                          ) : st === "active" ? (
-                            <Spinner size="xs" color="purple.400" />
-                          ) : (
-                            <Text color="gray.400" m={0}>
-                              ☐
-                            </Text>
-                          )}
-                        </Flex>
-                        <Text
-                          m={0}
-                          color={
-                            st === "done"
-                              ? "green.500"
-                              : st === "error"
-                              ? "red.500"
-                              : st === "active"
-                              ? "purple.400"
-                              : "gray.500"
-                          }
-                          fontWeight={st === "active" ? "semibold" : "normal"}
-                        >
-                          {s.label}
-                        </Text>
-                      </Flex>
-                    </ListItem>
+                    <li
+                      key={s.stage}
+                      className={`VoiceSetupModal-step VoiceSetupModal-step--${st}`}
+                    >
+                      <span className="VoiceSetupModal-stepMarker">
+                        {st === "done" ? (
+                          "✓"
+                        ) : st === "error" ? (
+                          "✗"
+                        ) : st === "active" ? (
+                          <IonSpinner name="dots" />
+                        ) : (
+                          "☐"
+                        )}
+                      </span>
+                      <span className="VoiceSetupModal-stepLabel">{s.label}</span>
+                    </li>
                   );
                 })}
-              </List>
-              <Button variant="ghost" onClick={handleCancel} alignSelf="center">
+              </ul>
+              <IonButton
+                fill="clear"
+                className="VoiceSetupModal-cancelBtn"
+                onClick={handleCancel}
+              >
                 Cancel
-              </Button>
-            </Flex>
+              </IonButton>
+            </div>
           )}
 
           {!cancelling && !unsupported && done && done.ok && (
             <>
-              <Text mb={4} color="green.500">
+              <p className="VoiceSetupModal-success">
                 {jaMode
                   ? "Japanese voice pack installed. Pick a Japanese voice from the Language menu in Settings."
                   : "Voice engine ready. Click the voice button again to use it."}
-              </Text>
-              <Button width="100%" onClick={closeSetupModal} variant="accent" colorScheme="purple">
+              </p>
+              <IonButton
+                expand="block"
+                color="accent"
+                onClick={closeSetupModal}
+              >
                 Done
-              </Button>
+              </IonButton>
             </>
           )}
 
           {!cancelling && !unsupported && done && !done.ok && (
             <>
-              <Text mb={1} color="red.500" fontWeight="semibold">
-                Install failed
-              </Text>
+              <p className="VoiceSetupModal-error">Install failed</p>
               {failedStep && (
-                <Text fontSize={12} color="gray.500" mb={1}>
+                <p className="VoiceSetupModal-hint">
                   Failed at: {failedStep.label}
-                </Text>
+                </p>
               )}
-              <Text fontSize={13} mb={1}>
+              <p className="VoiceSetupModal-errorDetail">
                 {done.error && done.error.message ? String(done.error.message).slice(0, 400) : "Unknown error"}
-              </Text>
+              </p>
               {done.error && done.error.hint && (
-                <Text fontSize={12} color="gray.500" mb={3}>
-                  {done.error.hint}
-                </Text>
+                <p className="VoiceSetupModal-hint">{done.error.hint}</p>
               )}
-              <Button
-                width="100%"
+              <IonButton
+                expand="block"
+                color="accent"
+                className="VoiceSetupModal-installBtn"
                 onClick={startInstall}
-                variant="accent"
-                colorScheme="purple"
-                mb={2}
               >
                 Retry
-              </Button>
-              <Button width="100%" variant="ghost" onClick={handleCancel}>
+              </IonButton>
+              <IonButton expand="block" fill="clear" onClick={handleCancel}>
                 Cancel
-              </Button>
+              </IonButton>
             </>
           )}
 
           {cancelError && (
-            <Text mt={3} fontSize={12} color="red.500">
+            <p className="VoiceSetupModal-error VoiceSetupModal-cancelError">
               {cancelError}
-            </Text>
+            </p>
           )}
-        </ModalBody>
-      </ModalContent>
-    </Modal>
+        </div>
+      </IonContent>
+    </IonModal>
   );
 }

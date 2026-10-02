@@ -22,4 +22,15 @@ export default defineConfig({
     globals: true,
     setupFiles: './src/setupTests.js',
   },
+
+  // Vitest loads externalized dependencies with Node's `node` export
+  // condition. @lit/react (used by @ionic/react's component wrappers) ships a
+  // node/SSR build that does not attach event listeners, so tests would miss
+  // every onIon* handler. Resolving with the browser condition in the test
+  // workers fixes event wiring without affecting the production build.
+  ssr: {
+    resolve: {
+      conditions: ['browser', 'development|production'],
+    },
+  },
 })

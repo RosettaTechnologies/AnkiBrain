@@ -1,0 +1,131 @@
+.VoiceSetupModal {
+  display: flex;
+  flex-direction: column;
+}
+
+.VoiceSetupModal p {
+  margin: 0 0 12px 0;
+}
+
+.VoiceSetupModal-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  text-align: center;
+}
+
+.VoiceSetupModal-hint {
+  font-size: 13px;
+  color: var(--ion-color-medium);
+  margin: 0 0 4px 0;
+}
+
+.VoiceSetupModal-hint--low {
+  margin-bottom: 16px;
+}
+
+.VoiceSetupModal-checkbox {
+  --size: 18px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.VoiceSetupModal-installBtn {
+  margin-bottom: 8px;
+}
+
+.VoiceSetupModal-active {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+}
+
+.VoiceSetupModal-progressRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.VoiceSetupModal-spinner {
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.VoiceSetupModal-heading {
+  font-weight: 600;
+}
+
+.VoiceSetupModal-progress {
+  margin-bottom: 12px;
+}
+
+.VoiceSetupModal-progressText {
+  display: block;
+  text-align: right;
+  font-size: 12px;
+}
+
+.VoiceSetupModal-steps {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+  font-size: 13px;
+}
+
+.VoiceSetupModal-step {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.VoiceSetupModal-stepMarker {
+  width: 20px;
+  margin-right: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.VoiceSetupModal-step--done .VoiceSetupModal-stepMarker,
+.VoiceSetupModal-step--done .VoiceSetupModal-stepLabel {
+  color: var(--ion-color-success);
+}
+
+.VoiceSetupModal-step--error .VoiceSetupModal-stepMarker,
+.VoiceSetupModal-step--error .VoiceSetupModal-stepLabel {
+  color: var(--ion-color-danger);
+}
+
+.VoiceSetupModal-step--active .VoiceSetupModal-stepLabel {
+  color: var(--ion-color-primary);
+  font-weight: 600;
+}
+
+.VoiceSetupModal-step--todo .VoiceSetupModal-stepMarker,
+.VoiceSetupModal-step--todo .VoiceSetupModal-stepLabel {
+  color: var(--ion-color-medium);
+}
+
+.VoiceSetupModal-cancelBtn {
+  align-self: center;
+}
+
+.VoiceSetupModal-success {
+  color: var(--ion-color-success);
+}
+
+.VoiceSetupModal-error {
+  color: var(--ion-color-danger);
+  font-weight: 600;
+}
+
+.VoiceSetupModal-errorDetail {
+  font-size: 13px;
+}
+
+.VoiceSetupModal-cancelError {
+  margin-top: 12px;
+  font-size: 12px;
+}
