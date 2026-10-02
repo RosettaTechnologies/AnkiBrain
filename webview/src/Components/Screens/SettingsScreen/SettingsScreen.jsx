@@ -264,13 +264,6 @@ const VoiceSettings = (props) => {
             <SliderThumb />
           </Slider>
 
-          <Text fontSize={12} color={"gray.500"} mb={3}>
-            Card audio is chosen per deck batch on the Make Cards screen (the
-            “Generate audio” dropdown there). New cards can auto-enqueue audio
-            as they are generated, and every field can be generated, replayed,
-            or removed individually before you add cards to Anki.
-          </Text>
-
           <Button
             mb={2}
             variant={"outline"}
