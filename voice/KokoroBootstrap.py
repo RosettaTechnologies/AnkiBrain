@@ -10,6 +10,11 @@ uv itself then verifies every wheel/hash downstream.
 
     from voice import KokoroBootstrap
     KokoroBootstrap.run(groups=('core',), paths=p, on_event=cb, cancel=ev)
+    KokoroBootstrap.run(groups=('ja',), paths=p, on_event=cb, cancel=ev)   # add-on
+
+groups=('core',) installs/repairs the engine; ('core','ja') does the full
+install incl. Japanese; ('ja',) adds the Japanese pack to an existing
+install without rebuilding the venv.
 
 Events (for the webview setup modal), all JSON-safe dicts:
     {'stage': 'uv|python|venv|engine|spacy|ja|model|test|done',
@@ -394,24 +399,26 @@ def _snapshot_model(runner):
     runner.emit('model', 'done', 'Voice model ready')
 
 
-def _test_synth(runner):
+def _test_synth(runner, voice=None, text=None):
     """
     End-to-end proof the install actually speaks: full pipeline build +
     synthesis + wav write. A green test step means the engine genuinely
-    works, not merely that files landed on disk.
+    works, not merely that files landed on disk. voice/text override the
+    English defaults — the ja pack test proves pyopenjtalk + unidic load.
     """
     paths = runner.paths
-    voice = _manifest()['model']['default_voice']
+    voice = voice or _manifest()['model']['default_voice']
+    text = text or 'AnkiBrain voice engine is ready.'
     code = (
         'import os, sys; '
         'from kokoro import KPipeline; '
         'p = KPipeline(lang_code=%r, repo_id=%r); '
-        'audio = next(iter(p("AnkiBrain voice engine is ready.", voice=%r)))[2]; '
+        'audio = next(iter(p(%r, voice=%r)))[2]; '
         'import soundfile as _sf; '
         'd = os.environ["ANKIBRAIN_TTS_DIR"]; os.makedirs(d, exist_ok=True); '
         'f = os.path.join(d, "kokoro-install-test.wav"); _sf.write(f, audio, 24000); '
         'sys.exit(0 if os.path.getsize(f) > 44 else 3)'
-    ) % (voice[0], _manifest()['model']['hf_repo'], voice)
+    ) % (voice[0], _manifest()['model']['hf_repo'], text, voice)
     runner.emit('test', 'start', 'Testing synthesis')
     rc, tail = runner.exec('test', 'Test synthesis', [paths.venv_python, '-c', code],
                            env=paths.engine_env(), log_name='warmup-test.log')
@@ -437,7 +444,11 @@ def _install_ja_pack(runner):
 
     env = paths.uv_env()
     env['UV_PROJECT_ENVIRONMENT'] = paths.venv_dir
-    cmd = [paths.uv_bin, 'sync', '--frozen', '--group', 'ja']
+    # --inexact: exact syncing would delete packages installed outside the
+    # lock — the spaCy English model (_install_spacy_model) is installed via
+    # `uv pip install`, so an exact ja sync would silently break English
+    # synthesis. Inexact keeps it while still adding/fixing lock packages.
+    cmd = [paths.uv_bin, 'sync', '--frozen', '--inexact', '--group', 'ja']
 
     if plat_entry and plat_entry.get('url') and plat_entry.get('sha256'):
         whl_dir = path.join(paths.wheels_dir, vstate.wheel_tag_platform())
@@ -474,10 +485,25 @@ def _install_ja_pack(runner):
 
 # ─────────────────────────────────────────── entry ──────────────────────────
 
+def _ja_test_voice():
+    """First Japanese voice in the manifest (fallback jf_alpha)."""
+    try:
+        return _manifest()['languages']['j']['voices'][0]
+    except (KeyError, IndexError, TypeError):
+        return 'jf_alpha'
+
+
 def run(groups=('core',), paths=None, on_event=None, cancel=None, settings_override=None):
     """
-    Install/repair the voice engine. groups ⊂ {'core'} always implied + optional
-    {'ja'}. Returns the final state.json dict. Raises BootstrapError.
+    Install/repair the voice engine, or add a pack to an existing install.
+
+    groups:
+        ('core',)      full install/repair of the core engine
+        ('core','ja')  full install/repair including the Japanese pack
+        ('ja',)        add the Japanese pack to an already installed engine
+                       (incremental: no venv rebuild, no re-download)
+
+    Returns the final state.json dict. Raises BootstrapError.
     Must run OUTSIDE the UI thread (worker thread from KokoroTTSManager).
     """
     paths = paths or vstate.VoicePaths(settings_override=settings_override)
@@ -489,24 +515,38 @@ def run(groups=('core',), paths=None, on_event=None, cancel=None, settings_overr
 
     paths.ensure_dirs()
     groups = set(groups)
+    ja_only = 'ja' in groups and 'core' not in groups
 
     try:
         if cancel.is_set():
             raise BootstrapError('cancel', 'Voice install cancelled.', None)
-        _install_uv(runner)
-        if cancel.is_set():
-            raise BootstrapError('cancel', 'Voice install cancelled.', None)
-        _install_python(runner)
-        # --clear below: an existing venv is always recreated then re-synced
-        # from the lock — seconds when the cache is warm, and drift (the whole
-        # reason a repair runs) is healed rather than skipped.
-        _create_venv(runner)
-        _sync_engine(runner)
-        _install_spacy_model(runner)
-        if 'ja' in groups:
+        if ja_only:
+            # Add-on path: the core engine must already be installed. Only
+            # the ja group is synced (--inexact keeps the spaCy model), then
+            # a Japanese synthesis proves the pack actually works.
+            state = vstate.load_state(paths) or {}
+            core_installed = bool((state.get('groups') or {}).get('core'))
+            if not vstate.venv_present(paths) or not core_installed:
+                raise BootstrapError(
+                    'state', 'The voice engine is not installed yet.',
+                    'Install the voice engine first, then add the Japanese pack.')
             _install_ja_pack(runner)
-        _snapshot_model(runner)
-        _test_synth(runner)
+            _test_synth(runner, voice=_ja_test_voice(), text='日本語の音声テストです。')
+        else:
+            _install_uv(runner)
+            if cancel.is_set():
+                raise BootstrapError('cancel', 'Voice install cancelled.', None)
+            _install_python(runner)
+            # --clear below: an existing venv is always recreated then re-synced
+            # from the lock — seconds when the cache is warm, and drift (the whole
+            # reason a repair runs) is healed rather than skipped.
+            _create_venv(runner)
+            _sync_engine(runner)
+            _install_spacy_model(runner)
+            if 'ja' in groups:
+                _install_ja_pack(runner)
+            _snapshot_model(runner)
+            _test_synth(runner)
     except BootstrapError as e:
         existing = vstate.load_state(paths) or {}
         existing['last_error'] = e.to_dict()
@@ -515,24 +555,33 @@ def run(groups=('core',), paths=None, on_event=None, cancel=None, settings_overr
         runner.emit(runner.stage or 'engine', 'error', e.message, error=e.to_dict())
         raise
 
-    # Remember the pins we verified end-to-end just now.
-    uv_ver = ''
-    try:
-        rc, uv_ver = runner.exec('uv', 'version', [paths.uv_bin, '--version'])
-    except BootstrapError:
-        pass
-    st = {
-        'status': 'installed',
-        'manifest_hash': vstate.manifest_hash(),
-        'lock_hash': vstate.lock_hash(),
-        'uv_version': (uv_ver or '').strip(),
-        'python_version': _manifest()['python']['version'],
-        'groups': {'core': True, 'ja': 'ja' in groups},
-        'root': paths.root,
-        'venv_python': paths.venv_python,
-        'installed_at': int(time.time()),
-        'last_error': None,
-    }
+    if ja_only:
+        # Merge into the existing state: the core install (hashes, uv
+        # version, installed_at) is untouched — only the pack flag flips.
+        st = vstate.load_state(paths) or {}
+        st.setdefault('groups', {'core': True, 'ja': False})
+        st['groups']['ja'] = True
+        st['last_error'] = None
+        st['ja_installed_at'] = int(time.time())
+    else:
+        # Remember the pins we verified end-to-end just now.
+        uv_ver = ''
+        try:
+            rc, uv_ver = runner.exec('uv', 'version', [paths.uv_bin, '--version'])
+        except BootstrapError:
+            pass
+        st = {
+            'status': 'installed',
+            'manifest_hash': vstate.manifest_hash(),
+            'lock_hash': vstate.lock_hash(),
+            'uv_version': (uv_ver or '').strip(),
+            'python_version': _manifest()['python']['version'],
+            'groups': {'core': True, 'ja': 'ja' in groups},
+            'root': paths.root,
+            'venv_python': paths.venv_python,
+            'installed_at': int(time.time()),
+            'last_error': None,
+        }
     vstate.save_state(paths, st)
-    runner.emit('done', 'done', 'Voice engine ready')
+    runner.emit('done', 'done', 'Japanese voice pack ready' if ja_only else 'Voice engine ready')
     return st

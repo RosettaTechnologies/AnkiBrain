@@ -15,24 +15,31 @@ import {
   Spinner,
   Text,
 } from "@chakra-ui/react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { closeSetupModal, refreshTtsStatus } from "../../api/tts";
 import { pyTtsCancelInstall, pyTtsInstall } from "../../api/PythonBridge/senders/pyTtsInstall";
 import { setTtsInstallActive } from "../../api/redux/slices/tts";
 
 /**
- * First-use Voice setup: one honest screen — what this is, what it costs
- * (bytes), one button. While the bootstrap runs on the python side, stage
- * events stream in (uv -> python -> venv -> engine -> spacy -> ja? -> model
- * -> test). Nothing is replayed after a successful install — the modal
- * closes and the user repeats the voice action (speak / generate audio).
+ * Voice setup: one honest screen — what this is, what it costs (bytes), one
+ * button. While the bootstrap runs on the python side, stage events stream in
+ * (uv -> python -> venv -> engine -> spacy -> ja? -> model -> test). Nothing
+ * is replayed after a successful install — the modal closes and the user
+ * repeats the voice action (speak / generate audio).
+ *
+ * Two modes (state.tts.setupModalMode):
+ *   default — first-use install or repair, with an optional ja checkbox.
+ *   add_ja  — incremental Japanese pack for an already installed engine;
+ *             runs only the ja sync + test, and Cancel never touches the
+ *             existing core engine.
  *
  * The modal is deliberately not dismissable: no X, no Esc, no overlay
  * click. Hiding it would leave the install running in the background with
  * partial files on disk. The only exit is Cancel, which stops the bootstrap
- * and deletes every file the attempt wrote before the modal closes. After a
- * completed install the exit is Done (there is nothing to undo).
+ * (and, in default mode, deletes every file the attempt wrote) before the
+ * modal closes. After a completed install the exit is Done (there is nothing
+ * to undo).
  */
 
 // The install pipeline, in order. The modal renders this as a static
@@ -49,14 +56,33 @@ const INSTALL_STEPS = [
   { stage: "model", label: "Fetching Kokoro-82M voice model" },
   { stage: "test", label: "Verifying synthesis" },
 ];
+
+// The incremental add-on flow (mode "add_ja"): only the pack sync + a
+// Japanese synthesis run — no venv rebuild, no core re-download.
+const JA_INSTALL_STEPS = [
+  { stage: "ja", label: "Installing Japanese voice pack" },
+  { stage: "test", label: "Verifying Japanese synthesis" },
+];
 export function VoiceSetupModal() {
   const dispatch = useDispatch();
   const open = useSelector((state) => state.tts.setupModalOpen);
+  const mode = useSelector((state) => state.tts.setupModalMode);
   const status = useSelector((state) => state.tts.status);
   const install = useSelector((state) => state.tts.install);
   const [includeJa, setIncludeJa] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState(null);
+  const jaMode = mode === "add_ja";
+
+  // Opening the install/repair prompt mirrors the engine's current state: a
+  // repair of an engine that already has the ja pack keeps the checkbox
+  // checked, so it reflects "what will be installed", not a stale default.
+  // (Deps are deliberately just open/mode — the sync happens on open.)
+  useEffect(() => {
+    if (open && !jaMode) {
+      setIncludeJa(!!(status && status.ja_pack));
+    }
+  }, [open, jaMode]);
 
   if (!open) return null;
 
@@ -73,7 +99,9 @@ export function VoiceSetupModal() {
       : 0;
 
   const stages = install.stages || {};
-  const steps = INSTALL_STEPS.filter((s) => !s.japanese || includeJa);
+  const steps = jaMode
+    ? JA_INSTALL_STEPS
+    : INSTALL_STEPS.filter((s) => !s.japanese || includeJa);
   const currentStep = steps.find((s) => stages[s.stage] === "active");
   const failedStep = steps.find((s) => stages[s.stage] === "error");
   const heading = event.message || (currentStep ? currentStep.label : "Preparing…");
@@ -81,16 +109,17 @@ export function VoiceSetupModal() {
   const startInstall = () => {
     setCancelError(null);
     dispatch(setTtsInstallActive(true));
-    pyTtsInstall(includeJa ? ["core", "ja"] : ["core"]);
+    pyTtsInstall(jaMode ? ["ja"] : includeJa ? ["core", "ja"] : ["core"]);
   };
 
   /**
    * The one exit. If nothing has been started (prompt / unsupported screen)
    * this only closes — in Repair mode an already installed engine is left
    * untouched. If an install is running or a previous attempt failed, it
-   * stops the bootstrap and deletes the whole partial tree on the python
-   * side before closing; a cleanup failure (locked files) keeps the modal
-   * open so the user can retry.
+   * stops the bootstrap and (default mode only) deletes the whole partial
+   * tree on the python side before closing; ja mode preserves the installed
+   * core engine. A cleanup failure (locked files) keeps the modal open so
+   * the user can retry.
    */
   const handleCancel = async () => {
     if (cancelling) return;
@@ -102,7 +131,7 @@ export function VoiceSetupModal() {
     setCancelError(null);
     let res = null;
     try {
-      res = await pyTtsCancelInstall();
+      res = await pyTtsCancelInstall({ preserveCore: jaMode });
     } catch (e) {
       res = { ok: false, error: String(e && e.message ? e.message : e) };
     }
@@ -135,7 +164,9 @@ export function VoiceSetupModal() {
               <CircularProgress isIndeterminate size={10} color="purple.400" mb={3} />
               <Text mb={2}>Cancelling…</Text>
               <Text fontSize={12} color="gray.500" textAlign="center">
-                Stopping the installer and removing downloaded files.
+                {jaMode
+                  ? "Stopping the installer. The installed voice engine is not affected."
+                  : "Stopping the installer and removing downloaded files."}
               </Text>
             </Flex>
           )}
@@ -154,37 +185,60 @@ export function VoiceSetupModal() {
 
           {!cancelling && !unsupported && !active && !done && (
             <>
-              <Text mb={3}>
-                {alreadyInstalled
-                  ? "Reinstall or repair the Kokoro voice engine."
-                  : "Free text-to-speech (TTS) with Kokoro voice engine."}
-              </Text>
-              <Text fontSize={13} color="gray.500" mb={1}>
-                Download ≈ {estimate.download_mb} MB · Disk ≈ {estimate.disk_mb} MB
-              </Text>
-              <Text fontSize={13} color="gray.500" mb={4}>
-                Languages: English, Spanish, French, Hindi, Italian, Portuguese,
-                Chinese.
-              </Text>
-              <Checkbox
-                mb={4}
-                isChecked={includeJa}
-                onChange={(e) => setIncludeJa(e.target.checked)}
-              >
-                Also install Japanese
-                <Text fontSize={12} color="gray.500">
-                  (+{estimate.ja_extra_mb} MB)
-                </Text>
-              </Checkbox>
-              <Button
-                width="100%"
-                variant="accent"
-                colorScheme="purple"
-                mb={2}
-                onClick={startInstall}
-              >
-                {alreadyInstalled ? "Repair voice engine" : "Install voice engine"}
-              </Button>
+              {jaMode ? (
+                <>
+                  <Text mb={3}>
+                    Add the Japanese language pack to the installed voice engine.
+                  </Text>
+                  <Text fontSize={13} color="gray.500" mb={4}>
+                    Download ≈ {estimate.ja_extra_mb} MB · Japanese voices and
+                    text-to-speech support.
+                  </Text>
+                  <Button
+                    width="100%"
+                    variant="accent"
+                    colorScheme="purple"
+                    mb={2}
+                    onClick={startInstall}
+                  >
+                    Install Japanese pack
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Text mb={3}>
+                    {alreadyInstalled
+                      ? "Reinstall or repair the Kokoro voice engine."
+                      : "Free text-to-speech (TTS) with Kokoro voice engine."}
+                  </Text>
+                  <Text fontSize={13} color="gray.500" mb={1}>
+                    Download ≈ {estimate.download_mb} MB · Disk ≈ {estimate.disk_mb} MB
+                  </Text>
+                  <Text fontSize={13} color="gray.500" mb={4}>
+                    Languages: English, Spanish, French, Hindi, Italian, Portuguese,
+                    Chinese.
+                  </Text>
+                  <Checkbox
+                    mb={4}
+                    isChecked={includeJa}
+                    onChange={(e) => setIncludeJa(e.target.checked)}
+                  >
+                    Also install Japanese
+                    <Text fontSize={12} color="gray.500">
+                      (+{estimate.ja_extra_mb} MB)
+                    </Text>
+                  </Checkbox>
+                  <Button
+                    width="100%"
+                    variant="accent"
+                    colorScheme="purple"
+                    mb={2}
+                    onClick={startInstall}
+                  >
+                    {alreadyInstalled ? "Repair voice engine" : "Install voice engine"}
+                  </Button>
+                </>
+              )}
               <Button width="100%" variant="ghost" onClick={handleCancel}>
                 Cancel
               </Button>
@@ -267,7 +321,9 @@ export function VoiceSetupModal() {
           {!cancelling && !unsupported && done && done.ok && (
             <>
               <Text mb={4} color="green.500">
-                Voice engine ready. Click the voice button again to use it.
+                {jaMode
+                  ? "Japanese voice pack installed. Pick a Japanese voice from the Language menu in Settings."
+                  : "Voice engine ready. Click the voice button again to use it."}
               </Text>
               <Button width="100%" onClick={closeSetupModal} variant="accent" colorScheme="purple">
                 Done

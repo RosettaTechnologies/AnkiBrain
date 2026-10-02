@@ -85,6 +85,8 @@ const VoiceSettings = (props) => {
 
   const diskMb =
     (status && status.estimate && status.estimate.disk_mb) || 1600;
+  const jaExtraMb =
+    (status && status.estimate && status.estimate.ja_extra_mb) || 300;
 
   const doUninstall = async () => {
     setUninstalling(true);
@@ -155,6 +157,16 @@ const VoiceSettings = (props) => {
             : needsSync
               ? "Update voice engine"
               : "Install voice engine"}
+        </Button>
+      )}
+
+      {!unsupported && installed && !status.ja_pack && (
+        <Button
+          mb={3}
+          variant={"outline"}
+          onClick={() => openSetupModal("add_ja")}
+        >
+          Add Japanese language pack (+{jaExtraMb} MB)
         </Button>
       )}
 

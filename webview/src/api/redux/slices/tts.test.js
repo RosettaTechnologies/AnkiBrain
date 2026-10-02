@@ -1,5 +1,6 @@
 import { store } from "..";
 import {
+  setSetupModalMode,
   setSetupModalOpen,
   setTtsInstallActive,
   setTtsInstallDone,
@@ -14,6 +15,7 @@ beforeEach(() => {
   store.dispatch(setTtsInstallActive(true));
   store.dispatch(setTtsInstallActive(false));
   store.dispatch(setSetupModalOpen(false));
+  store.dispatch(setSetupModalMode("default"));
 });
 
 test("opening the setup modal clears a previous flow's terminal result", () => {
@@ -83,4 +85,13 @@ test("starting a new install clears the previous checklist", () => {
   expect(install.event).toBeNull();
   expect(install.done).toBeNull();
   expect(install.active).toBe(true);
+});
+
+test("setup modal mode only treats add_ja as special", () => {
+  store.dispatch(setSetupModalMode("add_ja"));
+  expect(store.getState().tts.setupModalMode).toBe("add_ja");
+
+  // Anything unexpected falls back to the default install/repair flow.
+  store.dispatch(setSetupModalMode("repair"));
+  expect(store.getState().tts.setupModalMode).toBe("default");
 });

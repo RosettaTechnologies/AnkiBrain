@@ -317,11 +317,19 @@ class ReactBridge:
                 # finished, so the UI closes on truth rather than a hope;
                 # a still-stopping bootstrap or locked files come back as
                 # {ok: False, error} and the modal offers Cancel again.
+                #
+                # preserveCore (the ja-pack add-on flow): cancel + join only.
+                # The core engine predates this attempt and must survive; a
+                # partially synced pack is harmless (state groups.ja stays
+                # false, Retry/later Repair re-syncs).
+                preserve_core = bool(data.get('preserveCore'))
                 tts = self.app.tts
                 still_running = await asyncio.to_thread(tts.cancel_install_and_wait)
                 if still_running:
                     res = {'ok': False,
                            'error': 'The install is still stopping. Try Cancel again in a moment.'}
+                elif preserve_core:
+                    res = {'ok': True}
                 else:
                     try:
                         await tts.stop()

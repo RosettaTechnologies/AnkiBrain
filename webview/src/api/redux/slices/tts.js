@@ -11,6 +11,10 @@ export const ttsSlice = createSlice({
     install: { active: false, event: null, stages: {}, done: null },
     // Voice Setup modal (install/repair UI).
     setupModalOpen: false,
+    // Which flow the modal renders: "default" (install/repair with the
+    // optional ja checkbox) or "add_ja" (incremental Japanese pack for an
+    // already installed engine).
+    setupModalMode: "default",
     // Currently speaking indicator {text}.
     speaking: null,
     // Voice settings echoed from DID_LOAD_SETTINGS so the Settings screen
@@ -79,6 +83,10 @@ export const ttsSlice = createSlice({
       }
       state.setupModalOpen = open;
     },
+    setSetupModalMode: (state, action) => {
+      // Only "add_ja" is special; anything else is the default flow.
+      state.setupModalMode = action.payload === "add_ja" ? "add_ja" : "default";
+    },
     setSpeaking: (state, action) => {
       state.speaking = action.payload;
     },
@@ -97,6 +105,7 @@ export const {
   setTtsInstallDone,
   setTtsInstallActive,
   setSetupModalOpen,
+  setSetupModalMode,
   setSpeaking,
   setTtsSettings,
   editTtsSettingLocal,

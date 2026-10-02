@@ -1,5 +1,9 @@
 import { store } from "../redux";
-import { setSetupModalOpen, setTtsStatus } from "../redux/slices/tts";
+import {
+  setSetupModalMode,
+  setSetupModalOpen,
+  setTtsStatus,
+} from "../redux/slices/tts";
 import { pySpeakText } from "../PythonBridge/senders/pySpeakText";
 import { pyTtsStatus } from "../PythonBridge/senders/pyTtsStatus";
 import { playTtsUrl } from "./player";
@@ -37,8 +41,16 @@ export async function speak(text) {
     const msg = String(err && err.message ? err.message : err);
     if (msg.includes("TTS_NOT_INSTALLED") || msg.includes("TTS_PACK_MISSING")) {
       // Engine absent: open the setup dialog only. The user presses the
-      // speak/generate button again after installing.
-      store.dispatch(setSetupModalOpen(true));
+      // speak/generate button again after installing. A missing ja pack on
+      // an installed engine goes straight to the incremental pack dialog
+      // instead of the full install/repair screen.
+      const st = store.getState().tts.status;
+      const jaPackMissing = msg.includes("TTS_PACK_MISSING");
+      openSetupModal(
+        jaPackMissing && st && st.status === "supported-and-installed"
+          ? "add_ja"
+          : "default"
+      );
       return null;
     }
     if (msg.startsWith("TTS_UNSUPPORTED:")) {
@@ -50,7 +62,8 @@ export async function speak(text) {
   }
 }
 
-export function openSetupModal() {
+export function openSetupModal(mode = "default") {
+  store.dispatch(setSetupModalMode(mode));
   store.dispatch(setSetupModalOpen(true));
   // The modal branches on engine status (install vs repair), so refetch it
   // rather than trusting the Redux cache — e.g. the engine may have been

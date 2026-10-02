@@ -50,8 +50,17 @@ function handleBatchFailure(items, err) {
 
   if (msg.includes("TTS_NOT_INSTALLED") || msg.includes("TTS_PACK_MISSING")) {
     // Engine absent: offer the setup dialog and stop. Nothing is parked or
-    // replayed after install — the user clicks "generate audio" again.
-    openSetupModal();
+    // replayed after install — the user clicks "generate audio" again. A
+    // missing ja pack on an installed engine goes straight to the
+    // incremental pack dialog instead of the full install/repair screen.
+    const st = store.getState().tts.status;
+    openSetupModal(
+      msg.includes("TTS_PACK_MISSING") &&
+        st &&
+        st.status === "supported-and-installed"
+        ? "add_ja"
+        : "default"
+    );
     return;
   }
 

@@ -47,7 +47,9 @@ class InterprocessCommand(Enum):
     # ── AnkiBrain Voice (Kokoro TTS) ──────────────────────────────────────
     # SYNTHESIZE_SPEECH -> DID_SYNTHESIZE_SPEECH {path,url,...} (promise-style;
     # JS resolves via commandId). TTS_STATUS reports installed/platform/voices.
-    # TTS_INSTALL kicks off the bootstrap; progress arrives via pushed
+    # TTS_INSTALL {groups} kicks off the bootstrap: ['core'] full install,
+    # ['core','ja'] full install incl. Japanese, ['ja'] adds the pack to an
+    # already installed engine. Progress arrives via pushed
     # TTS_INSTALL_PROGRESS events + a final TTS_INSTALL_DONE (no commandId —
     # installs outlive any single request).
     SYNTHESIZE_SPEECH = 'SYNTHESIZE_SPEECH'
@@ -60,6 +62,9 @@ class InterprocessCommand(Enum):
     DID_TTS_INSTALL = 'DID_TTS_INSTALL'          # {started: bool} ack
     TTS_INSTALL_PROGRESS = 'TTS_INSTALL_PROGRESS'  # push: bootstrap stage event
     TTS_INSTALL_DONE = 'TTS_INSTALL_DONE'          # push: {ok, error?}
+    # TTS_CANCEL_INSTALL {preserveCore?}: cancel + join the bootstrap worker;
+    # unless preserveCore (the ja add-on flow), also stop the engine and
+    # delete the whole partial tree.
     TTS_CANCEL_INSTALL = 'TTS_CANCEL_INSTALL'
 
     TTS_UNINSTALL = 'TTS_UNINSTALL'

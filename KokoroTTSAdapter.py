@@ -244,7 +244,9 @@ class KokoroTTSAdapter:
 
     def start_install(self, groups=('core',), on_event=None, on_done=None):
         """
-        Run the pinned bootstrap on a worker thread. on_event/on_done are
+        Run the pinned bootstrap on a worker thread. groups: ('core',) full
+        install, ('core','ja') full install incl. Japanese, ('ja',) add the
+        Japanese pack to an already installed engine. on_event/on_done are
         called ON THE UI/MAIN thread via aqt's timer-safe pattern? No: React
         bridge passes a scheduler that marshals onto the asyncio loop — we
         simply invoke whatever the caller gave us from the worker; the caller
