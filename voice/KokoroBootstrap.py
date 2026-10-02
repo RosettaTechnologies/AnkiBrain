@@ -12,8 +12,11 @@ uv itself then verifies every wheel/hash downstream.
     KokoroBootstrap.run(groups=('core',), paths=p, on_event=cb, cancel=ev)
 
 Events (for the webview setup modal), all JSON-safe dicts:
-    {'stage': 'uv|python|venv|engine|model|ja|test', 'status': 'start|progress|done',
+    {'stage': 'uv|python|venv|engine|spacy|ja|model|test|done',
+     'status': 'start|progress|done|error',
      'message': str, 'received_mb': float, 'estimate_mb': float}
+Every stage emits start then done (an already-present step emits done only);
+a failure emits error attributed to the stage that actually failed.
 
 Failure raises BootstrapError(code, message, hint) — codes are stable strings
 the React app maps to copy: 'download' | 'checksum' | 'uv' | 'sync' | 'model'
@@ -74,21 +77,29 @@ class _Runner:
         self.on_event = on_event or (lambda e: None)
         self.cancel = cancel  # threading.Event
         self.proc = None
-        self._ticker = None
-        self._stop_tick = threading.Event()
+        self.stage = None  # running/last stage, so errors name the real step
 
     # ------------------------------------------------------------- progress
-    def _tick_loop(self, stage, message, estimate_mb, watched_dirs, baseline_mb):
+    def emit(self, stage, status, message, received_mb=0, estimate_mb=0, **extra):
+        """Single funnel for stage events. Remembers the stage so an error
+        raised mid-step can be attributed to the step that actually failed."""
+        self.stage = stage
+        ev = {'stage': stage, 'status': status, 'message': message,
+              'received_mb': received_mb, 'estimate_mb': estimate_mb}
+        ev.update(extra)
+        self.on_event(ev)
+
+    def _tick_loop(self, stop, stage, message, estimate_mb, watched_dirs, baseline_mb):
         last = 0.0
-        while not self._stop_tick.wait(2.0):
+        while not stop.wait(2.0):
             if self.cancel.is_set():
                 self._kill()
                 return
             mb = max(0.0, _dir_mb(*watched_dirs) - baseline_mb)
             if mb >= last:
-                self.on_event({'stage': stage, 'status': 'progress', 'message': message,
-                               'received_mb': round(min(mb, estimate_mb), 1),
-                               'estimate_mb': estimate_mb})
+                self.emit(stage, 'progress', message,
+                          received_mb=round(min(mb, estimate_mb), 1),
+                          estimate_mb=estimate_mb)
                 last = mb
 
     def _kill(self):
@@ -106,9 +117,14 @@ class _Runner:
         Run cmd to completion. stdout+stderr go to <logs>/<name>; a ticker
         thread polls watched_dirs growth to emit progress events (robust
         across uv/torch versions — we never parse progress-bar escape codes).
+        The ticker owns a per-run stop event and is joined before returning,
+        so a finished stage can never keep emitting into the next one (that
+        race made the setup modal flash between adjacent stage messages).
         Returns (rc, combined_output_tail).
         """
-        self._stop_tick.clear()
+        stop = threading.Event()
+        ticker = None
+        self.stage = stage
         baseline = _dir_mb(*watched_dirs)
         log_path = path.join(self.paths.logs_dir, log_name or (stage + '.log'))
         with open(log_path, 'wb') as logf:
@@ -119,10 +135,10 @@ class _Runner:
                 **({'creationflags': subprocess.CREATE_NO_WINDOW} if platform.system() == 'Windows' else {})
             )
             if estimate_mb:
-                self._ticker = threading.Thread(
+                ticker = threading.Thread(
                     target=self._tick_loop,
-                    args=(stage, message, estimate_mb, watched_dirs, baseline), daemon=True)
-                self._ticker.start()
+                    args=(stop, stage, message, estimate_mb, watched_dirs, baseline), daemon=True)
+                ticker.start()
             try:
                 while True:
                     try:
@@ -133,7 +149,9 @@ class _Runner:
                             self._kill()
                             raise BootstrapError('cancel', 'Voice install cancelled.', None)
             finally:
-                self._stop_tick.set()
+                stop.set()
+                if ticker is not None:
+                    ticker.join(timeout=5)
                 self.proc = None
         tail = ''
         try:
@@ -159,6 +177,8 @@ def _fetch(url, dest, sha256, runner, stage, message, watched=None, estimate_mb=
     """
     import urllib.request
 
+    runner.stage = stage  # attribute download faults to this step
+
     if path.isfile(dest):
         h = hashlib.sha256()
         with open(dest, 'rb') as f:
@@ -183,8 +203,8 @@ def _fetch(url, dest, sha256, runner, stage, message, watched=None, estimate_mb=
         while not stop.wait(2.0):
             mb = max(0.0, _dir_mb(*watched) - baseline)
             if mb >= last:
-                runner.on_event({'stage': stage, 'status': 'progress', 'message': message,
-                                 'received_mb': round(min(mb, est), 1), 'estimate_mb': est})
+                runner.emit(stage, 'progress', message,
+                            received_mb=round(min(mb, est), 1), estimate_mb=est)
                 last = mb
 
     t = threading.Thread(target=tick, daemon=True)
@@ -238,13 +258,11 @@ def _install_uv(runner):
     if path.isfile(paths.uv_bin):
         rc, tail = runner.exec('uv', 'checking uv', [paths.uv_bin, '--version'])
         if rc == 0 and m['uv']['version'] in tail:
-            runner.on_event({'stage': 'uv', 'status': 'done', 'message': 'uv already installed',
-                             'received_mb': 0, 'estimate_mb': 0})
+            runner.emit('uv', 'done', 'uv already installed')
             return
 
     url = m['uv']['releases_base'] + plat['asset']
-    runner.on_event({'stage': 'uv', 'status': 'start', 'message': f'Downloading uv {m["uv"]["version"]}',
-                     'received_mb': 0, 'estimate_mb': 25})
+    runner.emit('uv', 'start', f'Downloading uv {m["uv"]["version"]}', estimate_mb=25)
     _fetch(url, archive, plat['sha256'], runner, 'uv', f'Downloading uv {m["uv"]["version"]}',
            watched=[paths.cache_dir], estimate_mb=25)
 
@@ -269,7 +287,7 @@ def _install_uv(runner):
     rc, tail = runner.exec('uv', 'verifying uv', [paths.uv_bin, '--version'])
     if rc != 0 or m['uv']['version'] not in tail:
         raise BootstrapError('uv', f'Installed uv failed version check (rc={rc}): {tail}', None)
-    runner.on_event({'stage': 'uv', 'status': 'done', 'message': 'uv ready', 'received_mb': 0, 'estimate_mb': 0})
+    runner.emit('uv', 'done', 'uv ready')
 
 
 def _install_python(runner):
@@ -279,23 +297,21 @@ def _install_python(runner):
     rc, tail = runner.exec('python', 'Checking managed CPython',
                            [paths.uv_bin, 'python', 'list', '--only-installed'], env=env)
     if rc == 0 and ver in tail:
-        runner.on_event({'stage': 'python', 'status': 'done', 'message': 'Python already installed',
-                         'received_mb': 0, 'estimate_mb': 0})
+        runner.emit('python', 'done', 'Python already installed')
         return
-    runner.on_event({'stage': 'python', 'status': 'start', 'message': f'Installing CPython {ver}',
-                     'received_mb': 0, 'estimate_mb': 30})
+    runner.emit('python', 'start', f'Installing CPython {ver}', estimate_mb=30)
     rc, tail = runner.exec('python', f'Installing CPython {ver}',
                            [paths.uv_bin, 'python', 'install', ver], env=env,
                            estimate_mb=30, watched_dirs=[paths.python_dir, paths.cache_dir])
     if rc != 0:
         raise BootstrapError('uv', f'uv python install failed (rc={rc}): {tail}', None)
+    runner.emit('python', 'done', 'Python runtime ready')
 
 
 def _create_venv(runner):
     paths, m = runner.paths, _manifest()
     ver = m['python']['version']
-    runner.on_event({'stage': 'venv', 'status': 'start', 'message': 'Creating kokoro environment',
-                     'received_mb': 0, 'estimate_mb': 0})
+    runner.emit('venv', 'start', 'Creating kokoro environment')
     # --seed: ship pip inside the venv. spacy.cli.download (misaki's runtime
     # fallback if the model ever goes missing) shells out to `python -m pip`,
     # which fails in a bare uv venv.
@@ -304,6 +320,7 @@ def _create_venv(runner):
                            env=paths.uv_env())
     if rc != 0:
         raise BootstrapError('uv', f'uv venv failed (rc={rc}): {tail}', None)
+    runner.emit('venv', 'done', 'Environment ready')
 
 
 def _sync_engine(runner):
@@ -315,9 +332,8 @@ def _sync_engine(runner):
     # --group ja (in _install_ja_pack), never as part of the core sync.
     cmd = [paths.uv_bin, 'sync', '--frozen']
     est = _manifest()['size_estimates_mb']['download'].get(vstate.platform_key(), 760)
-    runner.on_event({'stage': 'engine', 'status': 'start',
-                     'message': 'Installing engine packages (PyTorch is the big one)',
-                     'received_mb': 0, 'estimate_mb': est})
+    runner.emit('engine', 'start', 'Installing engine packages (PyTorch is the big one)',
+                estimate_mb=est)
     rc, tail = runner.exec('engine', 'Installing engine packages', cmd, env=env,
                            cwd=vstate.VOICE_DIR,
                            estimate_mb=est,
@@ -326,6 +342,7 @@ def _sync_engine(runner):
     if rc != 0:
         raise BootstrapError('sync', f'Engine package sync failed (rc={rc}): {tail}',
                              'Retry to resume from cache; check disk space (see the size note).')
+    runner.emit('engine', 'done', 'Engine packages installed')
 
 
 def _install_spacy_model(runner):
@@ -340,18 +357,16 @@ def _install_spacy_model(runner):
     rc, _ = runner.exec('spacy', 'checking spacy model',
                         [paths.venv_python, '-c', f'import {sm["name"]}' ], env=paths.engine_env())
     if rc == 0:
-        runner.on_event({'stage': 'spacy', 'status': 'done', 'message': 'Tokenizer model present',
-                         'received_mb': 0, 'estimate_mb': 0})
+        runner.emit('spacy', 'done', 'Tokenizer model present')
         return
-    runner.on_event({'stage': 'spacy', 'status': 'start',
-                     'message': f'Installing {sm["name"]} {sm["version"]}',
-                     'received_mb': 0, 'estimate_mb': 15})
+    runner.emit('spacy', 'start', f'Installing {sm["name"]} {sm["version"]}', estimate_mb=15)
     rc, tail = runner.exec('spacy', f'Installing {sm["name"]}',
                            [paths.uv_bin, 'pip', 'install', '--python', paths.venv_python,
                             '--no-deps', sm['url']], env=paths.uv_env(),
                            estimate_mb=15, watched_dirs=[paths.cache_dir, paths.venv_dir])
     if rc != 0:
         raise BootstrapError('sync', f'spacy model install failed (rc={rc}): {tail}', None)
+    runner.emit('spacy', 'done', 'English tokenizer ready')
 
 
 def _snapshot_model(runner):
@@ -369,12 +384,14 @@ def _snapshot_model(runner):
         'allow_patterns=["kokoro-v1_0.pth", "config.json", "voices/%s.pt"])'
         % (m['model']['hf_repo'], m['model']['hf_revision'], m['model']['default_voice'])
     )
+    runner.emit('model', 'start', 'Fetching Kokoro-82M voice model', estimate_mb=350)
     rc, tail = runner.exec('model', 'Fetching Kokoro-82M voice model',
                            [paths.venv_python, '-c', code], env=paths.engine_env(),
                            estimate_mb=350, watched_dirs=[paths.hf_dir], log_name='snapshot.log')
     if rc != 0:
         raise BootstrapError('model', f'Voice model download failed (rc={rc}): {tail}',
                              'If you are behind a firewall, set HF_ENDPOINT to a mirror or retry.')
+    runner.emit('model', 'done', 'Voice model ready')
 
 
 def _test_synth(runner):
@@ -395,6 +412,7 @@ def _test_synth(runner):
         'f = os.path.join(d, "kokoro-install-test.wav"); _sf.write(f, audio, 24000); '
         'sys.exit(0 if os.path.getsize(f) > 44 else 3)'
     ) % (voice[0], _manifest()['model']['hf_repo'], voice)
+    runner.emit('test', 'start', 'Testing synthesis')
     rc, tail = runner.exec('test', 'Test synthesis', [paths.venv_python, '-c', code],
                            env=paths.engine_env(), log_name='warmup-test.log')
     if rc == 3:
@@ -402,6 +420,7 @@ def _test_synth(runner):
     if rc != 0:
         raise BootstrapError('model', f'Voice engine failed its own synthesis test (rc={rc}): {tail}',
                              'Retry the install; check that the disk did not fill up (see size note).')
+    runner.emit('test', 'done', 'Synthesis test passed')
 
 
 def _install_ja_pack(runner):
@@ -423,8 +442,7 @@ def _install_ja_pack(runner):
     if plat_entry and plat_entry.get('url') and plat_entry.get('sha256'):
         whl_dir = path.join(paths.wheels_dir, vstate.wheel_tag_platform())
         whl = path.join(whl_dir, path.basename(plat_entry['url']))
-        runner.on_event({'stage': 'ja', 'status': 'start',
-                         'message': 'Installing Japanese voice pack', 'received_mb': 0, 'estimate_mb': 300})
+        runner.emit('ja', 'start', 'Installing Japanese voice pack', estimate_mb=300)
         _fetch(plat_entry['url'], whl, plat_entry['sha256'], runner, 'ja',
                'Downloading prebuilt pyopenjtalk', watched=[paths.wheels_dir, paths.cache_dir],
                estimate_mb=10)
@@ -434,9 +452,8 @@ def _install_ja_pack(runner):
         if rc != 0:
             raise BootstrapError('sync', f'uv pip install pyopenjtalk failed (rc={rc}): {tail}', None)
     else:
-        runner.on_event({'stage': 'ja', 'status': 'start',
-                         'message': 'Building Japanese voice pack (needs cmake + C/C++ compiler)',
-                         'received_mb': 0, 'estimate_mb': 300})
+        runner.emit('ja', 'start', 'Building Japanese voice pack (needs cmake + C/C++ compiler)',
+                    estimate_mb=300)
 
     rc, tail = runner.exec('ja', 'Syncing Japanese packages', cmd, env=env, cwd=vstate.VOICE_DIR,
                            estimate_mb=300, watched_dirs=[paths.cache_dir, paths.venv_dir],
@@ -452,6 +469,7 @@ def _install_ja_pack(runner):
                            estimate_mb=150, watched_dirs=[paths.venv_dir], log_name='unidic.log')
     if rc != 0:
         raise BootstrapError('ja_build', f'unidic dictionary download failed (rc={rc}): {tail}', None)
+    runner.emit('ja', 'done', 'Japanese voice pack ready')
 
 
 # ─────────────────────────────────────────── entry ──────────────────────────
@@ -494,8 +512,7 @@ def run(groups=('core',), paths=None, on_event=None, cancel=None, settings_overr
         existing['last_error'] = e.to_dict()
         existing.setdefault('groups', {'core': False, 'ja': False})
         vstate.save_state(paths, existing)
-        runner.on_event({'stage': 'engine', 'status': 'error', 'message': e.message,
-                         'error': e.to_dict(), 'received_mb': 0, 'estimate_mb': 0})
+        runner.emit(runner.stage or 'engine', 'error', e.message, error=e.to_dict())
         raise
 
     # Remember the pins we verified end-to-end just now.
@@ -517,6 +534,5 @@ def run(groups=('core',), paths=None, on_event=None, cancel=None, settings_overr
         'last_error': None,
     }
     vstate.save_state(paths, st)
-    runner.on_event({'stage': 'done', 'status': 'done', 'message': 'Voice engine ready',
-                     'received_mb': 0, 'estimate_mb': 0})
+    runner.emit('done', 'done', 'Voice engine ready')
     return st

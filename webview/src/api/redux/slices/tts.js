@@ -5,8 +5,10 @@ export const ttsSlice = createSlice({
   initialState: {
     // Raw payload of DID_TTS_STATUS (python voice.state.current_status()).
     status: null,
-    // Latest bootstrap progress event + a short rolling log for the modal.
-    install: { active: false, event: null, log: [], done: null },
+    // Bootstrap state for the setup modal: latest stage event + a per-stage
+    // checklist (stage -> "active" | "done" | "error") the modal renders as a
+    // static to-do/done list. Terminal result lives in `done`.
+    install: { active: false, event: null, stages: {}, done: null },
     // Voice Setup modal (install/repair UI).
     setupModalOpen: false,
     // Currently speaking indicator {text}.
@@ -28,12 +30,23 @@ export const ttsSlice = createSlice({
       state.status = action.payload;
     },
     setTtsInstallEvent: (state, action) => {
-      const ev = action.payload;
-      state.install.active = !(ev.stage === "done" || ev.status === "error");
+      const ev = action.payload || {};
       state.install.event = ev;
-      if (ev.status === "start" || ev.status === "done" || ev.status === "error") {
-        state.install.log.push(ev);
-        if (state.install.log.length > 12) state.install.log.shift();
+      // Only setTtsInstallDone ends the flow. Keeping `active` true through
+      // an error event means the modal never flashes back to the install
+      // prompt between the failure and the terminal done payload.
+      if (ev.stage !== "done" && ev.status !== "error") {
+        state.install.active = true;
+      }
+      if (ev.stage && ev.stage !== "done") {
+        // done/error are sticky: a late progress event must never un-check a
+        // finished step (the backend keeps one ticker per stage, so this is
+        // belt-and-braces).
+        const cur = state.install.stages[ev.stage];
+        if (cur !== "done" && cur !== "error") {
+          state.install.stages[ev.stage] =
+            ev.status === "done" ? "done" : ev.status === "error" ? "error" : "active";
+        }
       }
     },
     setTtsInstallDone: (state, action) => {
@@ -41,8 +54,13 @@ export const ttsSlice = createSlice({
       state.install.done = action.payload; // {ok, error?}
     },
     setTtsInstallActive: (state, action) => {
-      state.install.active = action.payload;
-      if (action.payload) state.install.done = null;
+      state.install.active = action.payload === true;
+      if (action.payload === true) {
+        // A fresh install starts from a clean checklist.
+        state.install.done = null;
+        state.install.event = null;
+        state.install.stages = {};
+      }
     },
     setSetupModalOpen: (state, action) => {
       // Boolean payload. Nothing is queued for replay — closing the modal
@@ -57,7 +75,7 @@ export const ttsSlice = createSlice({
         // resetting the in-memory store).
         state.install.done = null;
         state.install.event = null;
-        state.install.log = [];
+        state.install.stages = {};
       }
       state.setupModalOpen = open;
     },

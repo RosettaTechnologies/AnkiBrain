@@ -12,6 +12,7 @@ import {
   ModalHeader,
   ModalOverlay,
   Progress,
+  Spinner,
   Text,
 } from "@chakra-ui/react";
 import React, { useState } from "react";
@@ -33,6 +34,21 @@ import { setTtsInstallActive } from "../../api/redux/slices/tts";
  * and deletes every file the attempt wrote before the modal closes. After a
  * completed install the exit is Done (there is nothing to undo).
  */
+
+// The install pipeline, in order. The modal renders this as a static
+// checklist: every runnable step is visible from the start as a to-do (empty
+// checkbox) and flips to a checkmark as its stage event lands. The Japanese
+// row only appears when it was requested.
+const INSTALL_STEPS = [
+  { stage: "uv", label: "Preparing installer (uv)" },
+  { stage: "python", label: "Installing Python runtime" },
+  { stage: "venv", label: "Creating voice environment" },
+  { stage: "engine", label: "Installing engine packages (PyTorch)" },
+  { stage: "spacy", label: "Installing English tokenizer" },
+  { stage: "ja", label: "Installing Japanese voice pack", japanese: true },
+  { stage: "model", label: "Fetching Kokoro-82M voice model" },
+  { stage: "test", label: "Verifying synthesis" },
+];
 export function VoiceSetupModal() {
   const dispatch = useDispatch();
   const open = useSelector((state) => state.tts.setupModalOpen);
@@ -55,6 +71,12 @@ export function VoiceSetupModal() {
     event.estimate_mb > 0
       ? Math.min(100, Math.round((100 * (event.received_mb || 0)) / event.estimate_mb))
       : 0;
+
+  const stages = install.stages || {};
+  const steps = INSTALL_STEPS.filter((s) => !s.japanese || includeJa);
+  const currentStep = steps.find((s) => stages[s.stage] === "active");
+  const failedStep = steps.find((s) => stages[s.stage] === "error");
+  const heading = event.message || (currentStep ? currentStep.label : "Preparing…");
 
   const startInstall = () => {
     setCancelError(null);
@@ -170,9 +192,16 @@ export function VoiceSetupModal() {
           )}
 
           {!cancelling && !unsupported && active && (
-            <Flex direction="column" align="center" py={2}>
-              <CircularProgress isIndeterminate size={10} color="purple.400" mb={3} />
-              <Text mb={2}>{event.message || "Preparing…"}</Text>
+            <Flex direction="column" py={2}>
+              <Flex align="center" mb={2}>
+                <Spinner size="sm" color="purple.400" mr={2} flexShrink={0} />
+                {/* m={0}: Bootstrap's `p { margin-bottom: 1rem }` beats
+                    Chakra's :where() reset, and flexbox centers the margin
+                    box — leaving this margin makes the text ride high. */}
+                <Text fontWeight="semibold" m={0}>
+                  {heading}
+                </Text>
+              </Flex>
               {event.estimate_mb > 0 && (
                 <Box width="100%" mb={3}>
                   <Progress value={pct} size="sm" colorScheme="purple" borderRadius="full" />
@@ -181,15 +210,55 @@ export function VoiceSetupModal() {
                   </Text>
                 </Box>
               )}
-              <List spacing={0.5} fontSize={12} color="gray.500" width="100%" mb={3}>
-                {(install.log || []).slice(-6).map((ev, i) => (
-                  <ListItem key={i}>
-                    {ev.status === "error" ? "✗" : ev.status === "done" ? "✓" : "•"}{" "}
-                    {ev.message}
-                  </ListItem>
-                ))}
+              <List spacing={1} fontSize={13} width="100%" my={3}>
+                {steps.map((s) => {
+                  const st = stages[s.stage] || "todo";
+                  return (
+                    <ListItem key={s.stage}>
+                      {/* One flex row per step: the icon column and the label
+                          both vertically centered against each other. All
+                          Text nodes need m={0} — Bootstrap's `p` bottom
+                          margin otherwise offsets text from the centered
+                          icon/spinner (flex centers the whole margin box). */}
+                      <Flex align="center">
+                        <Flex width="20px" mr={2} justify="center" align="center" flexShrink={0}>
+                          {st === "done" ? (
+                            <Text color="green.500" fontWeight="bold" m={0}>
+                              ✓
+                            </Text>
+                          ) : st === "error" ? (
+                            <Text color="red.500" fontWeight="bold" m={0}>
+                              ✗
+                            </Text>
+                          ) : st === "active" ? (
+                            <Spinner size="xs" color="purple.400" />
+                          ) : (
+                            <Text color="gray.400" m={0}>
+                              ☐
+                            </Text>
+                          )}
+                        </Flex>
+                        <Text
+                          m={0}
+                          color={
+                            st === "done"
+                              ? "green.500"
+                              : st === "error"
+                              ? "red.500"
+                              : st === "active"
+                              ? "purple.400"
+                              : "gray.500"
+                          }
+                          fontWeight={st === "active" ? "semibold" : "normal"}
+                        >
+                          {s.label}
+                        </Text>
+                      </Flex>
+                    </ListItem>
+                  );
+                })}
               </List>
-              <Button variant="ghost" onClick={handleCancel}>
+              <Button variant="ghost" onClick={handleCancel} alignSelf="center">
                 Cancel
               </Button>
             </Flex>
@@ -211,6 +280,11 @@ export function VoiceSetupModal() {
               <Text mb={1} color="red.500" fontWeight="semibold">
                 Install failed
               </Text>
+              {failedStep && (
+                <Text fontSize={12} color="gray.500" mb={1}>
+                  Failed at: {failedStep.label}
+                </Text>
+              )}
               <Text fontSize={13} mb={1}>
                 {done.error && done.error.message ? String(done.error.message).slice(0, 400) : "Unknown error"}
               </Text>
