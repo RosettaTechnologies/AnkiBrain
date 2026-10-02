@@ -1,34 +1,111 @@
+.TopicExplanationScreen {
+  display: flex;
+  flex-direction: column;
+}
+
+.TopicExplanationScreen-params {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+
+.TopicExplanationScreen-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+}
+
+.TopicExplanationScreen-fieldLabel {
+  font-size: 13px;
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.TopicExplanationScreen-topicInput {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+}
+
+.TopicExplanationScreen-input {
+  --background: var(--app-input-bg);
+  --padding-start: 10px;
+  --padding-end: 10px;
+  width: 100%;
+}
+
+.TopicExplanationScreen-charCount {
+  align-self: flex-end;
+  font-size: 12px;
+  color: gray;
+}
+
+.TopicExplanationScreen-actions {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.TopicExplanationScreen-meta {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 10px;
+  font-size: 10px;
+  color: gray;
+}
+
+.TopicExplanationScreen-explanation {
+  word-break: break-word;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  height: 200px;
+  overflow-y: scroll;
+  border: 1px solid var(--ion-border-color, rgba(0, 0, 0, 0.1));
+  border-radius: 5px;
+  padding: 8px;
+  background-color: var(--app-panel-bg);
+  margin-top: 10px;
+}
+
+.TopicExplanationScreen-sendBtn {
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.CustomPromptModal-description {
+  font-size: 14px;
+  color: gray;
+  margin-top: 0;
+}
+
+.CustomPromptModal-textarea {
+  --background: var(--app-input-bg);
+  min-height: 120px;
+  margin-bottom: 16px;
+}
+
+/* Legacy styles kept for the panel container. */
 .header {
-    font-family: Arial, sans-serif;
-    font-size: 22px;
-    font-weight: bold;
-}
-
-.ParametersContainer button {
-    background-color: var(--color-primary) !important;
-}
-
-.generate-btn {
-    background-color: var(--color-accent) !important;
-    color: var(--color-black) !important;
-}
-
-.TopicExplanationContainer {
-    word-break: break-word;
-    max-width: 100%;
-    overflow-wrap: break-word;
-    height: 200px;
-    overflow-y: scroll;
+  font-family: Arial, sans-serif;
+  font-size: 22px;
+  font-weight: bold;
 }
 
 #SettingsButton {
-    padding: 2px;
+  padding: 2px;
 }
 
 #SettingsButton:hover {
-    opacity: 0.5;
+  opacity: 0.5;
 }
 
 #SettingsButton:active {
-    color: rgba(0, 0, 0, 0.5)
+  color: rgba(0, 0, 0, 0.5);
 }

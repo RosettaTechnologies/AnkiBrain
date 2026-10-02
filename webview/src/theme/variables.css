@@ -90,6 +90,9 @@
 
   /* Document cards (Import screen). */
   --app-doc-card-bg: rgba(0, 0, 0, 0.05);
+
+  /* Explanation panel (Topic Explanation screen). */
+  --app-panel-bg: #ffffff;
 }
 
 /*
@@ -125,4 +128,7 @@
 
   /* Document cards (Import screen). */
   --app-doc-card-bg: #3d2b55;
+
+  /* Explanation panel (Topic Explanation screen). */
+  --app-panel-bg: #271a35;
 }

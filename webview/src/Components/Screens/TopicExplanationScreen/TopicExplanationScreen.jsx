@@ -5,18 +5,15 @@ import { PATHS } from "../../../api/constants";
 import { setTopicExplanation } from "../../../api/redux/slices/topicExplanation";
 import { setRequestedTopic } from "../../../api/redux/slices/requestedTopic";
 import {
-  Box,
-  Button,
-  Checkbox,
-  Flex,
-  Input,
-  Select,
-  Spinner,
-  Tag,
-  Text,
-} from "@chakra-ui/react";
-import { useColorMode } from "../../../theme/colorMode";
-import { StarIcon } from "@chakra-ui/icons";
+  IonButton,
+  IonCheckbox,
+  IonIcon,
+  IonInput,
+  IonSelect,
+  IonSelectOption,
+  IonSpinner,
+} from "@ionic/react";
+import { star } from "ionicons/icons";
 import { explainTopic } from "../../../api/explainTopic";
 
 import {
@@ -27,10 +24,9 @@ import { setUseDocuments } from "../../../api/documents";
 import { setMakeCardsText } from "../../../api/redux/slices/makeCardsText";
 import { useEffect, useState } from "react";
 import { errorToast } from "../../../api/toast";
-import { isLocalMode } from "../../../api/user";
 import { CustomPromptTopicExplanationModal } from "./CustomPromptTopicExplanationModal";
 
-export function TopicExplanationScreen(props) {
+export function TopicExplanationScreen() {
   const levelOfExpertise = useSelector(
     (state) => state.makeCardsSettings.value.levelOfExpertise
   );
@@ -43,7 +39,6 @@ export function TopicExplanationScreen(props) {
   const model = useSelector((state) => state.appSettings.ai.llmModel);
   const temperature = useSelector((state) => state.appSettings.ai.temperature);
 
-  const { colorMode } = useColorMode();
   const requestedTopic = useSelector((state) => state.requestedTopic.value);
   const [requestedTopicWordLength, setRequestedTopicWordLength] = useState(
     requestedTopic.length
@@ -79,58 +74,63 @@ export function TopicExplanationScreen(props) {
   };
 
   return (
-    <div className={"TopicExplanationScreen"} style={props.style}>
+    <div className="TopicExplanationScreen">
       <div style={{ width: "100%" }}>
         <CustomPromptTopicExplanationModal
           isOpen={showCustomPromptModal}
           onClose={() => setShowCustomPromptModal(false)}
         />
-        <Flex mb={5} justifyContent={"space-around"}>
-          <Flex direction={"column"}>
-            <Tag p={2} justifyContent={"center"}>
+
+        <div className="TopicExplanationScreen-params">
+          <div className="TopicExplanationScreen-field">
+            <label className="TopicExplanationScreen-fieldLabel">
               Level of Detail
-            </Tag>
-            <Select
+            </label>
+            <IonSelect
               value={levelOfDetail}
-              onChange={(e) => {
-                dispatch(setLevelOfDetail(e.target.value));
+              interface="popover"
+              fill="outline"
+              onIonChange={(e) => {
+                dispatch(setLevelOfDetail(e.detail.value));
               }}
             >
-              <option value={"LOW"}>Low</option>
-              <option value={"MEDIUM"}>Medium</option>
-              <option value={"HIGH"}>High</option>
-              <option value={"EXTREME"}>Extreme</option>
-            </Select>
-          </Flex>
+              <IonSelectOption value={"LOW"}>Low</IonSelectOption>
+              <IonSelectOption value={"MEDIUM"}>Medium</IonSelectOption>
+              <IonSelectOption value={"HIGH"}>High</IonSelectOption>
+              <IonSelectOption value={"EXTREME"}>Extreme</IonSelectOption>
+            </IonSelect>
+          </div>
 
-          <Flex direction={"column"}>
-            <Tag p={2} justifyContent={"center"}>
+          <div className="TopicExplanationScreen-field">
+            <label className="TopicExplanationScreen-fieldLabel">
               Level of Expertise
-            </Tag>
-            <Select
+            </label>
+            <IonSelect
               value={levelOfExpertise}
-              onChange={(e) => {
-                dispatch(setLevelOfExpertise(e.target.value));
+              interface="popover"
+              fill="outline"
+              onIonChange={(e) => {
+                dispatch(setLevelOfExpertise(e.detail.value));
               }}
             >
-              <option value={"BEGINNER"}>Beginner</option>
-              <option value={"INTERMEDIATE"}>Intermediate</option>
-              <option value={"ADVANCED"}>Advanced</option>
-              <option value={"EXPERT"}>Expert</option>
-            </Select>
-          </Flex>
-        </Flex>
+              <IonSelectOption value={"BEGINNER"}>Beginner</IonSelectOption>
+              <IonSelectOption value={"INTERMEDIATE"}>
+                Intermediate
+              </IonSelectOption>
+              <IonSelectOption value={"ADVANCED"}>Advanced</IonSelectOption>
+              <IonSelectOption value={"EXPERT"}>Expert</IonSelectOption>
+            </IonSelect>
+          </div>
+        </div>
 
-        <Flex direction={"column"}>
-          <Input
-            bg={colorMode === "light" ? "white" : "customPurple.700"}
-            focusBorderColor={"accent"}
+        <div className="TopicExplanationScreen-topicInput">
+          <IonInput
+            className="TopicExplanationScreen-input"
+            fill="solid"
             placeholder={"Enter a topic..."}
-            onChange={(event) => {
-              dispatch(setRequestedTopic(event.target.value));
-            }}
-            onSubmit={() => {
-              submitTopic();
+            value={requestedTopic}
+            onIonInput={(event) => {
+              dispatch(setRequestedTopic(event.detail.value || ""));
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -146,95 +146,81 @@ export function TopicExplanationScreen(props) {
                 }
               }
             }}
-            value={requestedTopic}
           />
-          <Text alignSelf={"end"} fontSize={12} color={"gray"}>
+          <span className="TopicExplanationScreen-charCount">
             {requestedTopicWordLength}/750
-          </Text>
-        </Flex>
+          </span>
+        </div>
 
-        <Flex justifyContent={"center"} alignItems={"center"} mb={4}>
-          <Button
-            isDisabled={requestedTopic === "" || topicExplanationLoading}
-            variant={"accent"}
-            width={150}
-            me={5}
+        <div className="TopicExplanationScreen-actions">
+          <IonButton
+            color="accent"
+            disabled={requestedTopic === "" || topicExplanationLoading}
             onClick={() => {
               submitTopic();
             }}
           >
             {topicExplanationLoading ? (
-              <Spinner />
+              <IonSpinner name="crescent" />
             ) : (
               <>
-                <StarIcon me={3} />
+                <IonIcon slot="start" icon={star} />
                 Explain
               </>
             )}
-          </Button>
+          </IonButton>
 
-          <Checkbox
-            isChecked={useDocuments}
-            onChange={(e) => {
-              setUseDocuments(e.target.checked);
+          <IonCheckbox
+            checked={useDocuments}
+            onIonChange={(e) => {
+              setUseDocuments(e.detail.checked);
             }}
           >
             Use Documents
-          </Checkbox>
-        </Flex>
+          </IonCheckbox>
+        </div>
 
-        <Flex
-          direction={"row"}
-          justifyContent={"center"}
-          alignItems={"center"}
-          mb={5}
-        >
-          <Button me={2} onClick={() => setShowCustomPromptModal(true)}>
+        <div className="TopicExplanationScreen-actions">
+          <IonButton
+            color="light"
+            onClick={() => setShowCustomPromptModal(true)}
+          >
             Customize Prompt
-          </Button>
+          </IonButton>
 
-          <Button
+          <IonButton
+            color="light"
             onClick={() => {
               dispatch(setRequestedTopic(""));
               dispatch(setTopicExplanation(""));
             }}
-            isDisabled={topicExplanation === "" && requestedTopic === ""}
+            disabled={topicExplanation === "" && requestedTopic === ""}
           >
             Reset
-          </Button>
-        </Flex>
+          </IonButton>
+        </div>
 
-        <Flex direction={"row"} justifyContent={"center"}>
-          <Text fontSize={10} color={"gray"} me={2.5}>
-            Model: {model}
-          </Text>
-          <Text fontSize={10} color={"gray"} me={2.5}>
-            Temperature: {temperature}
-          </Text>
-          <Text fontSize={10} color={"gray"}>
-            Language: {language}
-          </Text>
-        </Flex>
+        <div className="TopicExplanationScreen-meta">
+          <span>Model: {model}</span>
+          <span>Temperature: {temperature}</span>
+          <span>Language: {language}</span>
+        </div>
 
-        <Box
-          className={"TopicExplanationContainer overflow-auto"}
-          bg={colorMode === "light" ? "white" : "customPurple.800"}
-          borderWidth={1}
-          p={2}
-        >
+        <div className="TopicExplanationScreen-explanation">
           {topicExplanation}
-        </Box>
-        <Button
-          mt={3}
-          mb={3}
+        </div>
+
+        <IonButton
+          color="light"
+          className="TopicExplanationScreen-sendBtn"
           onClick={() => {
             dispatch(setMakeCardsText(topicExplanation));
             navigate(PATHS.MAKE_CARDS);
           }}
-          isDisabled={topicExplanation === ""}
+          disabled={topicExplanation === ""}
         >
           Send to Make Cards
-        </Button>
+        </IonButton>
       </div>
     </div>
   );
