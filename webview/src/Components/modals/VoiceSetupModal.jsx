@@ -223,8 +223,8 @@ export function VoiceSetupModal() {
                     isChecked={includeJa}
                     onChange={(e) => setIncludeJa(e.target.checked)}
                   >
-                    Also install Japanese
-                    <Text fontSize={12} color="gray.500">
+                    Also install Japanese{" "}
+                    <Text as="span" fontSize={12} color="gray.500">
                       (+{estimate.ja_extra_mb} MB)
                     </Text>
                   </Checkbox>

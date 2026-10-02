@@ -382,7 +382,7 @@ export function AuthScreen() {
                 setAgreedPP(e.target.checked);
               }}
             >
-              <Text fontSize={12}>
+              <Text as="span" fontSize={12}>
                 I have read and agree to the{" "}
                 <Link color="teal.500" href={privacyPolicyLink} isExternal>
                   Privacy Policy
@@ -396,7 +396,7 @@ export function AuthScreen() {
                 setAgreedTOS(e.target.checked);
               }}
             >
-              <Text fontSize={12}>
+              <Text as="span" fontSize={12}>
                 I have read and agree to the{" "}
                 <Link color="teal.500" href={termsOfServiceLink} isExternal>
                   Terms of Service

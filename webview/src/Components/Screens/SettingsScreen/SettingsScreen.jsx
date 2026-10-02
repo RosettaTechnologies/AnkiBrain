@@ -251,7 +251,7 @@ const VoiceSettings = (props) => {
               await setTts("ttsAutoDetect", e.target.checked);
             }}
           >
-            <Text fontSize={13}>Auto-detect language from text</Text>
+            <Text as="span" fontSize={13}>Auto-detect language from text</Text>
           </Checkbox>
           <Text fontSize={11} color={"gray.500"} mb={2}>
             Speaks each text with a voice for its detected language (e.g.
