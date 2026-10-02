@@ -276,6 +276,7 @@ const VoiceSettings = (props) => {
           </Button>
         </>
       )}
+      <Divider mt={3} />
     </Flex>
   );
 };
