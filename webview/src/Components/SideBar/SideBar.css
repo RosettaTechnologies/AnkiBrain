@@ -166,6 +166,49 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
+/* Pricing info shown in the Add Balance modal (content built in SideBar). */
+.AddBalanceInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.AddBalanceInfo-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.AddBalanceInfo-text {
+  font-size: 12px;
+  margin: 0;
+}
+
+.AddBalanceInfo-text--small {
+  font-size: 10px;
+  color: gray;
+}
+
+.AddBalanceInfo-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 12px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  background: var(--color-accent);
+  color: var(--color-black);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.AddBalanceInfo-cta:hover {
+  opacity: 0.8;
+  color: var(--color-black);
+}
+
 @media (min-width: 2000px) {
   .TopHeader {
     height: 60px;

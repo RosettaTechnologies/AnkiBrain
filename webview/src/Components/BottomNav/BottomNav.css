@@ -1,54 +1,27 @@
+/*
+ * AnkiBrain branding for the Ionic tab bar. The bar keeps the original
+ * dark strip / accent-selected look instead of Ionic's default surface.
+ * Component internals (colors, ripples...) are styled through Ionic's CSS
+ * variables; sizing uses regular CSS on the host element.
+ */
 .BottomNav {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-around;
-  align-items: center;
+  --background: var(--app-custom-black);
+  --color: rgba(255, 255, 255, 0.5);
+  --color-selected: var(--app-accent);
+  --color-focused: rgba(255, 255, 255, 0.75);
+  --border: 1px solid rgba(255, 255, 255, 0.08);
+  --ripple-color: var(--app-accent);
+
   height: 68px;
-  background-color: var(--color-black);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 4px 0;
-  flex-shrink: 0;
 }
 
-.BottomNav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  cursor: pointer;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 11px;
-  gap: 3px;
-  border-top: 2px solid transparent;
-  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
-  padding: 4px 0;
-  user-select: none;
-  overflow: hidden;
-}
-
-.BottomNav-item:hover {
-  color: rgba(255, 255, 255, 0.85);
-  background-color: rgba(255, 255, 255, 0.04);
-}
-
-.BottomNav-item:active {
-  opacity: 0.6;
-}
-
-.BottomNav-item.active {
-  color: var(--color-accent);
-  border-top-color: var(--color-accent);
-}
-
-.BottomNav-item i,
-.BottomNav-item svg {
+.BottomNav ion-tab-button {
+  --padding-top: 6px;
+  --padding-bottom: 6px;
   font-size: 20px;
 }
 
-.BottomNav-label {
+.BottomNav .BottomNav-label {
   font-size: 10px;
   line-height: 1;
   white-space: nowrap;
@@ -57,23 +30,21 @@
   max-width: 100%;
 }
 
+/* The help entry opens a modal instead of navigating to a tab. */
+.BottomNav .BottomNav-help {
+  cursor: pointer;
+}
+
 @media (min-width: 2000px) {
   .BottomNav {
     height: 84px;
-    padding: 6px 0;
   }
 
-  .BottomNav-item {
-    font-size: 14px;
-    gap: 5px;
-  }
-
-  .BottomNav-item i,
-  .BottomNav-item svg {
+  .BottomNav ion-tab-button {
     font-size: 26px;
   }
 
-  .BottomNav-label {
+  .BottomNav .BottomNav-label {
     font-size: 13px;
   }
 }
@@ -83,16 +54,11 @@
     height: 100px;
   }
 
-  .BottomNav-item {
-    font-size: 17px;
-  }
-
-  .BottomNav-item i,
-  .BottomNav-item svg {
+  .BottomNav ion-tab-button {
     font-size: 32px;
   }
 
-  .BottomNav-label {
+  .BottomNav .BottomNav-label {
     font-size: 16px;
   }
 }

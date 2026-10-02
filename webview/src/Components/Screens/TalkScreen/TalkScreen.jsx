@@ -12,8 +12,8 @@ import {
   Spinner,
   Text,
   Tooltip,
-  useColorMode,
 } from "@chakra-ui/react";
+import { useColorMode } from "../../../theme/colorMode";
 import {
   addAIMessageToStore,
   clearMessages,

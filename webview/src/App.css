@@ -22,5 +22,22 @@
 }
 
 .MainAppArea {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    overflow: auto;
     padding: 20px;
+}
+
+/* Container for the Ionic tab shell; IonTabs fills its positioned parent. */
+.AppTabsArea {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* Ionic page wrapper for the not-yet-converted screens. */
+.AppScreenPage {
+    display: flex;
+    flex-direction: column;
 }

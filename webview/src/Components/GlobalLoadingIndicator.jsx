@@ -1,40 +1,20 @@
-import { Box, CircularProgress, Flex, Spacer, Text } from "@chakra-ui/react";
+import "./GlobalLoadingIndicator.css";
 import React from "react";
 import { useSelector } from "react-redux";
+import { IonSpinner } from "@ionic/react";
 import "@fontsource/lato/400.css";
 
-export function GlobalLoadingIndicator(props) {
+export function GlobalLoadingIndicator() {
   const show = useSelector((state) => state.bGlobalLoadingIndicator.value);
   const loadingText = useSelector((state) => state.loadingText.value);
+
+  if (!show) return null;
+
   return (
-    <>
-      {show && (
-        <Box
-          id={"GlobalLoadingIndicator"}
-          position={"absolute"}
-          zIndex={1000}
-          alignSelf={"center"}
-          top={"35%"}
-        >
-          <Flex
-            direction={"column"}
-            alignItems={"center"}
-            justifyContent={"center"}
-          >
-            <Text fontFamily={"lato"} fontSize={36}>
-              AnkiBrain
-            </Text>
-            <Spacer />
-            <Text fontFamily={"sans-serif"} fontSize={24} color={"gray"}>
-              {loadingText}
-            </Text>
-          </Flex>
-          <CircularProgress
-            isIndeterminate={true}
-            color={"accent"}
-          ></CircularProgress>
-        </Box>
-      )}
-    </>
+    <div id="GlobalLoadingIndicator" className="GlobalLoadingIndicator">
+      <div className="GlobalLoadingIndicator-title">AnkiBrain</div>
+      <div className="GlobalLoadingIndicator-text">{loadingText}</div>
+      <IonSpinner name="circular" color="primary" />
+    </div>
   );
 }

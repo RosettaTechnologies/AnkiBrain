@@ -1,10 +1,10 @@
 import "./App.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "bootstrap/dist/css/bootstrap.min.css";
-import "bootstrap/dist/js/bootstrap.bundle.min";
 import React, { useEffect, useState } from "react";
 
-import { Route, Routes, useNavigate } from "react-router-dom";
+import { Navigate, Route, useNavigate } from "react-router-dom";
+import { IonPage, IonRouterOutlet, IonTabs } from "@ionic/react";
 import { CardMakingScreen } from "./Components/Screens/CardMakingScreen/CardMakingScreen";
 import { TalkScreen } from "./Components/Screens/TalkScreen/TalkScreen";
 import { LoginModal } from "./Components/modals/LoginModal";
@@ -27,16 +27,46 @@ import {
   ChakraProvider,
   ColorModeScript,
   extendTheme,
-  useColorMode,
+  useColorMode as useChakraColorMode,
 } from "@chakra-ui/react";
 import { BootReminderModal } from "./Components/modals/BootReminderModal";
 import { VoiceSetupModal } from "./Components/modals/VoiceSetupModal";
+
+/**
+ * Temporary bridge: the screens that have not been migrated to Ionic yet
+ * still read Chakra's internal color mode, so mirror the Redux-persisted
+ * value into Chakra while both systems live side by side.
+ * Removed together with ChakraProvider at the end of the migration.
+ */
+function ChakraColorModeSync() {
+  const storeColorMode = useSelector((state) => state.colorMode.value);
+  const { colorMode: chakraColorMode, toggleColorMode } = useChakraColorMode();
+
+  useEffect(() => {
+    if (storeColorMode && storeColorMode !== chakraColorMode) {
+      toggleColorMode();
+    }
+  }, [storeColorMode, chakraColorMode, toggleColorMode]);
+
+  return null;
+}
+
+/**
+ * Wraps a screen in an Ionic page (router transitions + full-height layout)
+ * with the padding/scroll container the legacy screens expect.
+ */
+function ScreenPage({ children }) {
+  return (
+    <IonPage className="AppScreenPage">
+      <div className="MainAppArea">{children}</div>
+    </IonPage>
+  );
+}
 
 function App() {
   const appDidBoot = useSelector((state) => state.appDidBoot.value);
   const [showBootReminderModalNow, setShowBootReminderModalNow] =
     useState(false);
-  const [loggedIn, setLoggedIn] = useState(false);
   const showBootReminderDialog = useSelector(
     (state) => state.showBootReminderDialog.value
   );
@@ -49,7 +79,6 @@ function App() {
   let globalLoading = useSelector(
     (state) => state.bGlobalLoadingIndicator.value
   );
-  const { colorMode, toggleColorMode } = useColorMode();
 
   // Server-mode gate: until a verified session exists, the whole app shell
   // (SideBar, screens, BottomNav) is replaced by the AuthScreen login/signup
@@ -60,7 +89,6 @@ function App() {
     userMode === "SERVER" &&
     appDidBoot &&
     !(user && user.isVerified);
-
 
   //Function that can be called globally to render the loading screen
   useEffect(() => {
@@ -183,6 +211,7 @@ function App() {
     <>
       <ColorModeScript initialColorMode={"dark"} />
       <ChakraProvider theme={theme}>
+        <ChakraColorModeSync />
         <div
           className="App"
           style={{
@@ -214,31 +243,57 @@ function App() {
             <>
               <SideBar />
 
-              <div
-                className={"MainAppArea"}
-                style={{
-                  flex: 1,
-                  width: "100%",
-                  overflow: "auto",
-                  opacity: globalLoading ? 0.1 : 1,
-                }}
-              >
-                <Routes>
-                  <Route
-                    path={PATHS.TOPIC_EXPLANATION}
-                    element={<TopicExplanationScreen />}
-                  />
-                  <Route
-                    path={PATHS.MAKE_CARDS}
-                    element={<CardMakingScreen />}
-                  />
-                  <Route path={PATHS.TALK} element={<TalkScreen />} />
-                  <Route path={PATHS.IMPORT} element={<ImportScreen />} />
-                  <Route path={PATHS.SETTINGS} element={<SettingsScreen />} />
-                </Routes>
+              <div className="AppTabsArea">
+                <IonTabs>
+                  <IonRouterOutlet>
+                    <Route
+                      path={PATHS.TOPIC_EXPLANATION}
+                      element={
+                        <ScreenPage>
+                          <TopicExplanationScreen />
+                        </ScreenPage>
+                      }
+                    />
+                    <Route
+                      path={PATHS.MAKE_CARDS}
+                      element={
+                        <ScreenPage>
+                          <CardMakingScreen />
+                        </ScreenPage>
+                      }
+                    />
+                    <Route
+                      path={PATHS.TALK}
+                      element={
+                        <ScreenPage>
+                          <TalkScreen />
+                        </ScreenPage>
+                      }
+                    />
+                    <Route
+                      path={PATHS.IMPORT}
+                      element={
+                        <ScreenPage>
+                          <ImportScreen />
+                        </ScreenPage>
+                      }
+                    />
+                    <Route
+                      path={PATHS.SETTINGS}
+                      element={
+                        <ScreenPage>
+                          <SettingsScreen />
+                        </ScreenPage>
+                      }
+                    />
+                    <Route
+                      path="*"
+                      element={<Navigate to={PATHS.MAKE_CARDS} replace />}
+                    />
+                  </IonRouterOutlet>
+                  <BottomNav />
+                </IonTabs>
               </div>
-
-              <BottomNav />
             </>
           )}
         </div>

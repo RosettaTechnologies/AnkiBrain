@@ -16,8 +16,8 @@ import {
   Spinner,
   Tag,
   Text,
-  useColorMode,
 } from "@chakra-ui/react";
+import { useColorMode } from "../../../theme/colorMode";
 import { useEffect, useRef, useState } from "react";
 import { AddIcon, DeleteIcon } from "@chakra-ui/icons";
 import { useDispatch, useSelector } from "react-redux";

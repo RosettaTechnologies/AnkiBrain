@@ -1,0 +1,106 @@
+/*
+ * AnkiBrain theme for Ionic.
+ *
+ * Maps the legacy Chakra palette (customPurple / accent / secondary /
+ * customBlack) onto Ionic's CSS custom properties so Ionic components match
+ * the existing AnkiBrain look. Imported once from src/index.jsx, after the
+ * Ionic CSS layers.
+ *
+ * Brand values (kept in sync with the old Chakra `extendTheme` in App.jsx):
+ *   accent      #f3ceff
+ *   secondary   #afebf4
+ *   customBlack #1f1f1f
+ *   purple.500  #734e97  (light-mode primary)
+ *   purple.300  #aa88c3  (dark-mode primary)
+ *   purple.700  #3d2b55
+ *   purple.800  #271a35
+ *   dark body   #16161d
+ */
+
+:root {
+  --ion-font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Ubuntu, "Helvetica Neue", sans-serif;
+
+  /* AnkiBrain brand tokens, usable from component CSS. */
+  --app-accent: #f3ceff;
+  --app-accent-rgb: 243, 206, 255;
+  --app-secondary: #afebf4;
+  --app-secondary-rgb: 175, 235, 244;
+  --app-custom-black: #1f1f1f;
+  --app-night-purple: #312244;
+  --app-off-white: rgb(250, 250, 250);
+  --app-purple-50: #f8edfc;
+  --app-purple-100: #ddcce8;
+  --app-purple-200: #c4aad4;
+  --app-purple-300: #aa88c3;
+  --app-purple-400: #8f67b1;
+  --app-purple-500: #734e97;
+  --app-purple-600: #583c76;
+  --app-purple-700: #3d2b55;
+  --app-purple-800: #271a35;
+  --app-purple-900: #100817;
+  --app-dark-bg: #16161d;
+
+  /* Ionic color tokens: primary = brand purple. */
+  --ion-color-primary: #734e97;
+  --ion-color-primary-rgb: 115, 78, 151;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #654585;
+  --ion-color-primary-tint: #815fa1;
+
+  --ion-color-secondary: #afebf4;
+  --ion-color-secondary-rgb: 175, 235, 244;
+  --ion-color-secondary-contrast: #1f1f1f;
+  --ion-color-secondary-contrast-rgb: 31, 31, 31;
+  --ion-color-secondary-shade: #9acfd6;
+  --ion-color-secondary-tint: #b7edf5;
+
+  --ion-color-tertiary: #f3ceff;
+  --ion-color-tertiary-rgb: 243, 206, 255;
+  --ion-color-tertiary-contrast: #1f1f1f;
+  --ion-color-tertiary-contrast-rgb: 31, 31, 31;
+  --ion-color-tertiary-shade: #d6b5e0;
+  --ion-color-tertiary-tint: #f4d3ff;
+
+  /* Extra brand alias so migrated markup can say color="accent". */
+  --ion-color-accent: #f3ceff;
+  --ion-color-accent-rgb: 243, 206, 255;
+  --ion-color-accent-contrast: #1f1f1f;
+  --ion-color-accent-contrast-rgb: 31, 31, 31;
+  --ion-color-accent-shade: #d6b5e0;
+  --ion-color-accent-tint: #f4d3ff;
+
+  /* Light mode surfaces */
+  --ion-background-color: #ffffff;
+  --ion-background-color-rgb: 255, 255, 255;
+  --ion-text-color: #1f1f1f;
+  --ion-text-color-rgb: 31, 31, 31;
+  --ion-card-background: #ffffff;
+  --ion-toolbar-background: #ffffff;
+  --ion-item-background: #ffffff;
+}
+
+/*
+ * Dark palette. Ionic toggles this via the `.ion-palette-dark` class on
+ * <html> (see src/theme/colorMode.js). Ionic's own dark.class.css provides
+ * the base dark steps; the overrides below restore AnkiBrain's purple hues.
+ */
+.ion-palette-dark {
+  --ion-color-primary: #aa88c3;
+  --ion-color-primary-rgb: 170, 136, 195;
+  --ion-color-primary-contrast: #100817;
+  --ion-color-primary-contrast-rgb: 16, 8, 23;
+  --ion-color-primary-shade: #9678ac;
+  --ion-color-primary-tint: #b394c9;
+
+  --ion-background-color: #16161d;
+  --ion-background-color-rgb: 22, 22, 29;
+  --ion-text-color: #ffffff;
+  --ion-text-color-rgb: 255, 255, 255;
+  --ion-card-background: #271a35;
+  --ion-toolbar-background: #1f1f28;
+  --ion-item-background: #271a35;
+  --ion-tab-bar-background: #1f1f28;
+  --ion-tab-bar-background-focused: #312244;
+}

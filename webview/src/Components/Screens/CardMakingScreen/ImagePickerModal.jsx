@@ -12,8 +12,8 @@ import {
   ModalOverlay,
   SimpleGrid,
   Text,
-  useColorMode,
 } from "@chakra-ui/react";
+import { useColorMode } from "../../../theme/colorMode";
 import { CheckIcon } from "@chakra-ui/icons";
 
 /*

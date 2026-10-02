@@ -17,9 +17,9 @@ import {
   TagLabel,
   Text,
   Textarea,
-  useColorMode,
   VStack,
 } from "@chakra-ui/react";
+import { useColorMode } from "../../../theme/colorMode";
 import { AddIcon, CloseIcon, DeleteIcon } from "@chakra-ui/icons";
 import { VscUnmute } from "react-icons/vsc";
 import {

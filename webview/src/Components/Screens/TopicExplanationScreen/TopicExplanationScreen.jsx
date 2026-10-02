@@ -14,8 +14,8 @@ import {
   Spinner,
   Tag,
   Text,
-  useColorMode,
 } from "@chakra-ui/react";
+import { useColorMode } from "../../../theme/colorMode";
 import { StarIcon } from "@chakra-ui/icons";
 import { explainTopic } from "../../../api/explainTopic";
 

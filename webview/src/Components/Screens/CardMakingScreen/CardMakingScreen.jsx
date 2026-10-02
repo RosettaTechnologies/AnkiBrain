@@ -33,9 +33,9 @@ import {
   Text,
   Textarea,
   useBreakpointValue,
-  useColorMode,
   useToast,
 } from "@chakra-ui/react";
+import { useColorMode } from "../../../theme/colorMode";
 import { pyAddCards } from "../../../api/PythonBridge/senders/pyAddCards";
 import {
   AddIcon,

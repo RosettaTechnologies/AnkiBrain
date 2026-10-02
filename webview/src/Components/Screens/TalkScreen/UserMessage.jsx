@@ -1,4 +1,5 @@
-import { Box, Text, useColorMode } from "@chakra-ui/react";
+import { Box, Text } from "@chakra-ui/react";
+import { useColorMode } from "../../../theme/colorMode";
 
 export const UserMessage = (props) => {
   const { colorMode } = useColorMode();

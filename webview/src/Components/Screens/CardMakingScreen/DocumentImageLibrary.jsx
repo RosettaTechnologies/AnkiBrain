@@ -13,9 +13,9 @@ import {
   ModalOverlay,
   SimpleGrid,
   Text,
-  useColorMode,
   VStack,
 } from "@chakra-ui/react";
+import { useColorMode } from "../../../theme/colorMode";
 import { AddIcon, DeleteIcon } from "@chakra-ui/icons";
 import { cardSnippet } from "./EditableCard";
 

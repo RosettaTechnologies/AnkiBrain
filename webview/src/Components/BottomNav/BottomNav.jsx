@@ -1,98 +1,97 @@
 import "./BottomNav.css";
-import { useNavigate } from "react-router-dom";
-import { useLocation } from "react-router";
 import { useState } from "react";
-import { PATHS } from "../../api/constants";
 import {
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalCloseButton,
-  ModalBody,
-  Text,
-  useColorMode,
-} from "@chakra-ui/react";
-import { IoHelpCircleOutline } from "react-icons/io5";
-import { IoMdSettings } from "react-icons/io";
+  IonButton,
+  IonButtons,
+  IonContent,
+  IonHeader,
+  IonIcon,
+  IonLabel,
+  IonModal,
+  IonTabBar,
+  IonTabButton,
+  IonTitle,
+  IonToolbar,
+} from "@ionic/react";
+import {
+  albums,
+  book,
+  chatbubble,
+  folder,
+  helpCircleOutline,
+  settings,
+} from "ionicons/icons";
+import { PATHS } from "../../api/constants";
+
+const NAV_ITEMS = [
+  {
+    path: PATHS.MAKE_CARDS,
+    tab: "makeCard",
+    icon: albums,
+    label: "Make Cards",
+  },
+  {
+    path: PATHS.TOPIC_EXPLANATION,
+    tab: "topicExplanation",
+    icon: book,
+    label: "Explain",
+  },
+  { path: PATHS.TALK, tab: "talk", icon: chatbubble, label: "Talk" },
+  { path: PATHS.IMPORT, tab: "import", icon: folder, label: "Import" },
+  { path: PATHS.SETTINGS, tab: "settings", icon: settings, label: "Settings" },
+];
 
 export function BottomNav() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { colorMode } = useColorMode();
   const [showHelpModal, setShowHelpModal] = useState(false);
-
-  const navItems = [
-    { path: PATHS.MAKE_CARDS, icon: "bi bi-stack", label: "Make Cards" },
-    { path: PATHS.TOPIC_EXPLANATION, icon: "bi bi-book", label: "Explain" },
-    { path: PATHS.TALK, icon: "bi bi-chat-fill", label: "Talk" },
-    { path: PATHS.IMPORT, icon: "bi bi-folder", label: "Import" },
-    { path: PATHS.SETTINGS, icon: "settings", label: "Settings" },
-    { path: "help", icon: "help", label: "Help" },
-  ];
-
-  const isActive = (path) => {
-    if (path === "help") return false;
-    return location.pathname === path;
-  };
 
   return (
     <>
-      <Modal
+      <IonModal
         isOpen={showHelpModal}
-        onClose={() => setShowHelpModal(false)}
+        onDidDismiss={() => setShowHelpModal(false)}
       >
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Get Help</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <Text>
-              <b>
-                For fast support, please email{" "}
-                <a
-                  href={"mailto:ankibrain@rankmd.org"}
-                  style={{ color: colorMode === "light" ? "blue" : "cyan" }}
-                >
-                  ankibrain@rankmd.org
-                </a>
-                {"."}
-              </b>
-            </Text>
-            <Text mt={3}>
-              You can also visit{" "}
-              <a href={"https://www.reddit.com/r/ankibrain"}>
-                https://www.reddit.com/r/ankibrain/
-              </a>
-            </Text>
-          </ModalBody>
-        </ModalContent>
-      </Modal>
+        <IonHeader>
+          <IonToolbar>
+            <IonTitle>Get Help</IonTitle>
+            <IonButtons slot="end">
+              <IonButton onClick={() => setShowHelpModal(false)}>
+                Close
+              </IonButton>
+            </IonButtons>
+          </IonToolbar>
+        </IonHeader>
+        <IonContent className="ion-padding">
+          <p>
+            <strong>
+              For fast support, please email{" "}
+              <a href="mailto:ankibrain@rankmd.org">ankibrain@rankmd.org</a>.
+            </strong>
+          </p>
+          <p>
+            You can also visit{" "}
+            <a href="https://www.reddit.com/r/ankibrain">
+              https://www.reddit.com/r/ankibrain/
+            </a>
+          </p>
+        </IonContent>
+      </IonModal>
 
-      <div className="BottomNav">
-        {navItems.map((item) => (
-          <div
-            key={item.label}
-            className={`BottomNav-item ${isActive(item.path) ? "active" : ""}`}
-            onClick={() => {
-              if (item.path === "help") {
-                setShowHelpModal(true);
-              } else {
-                navigate(item.path);
-              }
-            }}
-          >
-            {item.icon === "settings" ? (
-              <IoMdSettings size={20} />
-            ) : item.icon === "help" ? (
-              <IoHelpCircleOutline size={20} />
-            ) : (
-              <i className={item.icon}></i>
-            )}
-            <span className="BottomNav-label">{item.label}</span>
-          </div>
+      <IonTabBar slot="bottom" className="BottomNav">
+        {NAV_ITEMS.map((item) => (
+          <IonTabButton key={item.tab} tab={item.tab} href={item.path}>
+            <IonIcon icon={item.icon} />
+            <IonLabel className="BottomNav-label">{item.label}</IonLabel>
+          </IonTabButton>
         ))}
-      </div>
+        <IonTabButton
+          className="BottomNav-help"
+          tab="help"
+          onClick={() => setShowHelpModal(true)}
+        >
+          <IonIcon icon={helpCircleOutline} />
+          <IonLabel className="BottomNav-label">Help</IonLabel>
+        </IonTabButton>
+      </IonTabBar>
     </>
   );
 }

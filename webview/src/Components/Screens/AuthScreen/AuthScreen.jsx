@@ -11,8 +11,8 @@ import {
   Link,
   Spinner,
   Text,
-  useColorMode,
 } from "@chakra-ui/react";
+import { useColorMode } from "../../../theme/colorMode";
 import {
   login,
   logout,

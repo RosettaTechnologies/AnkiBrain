@@ -15,8 +15,8 @@ import {
   Spacer,
   Tag,
   Text,
-  useColorMode,
 } from "@chakra-ui/react";
+import { useColorMode } from "../../../theme/colorMode";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../api/constants";
