@@ -52,6 +52,8 @@ export const InterprocessCommand = {
   TTS_INSTALL_PROGRESS: "TTS_INSTALL_PROGRESS", // push: bootstrap stage event
   TTS_INSTALL_DONE: "TTS_INSTALL_DONE", // push: {ok, error?}
   TTS_CANCEL_INSTALL: "TTS_CANCEL_INSTALL",
+  TTS_UNINSTALL: "TTS_UNINSTALL",
+  DID_TTS_UNINSTALL: "DID_TTS_UNINSTALL", // promise ack: {ok, error?}
 
   // Card audio (review-screen workflow): GENERATE_CARD_AUDIO {items} is
   // answered per clip by pushed CARD_AUDIO_RESULT events, then the batch

@@ -11,7 +11,6 @@ import {
   audioJobSettled,
   audioJobFailed,
   audioJobsCancelled,
-  audioRetryQueued,
   consumeCancelled,
   audioJobsCleared,
   countGenerating,
@@ -136,12 +135,9 @@ test("generating marks gate, settle, and cancel", () => {
   store.dispatch(consumeCancelled({ uid: "u2", field: "back" }));
   expect(store.getState().cardAudio.cancelled).toEqual({});
 
-  // all=true cancel empties everything and must never leak into retries.
+  // all=true cancel empties everything (spinners included).
   store.dispatch(audioJobStarted(items));
-  store.dispatch(audioRetryQueued(items));
-  expect(store.getState().cardAudio.pendingRetry.length).toBe(3);
   store.dispatch(audioJobsCancelled({ all: true }));
-  expect(store.getState().cardAudio.pendingRetry.length).toBe(0);
   expect(countGenerating(store.getState().cardAudio.generating)).toBe(0);
 
   // Bridge-error recovery path: spinners up, then cleared wholesale.
@@ -151,7 +147,6 @@ test("generating marks gate, settle, and cancel", () => {
 });
 
 test("re-enrolling a field clears its stale cancel/error marks", () => {
-  store.dispatch(audioRetryQueued([{ uid: "u3", field: "front", text: "x", isCloze: false }]));
   store.dispatch(audioJobsCancelled({ keys: ["u3:front"] }));
   store.dispatch(audioJobFailed({ uid: "u3", field: "front", message: "old" }));
 
@@ -161,5 +156,4 @@ test("re-enrolling a field clears its stale cancel/error marks", () => {
   expect(state.generating.u3.front).toBe(true);
   expect(state.cancelled.u3).toBeUndefined();
   expect(state.errors.u3).toBeUndefined();
-  expect(state.pendingRetry.length).toBe(0);
 });

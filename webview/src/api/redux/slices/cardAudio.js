@@ -18,9 +18,6 @@ export const cardAudioSlice = createSlice({
     // queue before the item starts, but one clip already synthesizing still
     // finishes and pushes its result.
     cancelled: {},
-    // Items held back by a missing voice engine (batch error sentinel);
-    // TTS_INSTALL_DONE ok replays them via retryQueuedAudioJobs().
-    pendingRetry: [],
   },
   reducers: {
     audioJobStarted(state, action) {
@@ -37,9 +34,6 @@ export const cardAudioSlice = createSlice({
           delete state.cancelled[uid][field];
           if (Object.keys(state.cancelled[uid]).length === 0) delete state.cancelled[uid];
         }
-        state.pendingRetry = state.pendingRetry.filter(
-          (i) => !(i.uid === uid && i.field === field)
-        );
       }
     },
     audioJobSettled(state, action) {
@@ -83,20 +77,6 @@ export const cardAudioSlice = createSlice({
           }
         }
       }
-
-      // Anything cancelled must not silently come back via install-retry.
-      if (all) {
-        state.pendingRetry = [];
-      } else {
-        const cancelledSet = new Set(targets);
-        state.pendingRetry = state.pendingRetry.filter(
-          (i) => !cancelledSet.has(`${i.uid}:${i.field}`)
-        );
-      }
-    },
-    audioRetryQueued(state, action) {
-      // action.payload: items parked by a not-installed engine sentinel.
-      state.pendingRetry = action.payload;
     },
     consumeCancelled(state, action) {
       // Clear a cancel mark once its late result has been discarded (or
@@ -122,7 +102,6 @@ export const {
   audioJobSettled,
   audioJobFailed,
   audioJobsCancelled,
-  audioRetryQueued,
   consumeCancelled,
   audioJobsCleared,
 } = cardAudioSlice.actions;

@@ -25,8 +25,8 @@ import { setTtsInstallActive } from "../../api/redux/slices/tts";
  * First-use Voice setup: one honest screen — what this is, what it costs
  * (bytes), one button. While the bootstrap runs on the python side, stage
  * events stream in (uv -> python -> venv -> engine -> spacy -> ja? -> model
- * -> test); the text that opened the modal auto-replays on success (see
- * completeInstallFlow in the bridge).
+ * -> test). Nothing is replayed after a successful install — the modal
+ * closes and the user repeats the voice action (speak / generate audio).
  */
 export function VoiceSetupModal() {
   const dispatch = useDispatch();
@@ -132,7 +132,7 @@ export function VoiceSetupModal() {
           {done && done.ok && (
             <>
               <Text mb={4} color="green.500">
-                Voice engine ready. Your text will play now.
+                Voice engine ready. Click the voice button again to use it.
               </Text>
               <Button width="100%" onClick={closeSetupModal} variant="accent" colorScheme="purple">
                 Done

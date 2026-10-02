@@ -278,3 +278,29 @@ class KokoroTTSAdapter:
     def cancel_install(self):
         if self._bootstrap_cancel:
             self._bootstrap_cancel.set()
+
+    # ───────────────────────────── uninstall ──────────────────────────────
+
+    def uninstall_data(self):
+        """
+        Delete the whole engine data tree (uv bin, standalone python, venv,
+        caches, model weights, state.json) plus the synthesized-audio temp
+        dir. CALL FROM A WORKER THREAD, after stop(): a venv is tens of
+        thousands of small files, and on Windows the engine subprocess must
+        already be gone or its DLLs lock the tree.
+
+        Idempotent: a missing tree is a successful uninstall. Raises only
+        when files remain (locked or permission-denied), so the UI can
+        report honestly instead of showing a phantom 'not installed'.
+        """
+        import shutil
+        p = self.paths()
+        for d in (p.root, p.audio_dir):
+            if path.isdir(d):
+                shutil.rmtree(d, ignore_errors=True)
+        leftovers = [d for d in (p.venv_python, p.state_path) if path.exists(d)]
+        if leftovers:
+            raise RuntimeError(
+                'Some voice engine files could not be deleted (still present: '
+                + ', '.join(leftovers[:3]) + '). Close other AnkiBrain windows and retry.'
+            )

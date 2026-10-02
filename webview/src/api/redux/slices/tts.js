@@ -9,15 +9,12 @@ export const ttsSlice = createSlice({
     install: { active: false, event: null, log: [], done: null },
     // Voice Setup modal (install/repair UI).
     setupModalOpen: false,
-    // Text that triggered the modal (auto re-spoken after a successful
-    // install) — the whole point of the first-use UX being one click deep.
-    pendingText: null,
     // Currently speaking indicator {text}.
     speaking: null,
     // Voice settings echoed from DID_LOAD_SETTINGS so the Settings screen
-    // has a single source even before a TTS_STATUS round trip.
+    // has a single source even before a TTS_STATUS round trip. There is no
+    // enable/disable switch: the engine is active iff it is installed.
     settings: {
-      ttsEnabled: true,
       ttsVoice: "af_heart",
       ttsSpeed: 1.0,
       // Review-screen TTS policy (none|front|back|both): drives the
@@ -48,13 +45,9 @@ export const ttsSlice = createSlice({
       if (action.payload) state.install.done = null;
     },
     setSetupModalOpen: (state, action) => {
-      state.setupModalOpen = action.payload.open === true;
-      if ("pendingText" in action.payload) {
-        state.pendingText = action.payload.pendingText;
-      }
-    },
-    clearPendingText: (state) => {
-      state.pendingText = null;
+      // Boolean payload. Nothing is queued for replay — closing the modal
+      // ends the flow; the user repeats the voice action after installing.
+      state.setupModalOpen = action.payload === true;
     },
     setSpeaking: (state, action) => {
       state.speaking = action.payload;
@@ -74,7 +67,6 @@ export const {
   setTtsInstallDone,
   setTtsInstallActive,
   setSetupModalOpen,
-  clearPendingText,
   setSpeaking,
   setTtsSettings,
   editTtsSettingLocal,

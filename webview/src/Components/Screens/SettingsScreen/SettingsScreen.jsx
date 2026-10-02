@@ -47,6 +47,7 @@ import { setShowBootReminderDialog } from "../../../api/redux/slices/showBootRem
 import { Slider, SliderTrack, SliderFilledTrack, SliderThumb } from "@chakra-ui/react";
 import { useEffect } from "react";
 import { openSetupModal, refreshTtsStatus, speak } from "../../../api/tts";
+import { pyTtsUninstall } from "../../../api/PythonBridge/senders/pyTtsUninstall";
 import { editTtsSettingLocal } from "../../../api/redux/slices/tts";
 
 const VoiceSettings = (props) => {
@@ -76,22 +77,45 @@ const VoiceSettings = (props) => {
   const needsSync = status && status.status === "supported-and-needs-sync";
   const unsupported = status && status.status === "unsupported";
 
+  // Uninstall is a destructive, slow (thread-side rmtree of the whole venv
+  // tree) action: confirm first, spinner while it runs, then re-fetch status
+  // so the buttons flip back to "Install voice engine".
+  const [confirmUninstall, setConfirmUninstall] = useState(false);
+  const [uninstalling, setUninstalling] = useState(false);
+
+  const diskMb =
+    (status && status.estimate && status.estimate.disk_mb) || 1600;
+
+  const doUninstall = async () => {
+    setUninstalling(true);
+    try {
+      const res = await pyTtsUninstall();
+      if (res && res.ok) {
+        successToast(
+          "Voice Engine Removed",
+          "The Kokoro voice engine has been uninstalled. You can reinstall it any time from this screen."
+        );
+      } else {
+        errorToast(
+          "Uninstall Failed",
+          String((res && res.error) || "Could not remove the voice engine.").slice(0, 300)
+        );
+      }
+    } catch (e) {
+      errorToast("Uninstall Failed", String(e && e.message ? e.message : e).slice(0, 300));
+    } finally {
+      await refreshTtsStatus();
+      setUninstalling(false);
+      setConfirmUninstall(false);
+    }
+  };
+
   return (
     <Flex direction={"column"} mt={5} width={325}>
       <Divider />
       <Flex direction={"row"} alignItems={"center"} mt={3} mb={2}>
         <i className={"bi bi-volume-up-fill"} style={{ fontSize: 22, marginRight: 10 }} />
         <Text fontWeight={"bold"}>Voice (Text-to-Speech)</Text>
-      </Flex>
-
-      <Flex direction={"row"} alignItems={"center"} mb={2}>
-        <Switch
-          isChecked={!!settings.ttsEnabled}
-          onChange={async (e) => {
-            await setTts("ttsEnabled", e.target.checked);
-          }}
-        />
-        <Text ml={3}>Enable spoken audio</Text>
       </Flex>
 
       {!unsupported && (
@@ -116,15 +140,56 @@ const VoiceSettings = (props) => {
       {!unsupported && (
         <Button
           mb={3}
+          variant={installed ? "outline" : undefined}
+          colorScheme={installed ? "red" : undefined}
           onClick={() => {
-            openSetupModal(null);
+            if (installed) {
+              setConfirmUninstall(true);
+            } else {
+              openSetupModal();
+            }
           }}
         >
-          {installed || needsSync ? "Repair voice engine" : "Install voice engine"}
+          {installed
+            ? "Uninstall voice engine"
+            : needsSync
+              ? "Update voice engine"
+              : "Install voice engine"}
         </Button>
       )}
 
-      {settings.ttsEnabled && !unsupported && installed && (
+      {installed && (
+        <Modal
+          isOpen={confirmUninstall}
+          onClose={() => {
+            if (!uninstalling) setConfirmUninstall(false);
+          }}
+        >
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>Uninstall voice engine?</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <Text fontSize={13} color={"gray.500"} mb={4}>
+                This removes the Kokoro voice engine (~{diskMb} MB) from
+                this computer. Audio already added to your Anki decks is
+                not affected. You can reinstall with one click any time.
+              </Text>
+              <Button
+                width={"100%"}
+                variant={"solid"}
+                colorScheme={"red"}
+                isLoading={uninstalling}
+                onClick={doUninstall}
+              >
+                Uninstall voice engine
+              </Button>
+            </ModalBody>
+          </ModalContent>
+        </Modal>
+      )}
+
+      {!unsupported && installed && (
         <>
           <Text fontSize={13} mb={1}>
             Language
@@ -198,7 +263,7 @@ const VoiceSettings = (props) => {
             mb={2}
             variant={"outline"}
             onClick={() => {
-              speak("Hello! This is how AnkiBrain voice sounds.", {});
+              speak("Hello! This is how AnkiBrain voice sounds.");
             }}
           >
             <i className={"bi bi-play-fill"} style={{ marginRight: 6 }} />

@@ -435,7 +435,7 @@ class AnkiBrain:
         in the React app, not in a Qt dialog)."""
         from aqt import mw
         mw.ankiBrain.sidePanel.show()
-        mw.ankiBrain.reactBridge.send_to_js({'cmd': 'ttsSetupRequired', 'pendingText': None})
+        mw.ankiBrain.reactBridge.send_to_js({'cmd': 'ttsSetupRequired'})
 
 
 def reinstall():

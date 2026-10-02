@@ -5,7 +5,6 @@ import {
   audioJobStarted,
   audioJobSettled,
   audioJobFailed,
-  audioRetryQueued,
 } from "../../redux/slices/cardAudio";
 import { openSetupModal } from "../../tts";
 import { errorToast, infoToast } from "../../toast";
@@ -13,9 +12,9 @@ import { errorToast, infoToast } from "../../toast";
 /*
  * Queue audio items for synthesis. Python walks the batch sequentially (one
  * engine call at a time) pushing CARD_AUDIO_RESULT per finished clip, then
- * acks with DID_GENERATE_CARD_AUDIO. Every caller — per-field buttons,
- * "Generate audio for all cards", mode auto-enqueue, and the post-install
- * retry — funnels through here so job bookkeeping lives in one place.
+ * acks with DID_GENERATE_CARD_AUDIO. Every caller — per-field buttons and
+ * "Generate audio for all cards" — funnels through here so job bookkeeping
+ * lives in one place.
  */
 export async function requestAudioGeneration(items) {
   if (!items || items.length === 0) {
@@ -50,10 +49,9 @@ function handleBatchFailure(items, err) {
   }
 
   if (msg.includes("TTS_NOT_INSTALLED") || msg.includes("TTS_PACK_MISSING")) {
-    // Park the batch; the setup modal's one-click install ends with
-    // TTS_INSTALL_DONE ok → retryQueuedAudioJobs() replays exactly these.
-    store.dispatch(audioRetryQueued(items));
-    openSetupModal(null);
+    // Engine absent: offer the setup dialog and stop. Nothing is parked or
+    // replayed after install — the user clicks "generate audio" again.
+    openSetupModal();
     return;
   }
 
@@ -64,11 +62,6 @@ function handleBatchFailure(items, err) {
         "The voice engine does not support this platform.",
       10000
     );
-    return;
-  }
-
-  if (msg.includes("TTS_DISABLED")) {
-    infoToast("Card Audio", "Voice is turned off in Settings.");
     return;
   }
 

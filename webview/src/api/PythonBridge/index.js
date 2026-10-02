@@ -4,8 +4,8 @@ import { handleTalkSelectedText } from "./receivers/handleTalkSelectedText";
 import { addAIMessageToStore } from "../chat";
 import { InterprocessCommand as IC } from "./InterprocessCommand";
 import { playTtsUrl } from "../tts/player";
-import { completeInstallFlow, openSetupModal, refreshTtsStatus } from "../tts";
-import { handleCardAudioResult, retryQueuedAudioJobs } from "../cardAudio";
+import { openSetupModal, refreshTtsStatus } from "../tts";
+import { handleCardAudioResult } from "../cardAudio";
 import {
   setTtsInstallDone,
   setTtsInstallEvent,
@@ -84,7 +84,7 @@ export async function handlePythonDataReceived(
       playTtsUrl(pyResponseObject.url, pyResponseObject.text || "");
       break;
     case "ttsSetupRequired":
-      openSetupModal(pyResponseObject.pendingText || null);
+      openSetupModal();
       break;
     case "ttsError":
       errorToast("Voice Error", String(pyResponseObject.message || "").slice(0, 300));
@@ -95,9 +95,10 @@ export async function handlePythonDataReceived(
     case IC.TTS_INSTALL_DONE:
       store.dispatch(setTtsInstallDone(data));
       if (data && data.ok) {
-        completeInstallFlow();
-        // Replay card-audio batches parked by the missing engine.
-        retryQueuedAudioJobs();
+        // Only refresh status (Settings buttons branch on installed state).
+        // The action that opened the modal is deliberately NOT replayed —
+        // the user re-clicks speak / generate audio themselves.
+        refreshTtsStatus();
       }
       break;
     case IC.CARD_AUDIO_RESULT:
@@ -246,7 +247,6 @@ export async function handlePythonDataReceived(
       // merges new keys with defaults before sending, so every key exists).
       const ttsPatch = {};
       for (const k of [
-        "ttsEnabled",
         "ttsVoice",
         "ttsSpeed",
         "ttsCardAudioMode",

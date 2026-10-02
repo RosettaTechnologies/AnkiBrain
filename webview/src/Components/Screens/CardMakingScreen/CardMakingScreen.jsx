@@ -247,9 +247,13 @@ export function CardMakingScreen() {
 
   // AnkiBrain Voice (card audio): the review-screen mode drives auto-enqueue
   // of audio for freshly generated cards; the generating map gates Add-to-Anki.
-  const ttsEnabled = useSelector(
-    (state) => state.tts.settings.ttsEnabled !== false
-  );
+  // There is no enable switch: auto-enqueue fires only while the engine is
+  // available, and explicit clicks without it open the setup dialog.
+  const ttsStatus = useSelector((state) => state.tts.status);
+  const engineAvailable =
+    !!ttsStatus &&
+    (ttsStatus.status === "supported-and-installed" ||
+      ttsStatus.status === "supported-and-needs-sync");
   const ttsCardAudioMode = useSelector(
     (state) => state.tts.settings.ttsCardAudioMode || "none"
   );
@@ -378,11 +382,13 @@ export function CardMakingScreen() {
     for (const c of fresh) {
       seen.add(c.uid);
     }
-    if (fresh.length === 0 || !ttsEnabled || ttsCardAudioMode === "none") {
+    if (fresh.length === 0 || !engineAvailable || ttsCardAudioMode === "none") {
+      // Engine absent/unknown: skip silently. Auto-enqueue is background
+      // work — the setup dialog is only ever opened by an explicit click.
       return;
     }
     requestAudioGeneration(buildAudioItems(fresh, ttsCardAudioMode));
-  }, [appDidBoot, cards, ttsEnabled, ttsCardAudioMode]);
+  }, [appDidBoot, cards, engineAvailable, ttsCardAudioMode]);
 
   const formatTime = (seconds) => {
     const hours = Math.floor(seconds / 3600);
@@ -1106,10 +1112,12 @@ export function CardMakingScreen() {
           )}
 
           {/* Card-audio section: the dropdown is the standing policy (new
-              cards auto-enqueue audio as they're generated); the button
-              applies it to the cards already in the list and becomes a Stop
-              control while clips are synthesizing. */}
-          {ttsEnabled && (
+              cards auto-enqueue audio as they're generated while the engine
+              is installed); the button applies it to the cards already in
+              the list and becomes a Stop control while clips are
+              synthesizing. Visible even with the engine absent — clicking
+              generate just opens the setup dialog. */}
+          {!(ttsStatus && ttsStatus.status === "unsupported") && (
             <Box
               mb={3}
               px={3}

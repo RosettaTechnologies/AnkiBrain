@@ -313,6 +313,27 @@ class ReactBridge:
                 self.app.tts.cancel_install()
                 self.send_cmd(IC.DID_TTS_INSTALL, {'cancelled': True}, commandId=commandId)
 
+            elif cmd == IC.TTS_UNINSTALL:
+                # Stop the engine subprocess first (it locks the venv on
+                # Windows), then delete the data tree off the UI thread —
+                # tens of thousands of files. Acks {ok, error?} on the
+                # commandId promise; JS refreshes status from the result.
+                if self.app.tts.install_in_progress():
+                    self.send_cmd(IC.DID_TTS_UNINSTALL,
+                                  {'ok': False,
+                                   'error': 'A voice engine install is already running.'},
+                                  commandId=commandId)
+                else:
+                    try:
+                        await self.app.tts.stop()
+                        await asyncio.to_thread(self.app.tts.uninstall_data)
+                        self.send_cmd(IC.DID_TTS_UNINSTALL, {'ok': True}, commandId=commandId)
+                    except Exception as e:
+                        print(f'(ReactBridge) voice uninstall failed: {e}')
+                        self.send_cmd(IC.DID_TTS_UNINSTALL,
+                                      {'ok': False, 'error': str(e)[:300]},
+                                      commandId=commandId)
+
             elif cmd == IC.ADD_TTS_AUDIO:
                 # Python-side flow (Speak button on a card selection): synth
                 # here, then hand the playable file:// url to the webview.
@@ -383,7 +404,7 @@ class ReactBridge:
         call on a single stdin/stdout pipe, and its write-lock is released
         before the response readline — so concurrent batches could cross
         their responses. An asyncio lock serializes whole batches instead.
-        Batch-level problems (engine absent/unsupported/disabled) reject the
+        Batch-level problems (engine absent/unsupported) reject the
         promise with a stable sentinel the webview maps to the setup modal.
         """
         items = data.get('items') or []
@@ -396,20 +417,15 @@ class ReactBridge:
             self._card_audio_cancel_all = False
             self._card_audio_cancel_keys = set()
 
-            settings = mw.settingsManager.settings
-            if not bool(settings.get('ttsEnabled', True)):
-                self.send_cmd(IC.DID_GENERATE_CARD_AUDIO, error='TTS_DISABLED',
-                              commandId=commandId)
-                return
-
             avail, reason = self.app.tts.availability()
             if avail == 'unsupported':
                 self.send_cmd(IC.DID_GENERATE_CARD_AUDIO,
                               error=f'TTS_UNSUPPORTED:{reason}', commandId=commandId)
                 return
             if avail == 'absent':
-                # JS parks the batch and offers the one-click install;
-                # TTS_INSTALL_DONE ok replays it.
+                # JS surfaces the one-click setup dialog and stops here. The
+                # batch is NOT parked or replayed after install — the user
+                # re-clicks "generate audio" themselves.
                 self.send_cmd(IC.DID_GENERATE_CARD_AUDIO, error='TTS_NOT_INSTALLED',
                               commandId=commandId)
                 return
@@ -481,7 +497,9 @@ class ReactBridge:
             if out and out.get('url'):
                 self.send_to_js({'cmd': 'playTtsAudio', 'url': out['url'], 'text': text[:80]})
         except (TTSNotInstalledError, TTSUnsupportedError):
-            self.send_to_js({'cmd': 'ttsSetupRequired', 'pendingText': text})
+            # Open the setup dialog only — the selection is not replayed
+            # after install; the user presses Speak again themselves.
+            self.send_to_js({'cmd': 'ttsSetupRequired'})
         except Exception as e:
             print(f'(ReactBridge) speak_text failed: {e}')
             self.send_to_js({'cmd': 'ttsError', 'message': str(e)})

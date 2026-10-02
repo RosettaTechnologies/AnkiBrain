@@ -63,7 +63,6 @@ export function EditableCard(props) {
   const { colorMode } = useColorMode();
   const [newTag, setNewTag] = useState("");
 
-  const ttsEnabled = useSelector((s) => s.tts.settings.ttsEnabled !== false);
   const generating = useSelector(
     (s) => (card.uid && s.cardAudio.generating[card.uid]) || NO_FIELDS
   );
@@ -146,10 +145,11 @@ export function EditableCard(props) {
    * Per-field audio controls, sitting right-aligned in the field's heading.
    * Three states mirror the image pattern: generate (or retry after an
    * error) → spinner + cancel while in flight → play + remove once attached.
-   * Hidden entirely when voice is off in Settings.
+   * With the voice engine missing, "generate" just opens the setup dialog;
+   * the job is not replayed afterwards — the user clicks again.
    */
   const fieldAudioControl = (field, label) => {
-    if (!ttsEnabled || !card.uid) {
+    if (!card.uid) {
       return null;
     }
 

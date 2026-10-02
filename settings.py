@@ -52,7 +52,9 @@ default_settings = {
     'showSidePanel': True,
     'tempCards': [],
     # ── AnkiBrain Voice (Kokoro TTS) ─────────────────────────────────────────
-    'ttsEnabled': True,            # master switch for all speak features
+    # No enable/disable switch: the engine is on when it's installed (Settings
+    # screen installs or uninstalls it); speak/audio buttons that find it
+    # absent just open the setup dialog.
     'ttsVoice': 'af_heart',        # kokoro voice id; its first letter is the lang code
     'ttsSpeed': 1.0,
     # Review-screen TTS policy: none | front | back | both. Unlike the old

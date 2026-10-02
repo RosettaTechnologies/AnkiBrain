@@ -62,6 +62,12 @@ class InterprocessCommand(Enum):
     TTS_INSTALL_DONE = 'TTS_INSTALL_DONE'          # push: {ok, error?}
     TTS_CANCEL_INSTALL = 'TTS_CANCEL_INSTALL'
 
+    TTS_UNINSTALL = 'TTS_UNINSTALL'
+    # DID acks {ok, error?} (promise-style): the engine subprocess is stopped
+    # first, then the whole data tree is deleted on a worker thread — a venv
+    # is tens of thousands of files and must not block the Qt/UI loop.
+    DID_TTS_UNINSTALL = 'DID_TTS_UNINSTALL'
+
     ADD_TTS_AUDIO = 'ADD_TTS_AUDIO'  # python-initiated speak of card selection
 
     # Card audio (review-screen workflow): JS enqueues

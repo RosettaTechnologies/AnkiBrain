@@ -1,9 +1,5 @@
 import { store } from "../redux";
-import {
-  clearPendingText,
-  setSetupModalOpen,
-  setTtsStatus,
-} from "../redux/slices/tts";
+import { setSetupModalOpen, setTtsStatus } from "../redux/slices/tts";
 import { pySpeakText } from "../PythonBridge/senders/pySpeakText";
 import { pyTtsStatus } from "../PythonBridge/senders/pyTtsStatus";
 import { playTtsUrl } from "./player";
@@ -11,9 +7,14 @@ import { errorToast, infoToast } from "../toast";
 
 /**
  * AnkiBrain Voice facade: every speak/status call funnels through here so
- * the 'engine absent -> one-click setup -> auto-retry' first-use flow has
- * exactly one implementation (Talk buttons, chat speakers, card audio all
- * share it).
+ * the 'engine absent -> one-click setup' first-use flow has exactly one
+ * implementation (Talk buttons, chat speakers, card audio all share it).
+ *
+ * When the engine is missing the setup dialog opens and the action STOPS
+ * there — nothing is queued for replay, and after a successful install the
+ * user simply repeats the click. This keeps one rule everywhere: a voice
+ * action is exactly what the user asked for, never retried behind their
+ * back.
  */
 
 export async function refreshTtsStatus() {
@@ -26,7 +27,7 @@ export async function refreshTtsStatus() {
   }
 }
 
-export async function speak(text, { silentMissing = false } = {}) {
+export async function speak(text) {
   if (!text) return null;
   try {
     const out = await pySpeakText(text);
@@ -35,11 +36,9 @@ export async function speak(text, { silentMissing = false } = {}) {
   } catch (err) {
     const msg = String(err && err.message ? err.message : err);
     if (msg.includes("TTS_NOT_INSTALLED") || msg.includes("TTS_PACK_MISSING")) {
-      if (!silentMissing) {
-        // Open the setup modal, queueing this text for instant replay on a
-        // successful install.
-        store.dispatch(setSetupModalOpen({ open: true, pendingText: text }));
-      }
+      // Engine absent: open the setup dialog only. The user presses the
+      // speak/generate button again after installing.
+      store.dispatch(setSetupModalOpen(true));
       return null;
     }
     if (msg.startsWith("TTS_UNSUPPORTED:")) {
@@ -51,20 +50,10 @@ export async function speak(text, { silentMissing = false } = {}) {
   }
 }
 
-/** After TTS_INSTALL_DONE ok: refresh + speak whatever text opened the modal. */
-export async function completeInstallFlow() {
-  await refreshTtsStatus();
-  const pending = store.getState().tts.pendingText;
-  store.dispatch(clearPendingText());
-  if (pending) {
-    await speak(pending);
-  }
-}
-
-export function openSetupModal(pendingText = null) {
-  store.dispatch(setSetupModalOpen({ open: true, pendingText }));
+export function openSetupModal() {
+  store.dispatch(setSetupModalOpen(true));
 }
 
 export function closeSetupModal() {
-  store.dispatch(setSetupModalOpen({ open: false, pendingText: null }));
+  store.dispatch(setSetupModalOpen(false));
 }

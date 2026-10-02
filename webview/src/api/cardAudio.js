@@ -121,12 +121,3 @@ export function cancelCardAudio(uid) {
 export function cancelAllCardAudio() {
   pyCancelCardAudio({ all: true });
 }
-
-// VoiceSetupModal finished ok: replay whatever a missing engine parked.
-export function retryQueuedAudioJobs() {
-  const items = store.getState().cardAudio.pendingRetry;
-  if (items.length === 0) {
-    return;
-  }
-  requestAudioGeneration([...items]);
-}
