@@ -1105,15 +1105,28 @@ export function CardMakingScreen() {
             </Text>
           )}
 
-          {/* Card-audio policy bar: the dropdown is the standing mode (new
-              cards auto-enqueue per it); the button applies it to the cards
-              already in the list. While anything synthesizes it becomes a
-              red Stop, mirroring the doc-generation stop control. */}
+          {/* Card-audio section: the dropdown is the standing policy (new
+              cards auto-enqueue audio as they're generated); the button
+              applies it to the cards already in the list and becomes a Stop
+              control while clips are synthesizing. */}
           {ttsEnabled && (
-            <Flex align={"center"} wrap={"wrap"} gap={2} mb={3}>
+            <Box
+              mb={3}
+              px={3}
+              py={2}
+              maxW={300}
+              borderWidth={"1px"}
+              borderRadius={"md"}
+              borderColor={
+                colorMode === "light" ? "rgba(0,0,0,0.1)" : "customPurple.700"
+              }
+              bg={colorMode === "light" ? "rgba(0,0,0,0.02)" : "customPurple.800"}
+            >
+              <Heading size={"xs"} color={"gray"} mb={1.5}>
+                Audio
+              </Heading>
               <Select
                 size={"sm"}
-                width={250}
                 value={ttsCardAudioMode}
                 aria-label={"Card audio mode"}
                 onChange={(e) => {
@@ -1125,28 +1138,48 @@ export function CardMakingScreen() {
                 <option value={"back"}>Generate audio for back</option>
                 <option value={"both"}>Generate audio for front and back</option>
               </Select>
+              <Text fontSize={11} color={"gray"} mt={1}>
+                Applies automatically to cards as they're created.
+              </Text>
               {audioInFlight > 0 ? (
-                <Button
-                  size={"sm"}
-                  variant={"outline"}
-                  colorScheme={"red"}
-                  onClick={cancelAllCardAudio}
-                >
-                  <CloseIcon me={1.5} boxSize={2.5} />
-                  Stop ({audioInFlight})
-                </Button>
+                <>
+                  <Button
+                    mt={2}
+                    size={"sm"}
+                    variant={"outline"}
+                    colorScheme={"red"}
+                    width={"100%"}
+                    onClick={cancelAllCardAudio}
+                  >
+                    <CloseIcon me={1.5} boxSize={2.5} />
+                    Stop ({audioInFlight})
+                  </Button>
+                  <Text fontSize={11} color={"gray"} mt={1}>
+                    Stops all queued audio. Individual fields can be cancelled
+                    on their card.
+                  </Text>
+                </>
               ) : (
-                <Button
-                  size={"sm"}
-                  variant={"outline"}
-                  isDisabled={ttsCardAudioMode === "none" || cards.length === 0}
-                  onClick={handleGenerateAudioForAll}
-                >
-                  <VscUnmute style={{ marginRight: 5 }} />
-                  Generate audio for all cards
-                </Button>
+                <>
+                  <Button
+                    mt={2}
+                    size={"sm"}
+                    variant={"outline"}
+                    width={"100%"}
+                    isDisabled={
+                      ttsCardAudioMode === "none" || cards.length === 0
+                    }
+                    onClick={handleGenerateAudioForAll}
+                  >
+                    <VscUnmute style={{ marginRight: 5 }} />
+                    Apply to all cards
+                  </Button>
+                  <Text fontSize={11} color={"gray"} mt={1}>
+                    Apply to all existing cards.
+                  </Text>
+                </>
               )}
-            </Flex>
+            </Box>
           )}
 
           <Heading size={"sm"} mb={2}>

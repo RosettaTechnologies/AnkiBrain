@@ -23,7 +23,6 @@ import {
 import { AddIcon, CloseIcon, DeleteIcon } from "@chakra-ui/icons";
 import { VscUnmute } from "react-icons/vsc";
 import {
-  cancelCardAudio,
   cancelFieldAudio,
   requestFieldAudio,
 } from "../../../api/cardAudio";
@@ -139,7 +138,9 @@ export function EditableCard(props) {
   };
 
   const cardImages = card.images || [];
-  const generatingFields = Object.keys(generating);
+  const hasFinalizedAudio = !!(
+    (card.audio || {}).front || (card.audio || {}).back
+  );
 
   /*
    * Per-field audio controls, sitting right-aligned in the field's heading.
@@ -153,11 +154,21 @@ export function EditableCard(props) {
     }
 
     if (generating[field]) {
+      // Explicit centering on every child: the label is an inline-flex box
+      // with collapsed leading, so the spinner and text share one midline
+      // regardless of inherited line-height.
       return (
-        <Flex align={"center"} gap={1}>
-          <Spinner size={"xs"} color={"accent"} />
-          <Text fontSize={10} color={"gray"}>
-            {label} audio…
+        <Flex alignItems="center" gap={1.5} flexShrink={0}>
+          <Spinner size={"sm"} color={"accent"} thickness="2px" alignSelf="center" flexShrink={0} />
+          <Text
+            fontSize={11}
+            color={"gray"}
+            lineHeight={1}
+            display={"inline-flex"}
+            alignItems="center"
+            alignSelf="center"
+          >
+            {label} audio
           </Text>
           <Button
             size={"xs"}
@@ -211,7 +222,7 @@ export function EditableCard(props) {
         onClick={() => requestFieldAudio(card, field)}
       >
         <VscUnmute style={{ marginRight: 4 }} />
-        {error ? "Retry audio" : `${label} audio`}
+        {error ? "Retry audio" : "Add audio"}
       </Button>
     );
   };
@@ -230,28 +241,16 @@ export function EditableCard(props) {
                 {index + 1} · {card.type}
               </Tag>
 
-              {/* Card-level audio status: spinning badge (click = cancel this
-                  card's jobs) while synthesizing, quiet badge per attached
-                  clip once done. */}
-              {generatingFields.length > 0 && (
-                <Tag
-                  size={"sm"}
-                  me={2}
-                  colorScheme={"purple"}
-                  cursor={"pointer"}
-                  onClick={() => cancelCardAudio(card.uid)}
-                >
-                  <Spinner size={"xs"} me={1.5} />
-                  <TagLabel>audio · cancel</TagLabel>
+              {/* Card-level audio indicator: a plain "audio" label once the
+                  card has at least one finalized clip. In-flight jobs show
+                  only their per-field spinner (with that field's Cancel) —
+                  no second cancel affordance here. */}
+              {hasFinalizedAudio && (
+                <Tag size={"sm"} me={2} colorScheme={"teal"}>
+                  <VscUnmute style={{ marginRight: 4 }} />
+                  <TagLabel>audio</TagLabel>
                 </Tag>
               )}
-              {generatingFields.length === 0 &&
-                ((card.audio || {}).front || (card.audio || {}).back) && (
-                  <Tag size={"sm"} me={2} colorScheme={"teal"}>
-                    <VscUnmute style={{ marginRight: 4 }} />
-                    <TagLabel>audio</TagLabel>
-                  </Tag>
-                )}
 
               <Spacer />
               <Button
