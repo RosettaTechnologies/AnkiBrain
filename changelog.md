@@ -8,6 +8,7 @@
 - FIX: Regular (server) mode: use a login/signup gate to reduce confusion as app is not usable
   in server mode without an account
 - FIX: Local mode: fix Ubuntu/Debian auto-install script
+- UI: Migrate from old Chakra/Bootstrap to Ionic v9
 
 # 1.0.1
 - Fix the highlight-to-interact feature (Explain/Talk buttons)
