@@ -1,12 +1,13 @@
 # Changelog
 
 # 1.1.0
-- Generate cards from documents now include images: figures and diagrams found in
+- FEATURE: Generate cards from documents now include images: figures and diagrams found in
   PDFs and DOCX files are extracted and attached to the flashcards generated from
   their surrounding text.
-- Regular (server) mode: use a login/signup gate to reduce confusion as app is not usable
+- FEATURE: AnkiBrain Voice now available for free in all modes, powered by Kokoro for high-quality text-to-speech (TTS) integration
+- FIX: Regular (server) mode: use a login/signup gate to reduce confusion as app is not usable
   in server mode without an account
-- Local mode: fix Ubuntu/Debian auto-install script
+- FIX: Local mode: fix Ubuntu/Debian auto-install script
 
 # 1.0.1
 - Fix the highlight-to-interact feature (Explain/Talk buttons)

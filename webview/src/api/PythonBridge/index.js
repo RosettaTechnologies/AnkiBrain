@@ -3,6 +3,14 @@ import { handleDidExplainTopic } from "./receivers/handleDidExplainTopic";
 import { handleTalkSelectedText } from "./receivers/handleTalkSelectedText";
 import { addAIMessageToStore } from "../chat";
 import { InterprocessCommand as IC } from "./InterprocessCommand";
+import { playTtsUrl } from "../tts/player";
+import { openSetupModal, refreshTtsStatus } from "../tts";
+import { handleCardAudioResult } from "../cardAudio";
+import {
+  setTtsInstallDone,
+  setTtsInstallEvent,
+  setTtsSettings,
+} from "../redux/slices/tts";
 import { setDocuments } from "../redux/slices/documentsSlice";
 import { store } from "../redux";
 import { setBoolGlobalLoadingIndicator } from "../redux/slices/bGlobalLoadingIndicator";
@@ -71,6 +79,32 @@ export async function handlePythonDataReceived(
       break;
     case "talkSelectedText":
       handleTalkSelectedText(pyResponseObject.text, dispatch, navigate);
+      break;
+    case "playTtsAudio":
+      playTtsUrl(pyResponseObject.url, pyResponseObject.text || "");
+      break;
+    case "ttsSetupRequired":
+      // Python may request a specific flow (e.g. 'add_ja' for a detected
+      // Japanese text whose pack is not installed).
+      openSetupModal(pyResponseObject.mode || "default");
+      break;
+    case "ttsError":
+      errorToast("Voice Error", String(pyResponseObject.message || "").slice(0, 300));
+      break;
+    case IC.TTS_INSTALL_PROGRESS:
+      store.dispatch(setTtsInstallEvent(data));
+      break;
+    case IC.TTS_INSTALL_DONE:
+      store.dispatch(setTtsInstallDone(data));
+      if (data && data.ok) {
+        // Only refresh status (Settings buttons branch on installed state).
+        // The action that opened the modal is deliberately NOT replayed —
+        // the user re-clicks speak / generate audio themselves.
+        refreshTtsStatus();
+      }
+      break;
+    case IC.CARD_AUDIO_RESULT:
+      handleCardAudioResult(data);
       break;
     case IC.DID_EXPLAIN_TOPIC:
       handleDidExplainTopic(
@@ -210,6 +244,20 @@ export async function handlePythonDataReceived(
       if (showCardBottomHint !== null || showCardBottomHint !== undefined) {
         dispatch(setShowCardBottomHint(showCardBottomHint));
       }
+
+      // AnkiBrain Voice: hydrate the tts slice from settings.json (python
+      // merges new keys with defaults before sending, so every key exists).
+      const ttsPatch = {};
+      for (const k of [
+        "ttsVoice",
+        "ttsSpeed",
+        "ttsAutoDetect",
+        "ttsCardAudioMode",
+      ]) {
+        if (data[k] !== undefined) ttsPatch[k] = data[k];
+      }
+      store.dispatch(setTtsSettings(ttsPatch));
+
       if (typeof user === "string") {
         user = JSON.parse(user);
       }
@@ -242,6 +290,10 @@ export async function handlePythonDataReceived(
 
       // Set app booted flag in the store so react components can listen to it easily.
       dispatch(setAppDidBoot(true));
+
+      // AnkiBrain Voice: fetch engine status (cheap file checks on the python
+      // side; Settings + the speak-error flow both branch on it).
+      refreshTtsStatus();
 
       break;
     case IC.SET_WEBAPP_LOADING:

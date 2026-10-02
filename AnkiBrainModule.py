@@ -12,6 +12,7 @@ from dotenv import set_key, load_dotenv
 from ChatAIModuleAdapter import ChatAIModuleAdapter
 from ExplainTalkButtons import ExplainTalkButtons
 from InterprocessCommand import InterprocessCommand as IC
+from KokoroTTSAdapter import KokoroTTSAdapter
 from OpenAIAPIKeyDialog import OpenAIAPIKeyDialog
 from PostUpdateDialog import PostUpdateDialog
 from SidePanel import SidePanel
@@ -106,6 +107,11 @@ class AnkiBrain:
         self.chatAI = ChatAIModuleAdapter()  # Requires async starting by calling .start
         self.chatReady = False
 
+        # AnkiBrain Voice (Kokoro TTS): works in BOTH user modes. Lazy —
+        # nothing spawns until a speak request arrives, so server-mode users
+        # who never use TTS pay nothing.
+        self.tts = KokoroTTSAdapter()
+
         self.openai_api_key_dialog = OpenAIAPIKeyDialog()
         self.openai_api_key_dialog.hide()
 
@@ -144,6 +150,7 @@ class AnkiBrain:
 
         add_ankibrain_menu_item('Show/Hide AnkiBrain', self.toggle_panel)
         add_ankibrain_menu_item('Switch User Mode...', show_user_mode_dialog)
+        add_ankibrain_menu_item('Voice Engine: Install/Repair...', self.install_voice_engine)
 
         if self.user_mode == UserMode.LOCAL:
             add_ankibrain_menu_item('Restart AI...', self.restart_async_members_from_sync)
@@ -210,6 +217,14 @@ class AnkiBrain:
         Stop all async members here.
         :return:
         """
+        # The voice engine is lazy + idle-unloaded, but a session quit while
+        # it is warm must not leave torch resident; stop() is a no-op when
+        # the engine was never started.
+        try:
+            await self.tts.stop()
+        except Exception as e:
+            print(f'(AnkiBrain) tts stop: {e}')
+
         if self.user_mode == UserMode.LOCAL:
             print('Stopping AnkiBrain...')
             await self.chatAI.stop()
@@ -247,6 +262,11 @@ class AnkiBrain:
     def _handle_process_signal(self, signal, frame):
         try:
             self.chatAI.scriptManager.terminate_sync()
+        except Exception as e:
+            print(str(e))
+        try:
+            if self.tts.script_manager:
+                self.tts.script_manager.terminate_sync()
         except Exception as e:
             print(str(e))
 
@@ -342,6 +362,7 @@ class AnkiBrain:
         self.explainTalkButtons = ExplainTalkButtons(parent_win, win_pos)
         self.explainTalkButtons.on_explain_button_click(self.handle_explain_text_pressed)
         self.explainTalkButtons.on_talk_button_click(self.handle_talk_text_pressed)
+        self.explainTalkButtons.on_speak_button_click(self.handle_speak_text_pressed)
 
     # Resolve which webview sent a pycmd message. Anki hands the bridge's owner
     # object to the hook as `context`: the reviewer's is the Reviewer instance
@@ -396,6 +417,25 @@ class AnkiBrain:
 
         self.explainTalkButtons.destroy()
         self.selectedText = ''
+
+    def handle_speak_text_pressed(self):
+        # AnkiBrain Voice: synthesize the selection in-process (works in both
+        # user modes; nothing to do with the ChatAI subprocess or the server)
+        # and let the webview play the returned file:// url.
+        text = self.selectedText
+        self.explainTalkButtons.destroy()
+        self.selectedText = ''
+        if not text:
+            return
+        asyncio.run_coroutine_threadsafe(self.reactBridge.speak_text(text), self.loop)
+
+    def install_voice_engine(self):
+        """Menu action: open the webview's Voice Setup modal, which shows the
+        size estimate and drives the pinned bootstrap (progress + retry live
+        in the React app, not in a Qt dialog)."""
+        from aqt import mw
+        mw.ankiBrain.sidePanel.show()
+        mw.ankiBrain.reactBridge.send_to_js({'cmd': 'ttsSetupRequired'})
 
 
 def reinstall():

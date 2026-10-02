@@ -51,6 +51,23 @@ default_settings = {
     'showCardBottomHint': True,
     'showSidePanel': True,
     'tempCards': [],
+    # ── AnkiBrain Voice (Kokoro TTS) ─────────────────────────────────────────
+    # No enable/disable switch: the engine is on when it's installed (Settings
+    # screen installs or uninstalls it); speak/audio buttons that find it
+    # absent just open the setup dialog.
+    'ttsVoice': 'af_heart',        # kokoro voice id; its first letter is the lang code
+    # Engine-side source-language detection: foreign text is spoken with a
+    # first voice of its detected language; ttsVoice is the fallback for
+    # uncertain/unsupported text. On by default.
+    'ttsAutoDetect': True,
+    'ttsSpeed': 1.0,
+    # Review-screen TTS policy: none | front | back | both. Unlike the old
+    # ttsEmbedCardAudio/ttsCardAudioSides pair (which synthesized everything
+    # inline at ADD_CARDS time), this only drives the webview: it decides
+    # whether new cards auto-enqueue GENERATE_CARD_AUDIO jobs and what the
+    # "Generate audio for all cards" button targets. Adds never synthesize.
+    'ttsCardAudioMode': 'none',
+    'ttsEngineRoot': '',           # voice data root override; empty = user_files/voice
 }
 
 

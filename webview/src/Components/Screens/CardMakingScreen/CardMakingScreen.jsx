@@ -42,15 +42,29 @@ import {
   CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  CloseIcon,
   DeleteIcon,
   InfoIcon,
   SettingsIcon,
   StarIcon,
 } from "@chakra-ui/icons";
 import { RiPriceTag3Line } from "react-icons/ri";
+import { VscUnmute } from "react-icons/vsc";
 import { generateCards } from "../../../api/cards";
 import { deleteCardAtIndex, setCards } from "../../../api/redux/slices/cards";
 import { addImages, clearImages } from "../../../api/redux/slices/imagesRegistry";
+import {
+  buildAudioItems,
+  cancelAllCardAudio,
+  cancelCardAudio,
+} from "../../../api/cardAudio";
+import { requestAudioGeneration } from "../../../api/PythonBridge/senders/pyGenerateCardAudio";
+import {
+  collectCardAudioIds,
+  pyResolveAudioIds,
+} from "../../../api/PythonBridge/senders/pyResolveAudioIds";
+import { countGenerating } from "../../../api/redux/slices/cardAudio";
+import { editTtsSettingLocal } from "../../../api/redux/slices/tts";
 import {
   setDocumentContext,
 } from "../../../api/redux/slices/documentContext";
@@ -231,6 +245,25 @@ export function CardMakingScreen() {
   const imagesById = useSelector((state) => state.imagesRegistry.value);
   const documentContext = useSelector((state) => state.documentContext.value);
 
+  // AnkiBrain Voice (card audio): the review-screen mode drives auto-enqueue
+  // of audio for freshly generated cards; the generating map gates Add-to-Anki.
+  // There is no enable switch: auto-enqueue fires only while the engine is
+  // available, and explicit clicks without it open the setup dialog.
+  const ttsStatus = useSelector((state) => state.tts.status);
+  const engineAvailable =
+    !!ttsStatus &&
+    (ttsStatus.status === "supported-and-installed" ||
+      ttsStatus.status === "supported-and-needs-sync");
+  const ttsCardAudioMode = useSelector(
+    (state) => state.tts.settings.ttsCardAudioMode || "none"
+  );
+  const audioGenerating = useSelector((state) => state.cardAudio.generating);
+  const audioInFlight = useMemo(
+    () => countGenerating(audioGenerating),
+    [audioGenerating]
+  );
+  const appDidBoot = useSelector((state) => state.appDidBoot.value);
+
   // The card whose image picker is open (null = closed). Manual image adds
   // are uncapped; the picker lists every image found in any processed
   // document so cards can pull from earlier runs too.
@@ -303,6 +336,60 @@ export function CardMakingScreen() {
     pyResolveImages(missing);
   }, [cards]);
 
+  // Same re-hydration for card-audio ids (play/remove previews after a
+  // restart); ids purged from media_tmp are pruned off the cards by the
+  // sender, so those fields read as "no audio" and can be regenerated.
+  const audioResolveAttemptedRef = useRef(new Set());
+
+  useEffect(() => {
+    const missing = collectCardAudioIds(cards).filter(
+      (audioId) => !audioResolveAttemptedRef.current.has(audioId)
+    );
+    if (missing.length === 0) {
+      return;
+    }
+    for (let audioId of missing) {
+      audioResolveAttemptedRef.current.add(audioId);
+    }
+    pyResolveAudioIds(missing);
+  }, [cards]);
+
+  /*
+   * Auto-enqueue: with a "Generate audio for …" mode selected, cards enroll
+   * their eligible fields the moment they enter the review list — audio is
+   * synthesized while the user reviews, never as a delay at Add-to-Anki time.
+   *
+   * Grandfathering matters: the seen-uid set is seeded from whatever cards
+   * exist once the app has booted (tempCards restore), so reopening Anki
+   * with hundreds of old cards can't storm the queue. Only cards generated
+   * during this session auto-enroll. Editing a field clears its clip but
+   * does NOT re-enroll automatically — that would resynthesize on every
+   * keystroke; the edited field becomes eligible for the per-field button
+   * or Apply-to-all instead.
+   */
+  const audioSeenUidsRef = useRef(null);
+
+  useEffect(() => {
+    if (!appDidBoot) {
+      return;
+    }
+    if (audioSeenUidsRef.current === null) {
+      audioSeenUidsRef.current = new Set(cards.map((c) => c.uid));
+      return;
+    }
+    const seen = audioSeenUidsRef.current;
+    const fresh = cards.filter((c) => c.uid && !seen.has(c.uid));
+    for (const c of fresh) {
+      seen.add(c.uid);
+    }
+    if (fresh.length === 0 || !engineAvailable || ttsCardAudioMode === "none") {
+      // Engine absent/unknown: skip silently. Auto-enqueue is background
+      // work — the setup dialog is only ever opened by an explicit click.
+      return;
+    }
+    requestAudioGeneration(buildAudioItems(fresh, ttsCardAudioMode));
+  }, [appDidBoot, cards, engineAvailable, ttsCardAudioMode]);
+
   const formatTime = (seconds) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -330,6 +417,10 @@ export function CardMakingScreen() {
   };
 
   const handleClearCards = async () => {
+    // Cancel any queued audio before the cards (their uids) go away.
+    if (audioInFlight > 0) {
+      cancelAllCardAudio();
+    }
     dispatch(setCards([]));
     await pyEditSetting("tempCards", []);
     successToast("Cards Cleared", "Your cards have been cleared.");
@@ -406,7 +497,14 @@ export function CardMakingScreen() {
   useEffect(() => {
     (async function () {
       // If we have > 100 cards in the collection now, add to anki and clear the cards. (if user settings allow)
-      if (automaticallyAddCards && cards.length > 100) {
+      // Deferred while audio syntheses are in flight (same gate as the
+      // manual Add-to-Anki button); the deps re-fire this once the queue
+      // drains so bulk cleanup still happens, just not mid-clip. The count
+      // is read live from the store because the auto-enqueue effect above
+      // marks this batch's jobs in the same commit — the render closure's
+      // audioInFlight value would be stale by one pass.
+      const liveAudioJobs = countGenerating(store.getState().cardAudio.generating);
+      if (automaticallyAddCards && cards.length > 100 && liveAudioJobs === 0) {
         // Make sure global tag is applied.
         infoToast(
           "Automatically Adding Cards",
@@ -424,7 +522,7 @@ export function CardMakingScreen() {
         await pyAddCards(cardsCopy, deck, true);
       }
     })();
-  }, [cards]);
+  }, [cards, audioInFlight]);
 
   async function makeCardsFromDocument() {
     if (makeCardsLoading) {
@@ -552,6 +650,27 @@ export function CardMakingScreen() {
     }
 
     await pyAddCards(cardsCopy, deck, deleteCardsAfterAdding);
+  };
+
+  // TTS policy dropdown: persisted like the other voice settings. The mode
+  // governs auto-enqueue for cards generated AFTER the change (restored /
+  // pre-existing cards are grandfathered); "Generate audio" below applies it
+  // to the current list retroactively.
+  const handleAudioModeChange = async (newMode) => {
+    dispatch(editTtsSettingLocal({ key: "ttsCardAudioMode", value: newMode }));
+    await pyEditSetting("ttsCardAudioMode", newMode);
+  };
+
+  const handleGenerateAudioForAll = () => {
+    const items = buildAudioItems(cards, ttsCardAudioMode);
+    if (items.length === 0) {
+      infoToast(
+        "Card Audio",
+        "Every eligible field already has audio (or is empty). Edit a field or remove its audio first to regenerate."
+      );
+      return;
+    }
+    requestAudioGeneration(items);
   };
 
   const handleMakeFromTextClick = async () => {
@@ -805,14 +924,35 @@ export function CardMakingScreen() {
 
           {/* Secondary actions */}
           <ToolbarGroup>
+            {/* Adds are instant (no inline synthesis anymore), but stay
+                locked while any card generation or audio job is still in
+                flight — half-spoken cards must not sneak into the deck. */}
             <Button
               size={"xs"}
               variant={"secondary"}
-              isDisabled={cards.length <= 0}
+              isDisabled={
+                cards.length <= 0 || audioInFlight > 0 || makeCardsLoading
+              }
+              title={
+                audioInFlight > 0
+                  ? "Waiting for audio generation to finish"
+                  : makeCardsLoading
+                    ? "Waiting for card generation to finish"
+                    : undefined
+              }
               onClick={handleAddCardsToAnki}
             >
-              <CheckIcon me={1.5} />
-              Add to Anki
+              {audioInFlight > 0 || makeCardsLoading ? (
+                <>
+                  <Spinner size={"xs"} me={1.5} />
+                  Working…
+                </>
+              ) : (
+                <>
+                  <CheckIcon me={1.5} />
+                  Add to Anki
+                </>
+              )}
             </Button>
             <Button
               size={"xs"}
@@ -873,6 +1013,12 @@ export function CardMakingScreen() {
                       Edit text and tags, or add/remove images on each card
                       before adding them to Anki. Images always appear on the
                       answer side.
+                    </Text>
+                    <Text fontSize={12} color={"gray"}>
+                      Voice clips are generated while you review (per-field
+                      button or the Generate audio dropdown), never when you
+                      add — and cards can't be added until every queued
+                      generation is finished.
                     </Text>
                   </Flex>
                 </PopoverBody>
@@ -965,17 +1111,102 @@ export function CardMakingScreen() {
             </Text>
           )}
 
+          {/* Card-audio section: the dropdown is the standing policy (new
+              cards auto-enqueue audio as they're generated while the engine
+              is installed); the button applies it to the cards already in
+              the list and becomes a Stop control while clips are
+              synthesizing. Visible even with the engine absent — clicking
+              generate just opens the setup dialog. */}
+          {!(ttsStatus && ttsStatus.status === "unsupported") && (
+            <Box
+              mb={3}
+              px={3}
+              py={2}
+              maxW={300}
+              borderWidth={"1px"}
+              borderRadius={"md"}
+              borderColor={
+                colorMode === "light" ? "rgba(0,0,0,0.1)" : "customPurple.700"
+              }
+              bg={colorMode === "light" ? "rgba(0,0,0,0.02)" : "customPurple.800"}
+            >
+              <Heading size={"xs"} color={"gray"} mb={1.5}>
+                Audio
+              </Heading>
+              <Select
+                size={"sm"}
+                value={ttsCardAudioMode}
+                aria-label={"Card audio mode"}
+                onChange={(e) => {
+                  handleAudioModeChange(e.target.value);
+                }}
+              >
+                <option value={"none"}>Don't generate audio</option>
+                <option value={"front"}>Generate audio for front</option>
+                <option value={"back"}>Generate audio for back</option>
+                <option value={"both"}>Generate audio for front and back</option>
+              </Select>
+              <Text fontSize={11} color={"gray"} mt={1}>
+                Applies automatically to cards as they're created.
+              </Text>
+              {audioInFlight > 0 ? (
+                <>
+                  <Button
+                    mt={2}
+                    size={"sm"}
+                    variant={"outline"}
+                    colorScheme={"red"}
+                    width={"100%"}
+                    onClick={cancelAllCardAudio}
+                  >
+                    <CloseIcon me={1.5} boxSize={2.5} />
+                    Stop ({audioInFlight})
+                  </Button>
+                  <Text fontSize={11} color={"gray"} mt={1}>
+                    Stops all queued audio. Individual fields can be cancelled
+                    on their card.
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Button
+                    mt={2}
+                    size={"sm"}
+                    variant={"outline"}
+                    width={"100%"}
+                    isDisabled={
+                      ttsCardAudioMode === "none" || cards.length === 0
+                    }
+                    onClick={handleGenerateAudioForAll}
+                  >
+                    <VscUnmute style={{ marginRight: 5 }} />
+                    Apply to all cards
+                  </Button>
+                  <Text fontSize={11} color={"gray"} mt={1}>
+                    Apply to all existing cards.
+                  </Text>
+                </>
+              )}
+            </Box>
+          )}
+
           <Heading size={"sm"} mb={2}>
             Review & edit cards ({cards.length})
           </Heading>
           {cards.map((card, i) => (
             <EditableCard
-              key={i}
+              key={card.uid || i}
               card={card}
               index={i}
               imagesById={imagesById}
               modifyCard={modifyCard}
               onDelete={(index) => {
+                // Deleting a card cancels its queued audio so a phantom job
+                // never keeps the Add-to-Anki gate down.
+                const uid = cards[index] && cards[index].uid;
+                if (uid) {
+                  cancelCardAudio(uid);
+                }
                 store.dispatch(deleteCardAtIndex(index));
               }}
               onOpenImagePicker={(index) => {

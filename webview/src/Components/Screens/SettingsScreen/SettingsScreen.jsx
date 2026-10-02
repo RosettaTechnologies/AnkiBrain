@@ -1,6 +1,7 @@
 import {
   Box,
   Button,
+  Checkbox,
   Divider,
   Flex,
   Input,
@@ -44,6 +45,261 @@ import { store } from "../../../api/redux";
 import { setAutomaticallyAddCards } from "../../../api/redux/slices/automaticallyAddCards";
 import { setDeleteCardsAfterAdding } from "../../../api/redux/slices/deleteCardsAfterAdding";
 import { setShowBootReminderDialog } from "../../../api/redux/slices/showBootReminderDialog";
+import { Slider, SliderTrack, SliderFilledTrack, SliderThumb } from "@chakra-ui/react";
+import { useEffect } from "react";
+import { openSetupModal, refreshTtsStatus, speak } from "../../../api/tts";
+import { pyTtsUninstall } from "../../../api/PythonBridge/senders/pyTtsUninstall";
+import { editTtsSettingLocal } from "../../../api/redux/slices/tts";
+
+const VoiceSettings = (props) => {
+  const dispatch = useDispatch();
+  const tts = useSelector((state) => state.tts);
+  const settings = tts.settings;
+  const status = tts.status;
+
+  useEffect(() => {
+    refreshTtsStatus();
+  }, []);
+
+  const setTts = async (key, value) => {
+    dispatch(editTtsSettingLocal({ key, value }));
+    await pyEditSetting(key, value);
+  };
+
+  const languages = (status && status.languages) || {};
+  const langCodes = Object.keys(languages);
+  const currentVoice = settings.ttsVoice || "af_heart";
+  const currentLang =
+    langCodes.find((code) => (languages[code].voices || []).includes(currentVoice)) ||
+    (currentVoice[0] in languages ? currentVoice[0] : "a");
+  const voices = (languages[currentLang] && languages[currentLang].voices) || [];
+
+  const installed = status && status.status === "supported-and-installed";
+  const needsSync = status && status.status === "supported-and-needs-sync";
+  const unsupported = status && status.status === "unsupported";
+
+  // Uninstall is a destructive, slow (thread-side rmtree of the whole venv
+  // tree) action: confirm first, spinner while it runs, then re-fetch status
+  // so the buttons flip back to "Install voice engine".
+  const [confirmUninstall, setConfirmUninstall] = useState(false);
+  const [uninstalling, setUninstalling] = useState(false);
+
+  const diskMb =
+    (status && status.estimate && status.estimate.disk_mb) || 1600;
+  const jaExtraMb =
+    (status && status.estimate && status.estimate.ja_extra_mb) || 300;
+
+  const doUninstall = async () => {
+    setUninstalling(true);
+    try {
+      const res = await pyTtsUninstall();
+      if (res && res.ok) {
+        successToast(
+          "Voice Engine Removed",
+          "The Kokoro voice engine has been uninstalled. You can reinstall it any time from this screen."
+        );
+      } else {
+        errorToast(
+          "Uninstall Failed",
+          String((res && res.error) || "Could not remove the voice engine.").slice(0, 300)
+        );
+      }
+    } catch (e) {
+      errorToast("Uninstall Failed", String(e && e.message ? e.message : e).slice(0, 300));
+    } finally {
+      await refreshTtsStatus();
+      setUninstalling(false);
+      setConfirmUninstall(false);
+    }
+  };
+
+  return (
+    <Flex direction={"column"} mt={5} width={325}>
+      <Divider />
+      <Flex direction={"row"} alignItems={"center"} mt={3} mb={2}>
+        <i className={"bi bi-volume-up-fill"} style={{ fontSize: 22, marginRight: 10 }} />
+        <Text fontWeight={"bold"}>Voice (Text-to-Speech)</Text>
+      </Flex>
+
+      {!unsupported && (
+        <Text fontSize={12} color={"gray.500"} mb={2}>
+          {installed
+            ? "Kokoro-82M engine installed" +
+              (status.ja_pack ? " (incl. Japanese)" : "") +
+              "."
+            : needsSync
+              ? "Engine needs a small update after an AnkiBrain upgrade."
+              : "Not installed yet — one click below (~" +
+                ((status && status.estimate && status.estimate.download_mb) || 700) +
+                " MB)."}
+        </Text>
+      )}
+      {unsupported && (
+        <Text fontSize={12} color={"gray.500"} mb={2}>
+          {status.reason}
+        </Text>
+      )}
+
+      {!unsupported && (
+        <Button
+          mb={3}
+          variant={installed ? "outline" : undefined}
+          colorScheme={installed ? "red" : undefined}
+          onClick={() => {
+            if (installed) {
+              setConfirmUninstall(true);
+            } else {
+              openSetupModal();
+            }
+          }}
+        >
+          {installed
+            ? "Uninstall voice engine"
+            : needsSync
+              ? "Update voice engine"
+              : "Install voice engine"}
+        </Button>
+      )}
+
+      {!unsupported && installed && !status.ja_pack && (
+        <Button
+          mb={3}
+          variant={"outline"}
+          onClick={() => openSetupModal("add_ja")}
+        >
+          Add Japanese language pack (+{jaExtraMb} MB)
+        </Button>
+      )}
+
+      {installed && (
+        <Modal
+          isOpen={confirmUninstall}
+          onClose={() => {
+            if (!uninstalling) setConfirmUninstall(false);
+          }}
+        >
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>Uninstall voice engine?</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <Text fontSize={13} color={"gray.500"} mb={4}>
+                This removes the Kokoro voice engine (~{diskMb} MB) from
+                this computer. Audio already added to your Anki decks is
+                not affected. You can reinstall with one click any time.
+              </Text>
+              <Button
+                width={"100%"}
+                variant={"solid"}
+                colorScheme={"red"}
+                isLoading={uninstalling}
+                onClick={doUninstall}
+              >
+                Uninstall voice engine
+              </Button>
+            </ModalBody>
+          </ModalContent>
+        </Modal>
+      )}
+
+      {!unsupported && installed && (
+        <>
+          <Text fontSize={13} mb={1}>
+            Language
+          </Text>
+          <Select
+            mb={2}
+            size={"sm"}
+            value={currentLang}
+            onChange={(e) => {
+              const code = e.target.value;
+              const first = (languages[code].voices || [])[0];
+              if (first) setTts("ttsVoice", first);
+            }}
+          >
+            {langCodes.map((code) => (
+              <option key={code} value={code}>
+                {languages[code].name}
+                {languages[code].pack === "ja" && !status.ja_pack ? " (needs ja pack)" : ""}
+              </option>
+            ))}
+          </Select>
+
+          <Text fontSize={13} mb={1}>
+            Voice
+          </Text>
+          <Select
+            mb={2}
+            size={"sm"}
+            value={currentVoice}
+            onChange={async (e) => {
+              await setTts("ttsVoice", e.target.value);
+            }}
+          >
+            {voices.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </Select>
+
+          <Checkbox
+            mb={1}
+            size={"sm"}
+            isChecked={settings.ttsAutoDetect !== false}
+            onChange={async (e) => {
+              await setTts("ttsAutoDetect", e.target.checked);
+            }}
+          >
+            <Text as="span" fontSize={13}>Auto-detect language from text</Text>
+          </Checkbox>
+          <Text fontSize={11} color={"gray.500"} mb={2}>
+            Speaks each text with a voice for its detected language (e.g.
+            Spanish text uses a Spanish voice). The selected voice is used
+            when the language can&apos;t be detected.
+          </Text>
+
+          <Text fontSize={13} mb={1}>
+            Speed ({Number(settings.ttsSpeed || 1).toFixed(2)}×)
+          </Text>
+          <Slider
+            min={0.5}
+            max={2}
+            step={0.05}
+            value={Number(settings.ttsSpeed || 1)}
+            mb={3}
+            onChangeEnd={async (v) => {
+              await setTts("ttsSpeed", v);
+            }}
+            onChange={(v) => {
+              dispatch(editTtsSettingLocal({ key: "ttsSpeed", value: v }));
+            }}
+          >
+            <SliderTrack>
+              <SliderFilledTrack />
+            </SliderTrack>
+            <SliderThumb />
+          </Slider>
+
+          <Button
+            mb={2}
+            variant={"outline"}
+            onClick={() => {
+              // Preview the SELECTED voice verbatim: auto-detection would
+              // otherwise route this English sentence to the English default
+              // voice and hide the user's non-English pick.
+              speak("Hello! This is how AnkiBrain voice sounds.", { auto: false });
+            }}
+          >
+            <i className={"bi bi-play-fill"} style={{ marginRight: 6 }} />
+            Preview voice
+          </Button>
+        </>
+      )}
+      <Divider mt={3} />
+    </Flex>
+  );
+};
 
 const AdvancedSettings = (props) => {
   const temperature = useSelector((state) => state.appSettings.ai.temperature);
@@ -602,6 +858,8 @@ export const SettingsScreen = (props) => {
                     <ModalFooter></ModalFooter>
                   </ModalContent>
                 </Modal>
+
+                <VoiceSettings />
 
                 <Button
                   width={325}

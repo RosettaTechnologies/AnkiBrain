@@ -65,3 +65,4 @@ yarn-error.log*
 /meta.json
 /user_files/media_tmp/
 /user_files/venv/
+/user_files/voice/

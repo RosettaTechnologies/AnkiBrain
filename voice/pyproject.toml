@@ -1,0 +1,89 @@
+# AnkiBrain Voice (Kokoro TTS) engine — locked dependency project.
+#
+# This is a *virtual* project: `uv sync` installs the resolved environment
+# into the AnkiBrain-managed venv (see voice/KokoroBootstrap.py), it never
+# packages this directory itself. The committed `uv.lock` is the single
+# universal (all-platform) resolution the bootstrap installs with
+# `uv sync --frozen`, so every user gets byte-identical versions.
+#
+# Python version: kokoro 0.9.x requires >=3.10,<3.13; 3.11 has the widest
+# wheel coverage (fugashi/mojimoji/torch/spacy) for x86_64 + arm64 on all
+# three OSes, so the bootstrap vendors exactly 3.11 via python-build-standalone.
+#
+# torch routing: the PyPI default wheel for linux-x86_64/windows drags in
+# multi-GB CUDA packages. We pin those platforms to PyTorch's CPU index
+# (explicit=True below => only reachable via the source directives). macOS
+# and linux-aarch64 keep PyPI defaults, whose wheels are CPU/MPS-only builds.
+
+[project]
+name = "ankibrain-voice"
+version = "1.2.0"
+description = "Kokoro-82M local TTS engine for AnkiBrain (run via uv sync, never packaged)"
+requires-python = "==3.11.*"
+dependencies = [
+    "kokoro==0.9.4",
+    "misaki[en,zh]==0.9.4",
+    "soundfile>=0.12.1",
+    # Automatic source-language detection for TTS (Settings > Voice >
+    # Auto-detect). Pure Python; numpy 2.x is already in the graph via
+    # torch/misaki, so this adds ~5 MB and no platform-specific wheels.
+    "py3langid==0.4.0",
+    # Declared directly (not just transitively via kokoro) so the
+    # [tool.uv.sources] platform routing below actually applies: uv only
+    # honors sources for the project's own dependencies.
+    "torch",
+    # NOTE on spacy-curated-transformers: misaki[en] declares it, but Kokoro
+    # KPipeline runs G2P(trf=False) => spacy en_core_web_sm (CNN pipeline);
+    # the curated transformer backend is never imported on our runtime path.
+    # Its release line is unresolvable cleanly: 0.3.x drags
+    # curated-tokenizers==0.0.x -> tokenizers==0.10.3 (NO wheels past cp39,
+    # forces cargo builds), while 2.x forces spacy 4 prereleases. We drop the
+    # edge entirely (see [tool.uv] overrides).
+    "transformers>=4.40,<5",
+]
+
+[dependency-groups]
+# Installed only when the user adds the "Japanese voice pack" (see
+# voice/runtime-manifest.json languages.ja). pyopenjtalk ships sdist-only;
+# the bootstrap prefers a prebuilt wheel from the AnkiBrain wheelhouse
+# release before letting uv build from source (needs cmake + C/C++).
+ja = [
+    "misaki[ja]==0.9.4",
+    "unidic==1.1.0",
+]
+
+[tool.uv]
+package = false
+# Drop the spacy-curated-transformers edge everywhere in the graph: never
+# imported at runtime with G2P(trf=False), and every version of it poisons
+# resolution (0.3.x -> tokenizers==0.10.3 sdist/cargo hell; 2.x -> spacy 4
+# prereleases). The impossible marker makes the requirement inert.
+override-dependencies = [
+    "spacy-curated-transformers; python_version < '3'",
+]
+# Rails (not deps): keep resolution off the legacy wheel-less tokenizers and
+# the yanked spacy holes.
+constraint-dependencies = [
+    "tokenizers>=0.14",
+    "spacy>=3.7",
+]
+
+[tool.uv.sources]
+# torch platform routing (see header comment): every non-macOS platform uses
+# PyTorch's CPU index (which carries manylinux x86_64/aarch64 + win_amd64/
+# win_arm64 +cpu wheels); macOS uses PyPI (CPU/MPS wheel, no CUDA deps).
+torch = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'linux'" },
+    { index = "pytorch-cpu", marker = "sys_platform == 'win32'" },
+    { index = "pypi", marker = "sys_platform == 'darwin'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
