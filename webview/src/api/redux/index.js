@@ -33,6 +33,8 @@ import { checkedAuth } from "./slices/checkedAuth";
 import { ttsSlice } from "./slices/tts";
 import { customPrompts } from "./slices/customPrompts";
 import { imagesRegistry } from "./slices/imagesRegistry";
+import { audioRegistry } from "./slices/audioRegistry";
+import { cardAudioSlice } from "./slices/cardAudio";
 import { documentContextSlice } from "./slices/documentContext";
 
 const showLoginModalSlice = createSlice({
@@ -105,6 +107,8 @@ export const store = configureStore({
     documentsLoading: documentsLoadingSlice.reducer,
     failedCards: failedCards.reducer,
     imagesRegistry: imagesRegistry.reducer,
+    audioRegistry: audioRegistry.reducer,
+    cardAudio: cardAudioSlice.reducer,
     language: languageSlice.reducer,
     loadingText: loadingText.reducer,
     lockCheckoutSession: lockCheckoutSession.reducer,

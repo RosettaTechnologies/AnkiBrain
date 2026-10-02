@@ -20,8 +20,10 @@ export const ttsSlice = createSlice({
       ttsEnabled: true,
       ttsVoice: "af_heart",
       ttsSpeed: 1.0,
-      ttsEmbedCardAudio: true,
-      ttsCardAudioSides: "answer",
+      // Review-screen TTS policy (none|front|back|both): drives the
+      // auto-enqueue of audio for freshly generated cards and the target of
+      // "Generate audio for all cards".
+      ttsCardAudioMode: "none",
     },
   },
   reducers: {

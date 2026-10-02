@@ -84,7 +84,8 @@ def add_basic_card(front_text: str, back_text: str, deck_name='AnkiBrain', tags:
     col.models.save(model)
 
     # Images always go on the answer side only, never the question side.
-    # Audio obeys the explicit side policy from settings (ttsCardAudioSides).
+    # Audio rides on whichever sides carry clips the review screen generated
+    # (the card's own media_tmp ids) — nothing is synthesized at add time.
     images_html = _images_html(image_paths)
     if images_html:
         back_text = f'{back_text}<br>{images_html}'

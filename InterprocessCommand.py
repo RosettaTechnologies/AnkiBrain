@@ -41,6 +41,9 @@ class InterprocessCommand(Enum):
     RESOLVE_IMAGES = 'RESOLVE_IMAGES'
     DID_RESOLVE_IMAGES = 'DID_RESOLVE_IMAGES'
 
+    RESOLVE_AUDIO_IDS = 'RESOLVE_AUDIO_IDS'
+    DID_RESOLVE_AUDIO_IDS = 'DID_RESOLVE_AUDIO_IDS'
+
     # ── AnkiBrain Voice (Kokoro TTS) ──────────────────────────────────────
     # SYNTHESIZE_SPEECH -> DID_SYNTHESIZE_SPEECH {path,url,...} (promise-style;
     # JS resolves via commandId). TTS_STATUS reports installed/platform/voices.
@@ -60,6 +63,18 @@ class InterprocessCommand(Enum):
     TTS_CANCEL_INSTALL = 'TTS_CANCEL_INSTALL'
 
     ADD_TTS_AUDIO = 'ADD_TTS_AUDIO'  # python-initiated speak of card selection
+
+    # Card audio (review-screen workflow): JS enqueues
+    # GENERATE_CARD_AUDIO {items:[{uid, field, text, isCloze}]}; each finished
+    # clip is pushed as CARD_AUDIO_RESULT, then the batch settles with a
+    # DID_GENERATE_CARD_AUDIO ack that resolves the webview's promise.
+    # CANCEL_CARD_AUDIO marks "uid:field" keys (or the whole queue) so pending
+    # items are skipped before their synthesis starts.
+    GENERATE_CARD_AUDIO = 'GENERATE_CARD_AUDIO'
+    CARD_AUDIO_RESULT = 'CARD_AUDIO_RESULT'
+    DID_GENERATE_CARD_AUDIO = 'DID_GENERATE_CARD_AUDIO'
+    CANCEL_CARD_AUDIO = 'CANCEL_CARD_AUDIO'
+    DID_CANCEL_CARD_AUDIO = 'DID_CANCEL_CARD_AUDIO'
 
     SET_OPENAI_API_KEY = 'SET_OPENAI_API_KEY'
     DID_SET_OPENAI_API_KEY = 'DID_SET_OPENAI_API_KEY'

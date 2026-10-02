@@ -10,7 +10,14 @@ from AnkiBrainDocument import AnkiBrainDocument
 from InterprocessCommand import InterprocessCommand as IC
 from KokoroTTSAdapter import TTSNotInstalledError, TTSUnsupportedError
 from cards import add_basic_card, add_cloze_card
-from media_images import store_server_split_images, resolve_card_image_paths, resolve_image_entry
+from media_images import (
+    MEDIA_TMP_DIR,
+    resolve_audio_entry,
+    resolve_card_audio,
+    resolve_card_image_paths,
+    resolve_image_entry,
+    store_server_split_images,
+)
 from networking import fetch, postDocument
 
 
@@ -36,6 +43,14 @@ class ReactBridge:
 
         # Hook for receiving data from webview react main app.
         self.app.sidePanel.webview.page().react_data_received.connect(self.handle_react_data_received)
+
+        # Card-audio queue state (GENERATE_CARD_AUDIO / CANCEL_CARD_AUDIO).
+        # The lock serializes synthesis batches; the cancel flags are plain
+        # mutations read between queue items. All of it lives on the asyncio
+        # loop, never touched from worker threads.
+        self._card_audio_lock = None
+        self._card_audio_cancel_keys = set()
+        self._card_audio_cancel_all = False
 
     def send_to_js(self, json_dict: dict):
         try:
@@ -117,42 +132,13 @@ class ReactBridge:
                     deck_name = data['deckName']
                     cards = data['cards']
 
-                    # AnkiBrain Voice: synthesize card audio up front so the
-                    # [sound:] tags ride in with the fields. Degrades to
-                    # "cards without audio" (never a blocked add) and tells
-                    # JS why, so it can offer the engine install once.
-                    settings = mw.settingsManager.settings
-                    embed = bool(settings.get('ttsEnabled', True)) and bool(settings.get('ttsEmbedCardAudio', True))
-                    sides = settings.get('ttsCardAudioSides') or 'answer'
-                    tts_note = None
-                    audio_back = {}
-                    audio_front = {}
-                    if embed:
-                        avail, _reason = self.app.tts.availability()
-                        if avail in ('unsupported', 'absent'):
-                            embed = False
-                            tts_note = avail
-                        else:
-                            for i, card in enumerate(cards):
-                                try:
-                                    if card.get('type') == 'cloze':
-                                        d = await self.app.tts.speak_clean(card.get('text', ''), is_cloze=True)
-                                        if d:
-                                            audio_back[i] = [d['path']]
-                                    else:
-                                        if sides in ('answer', 'both'):
-                                            d = await self.app.tts.speak_clean(card.get('back', ''))
-                                            if d:
-                                                audio_back.setdefault(i, []).append(d['path'])
-                                        if sides in ('question', 'both'):
-                                            d = await self.app.tts.speak_clean(card.get('front', ''))
-                                            if d:
-                                                audio_front.setdefault(i, []).append(d['path'])
-                                except Exception as e:
-                                    print(f'(ReactBridge) card audio synth failed, adding card without it: {e}')
-                                    tts_note = 'error'
-
-                    for i, card in enumerate(cards):
+                    # AnkiBrain Voice: audio is NO LONGER synthesized here.
+                    # The review screen enqueues GENERATE_CARD_AUDIO jobs and
+                    # cards carry media_tmp audio ids by the time they arrive,
+                    # so adding is pure file embedding — no engine calls, no
+                    # multi-minute wait. Missing ids are skipped (same policy
+                    # as images), never a blocked add.
+                    for card in cards:
                         card_type = card['type']
                         tags = card['tags']
                         # Cards carry 'images' as media_tmp ids; resolve to
@@ -160,20 +146,20 @@ class ReactBridge:
                         # JS<->Python bridge. Missing ids are skipped with a
                         # warning (e.g. purged by the startup cleanup).
                         image_paths = resolve_card_image_paths(card)
+                        audio_paths = resolve_card_audio(card)
                         if card_type == 'basic':
                             front = card['front']
                             back = card['back']
                             add_basic_card(front, back, deck_name=deck_name, tags=tags,
                                            image_paths=image_paths,
-                                           front_audio_paths=audio_front.get(i),
-                                           back_audio_paths=audio_back.get(i))
+                                           front_audio_paths=audio_paths['front'] or None,
+                                           back_audio_paths=audio_paths['back'] or None)
                         elif card_type == 'cloze':
                             text = card['text']
                             add_cloze_card(text, deck_name=deck_name, tags=tags,
                                            image_paths=image_paths,
-                                           audio_paths=audio_back.get(i))
-                    payload = {} if tts_note is None else {'tts_note': tts_note}
-                    self.send_cmd(IC.DID_ADD_CARDS, payload or None, commandId=commandId)
+                                           audio_paths=audio_paths['back'] or None)
+                    self.send_cmd(IC.DID_ADD_CARDS, commandId=commandId)
                 except Exception as e:
                     self.send_cmd(IC.DID_ADD_CARDS, error=str(e), commandId=commandId)
 
@@ -262,6 +248,21 @@ class ReactBridge:
                 except Exception as e:
                     self.send_cmd(IC.DID_RESOLVE_IMAGES, error=str(e), commandId=commandId)
 
+            elif cmd == IC.RESOLVE_AUDIO_IDS:
+                try:
+                    # Same re-hydration for card-audio tts ids (play/remove
+                    # previews for cards restored from tempCards). Ids whose
+                    # files were purged are dropped; the webview prunes those
+                    # fields so the card simply reads as "no audio" again.
+                    entries = []
+                    for audio_id in (data.get('ids') or []):
+                        entry = resolve_audio_entry(audio_id)
+                        if entry is not None:
+                            entries.append(entry)
+                    self.send_cmd(IC.DID_RESOLVE_AUDIO_IDS, {'entries': entries}, commandId=commandId)
+                except Exception as e:
+                    self.send_cmd(IC.DID_RESOLVE_AUDIO_IDS, error=str(e), commandId=commandId)
+
             # ── AnkiBrain Voice (Kokoro TTS) ─────────────────────────────────
             elif cmd == IC.SYNTHESIZE_SPEECH:
                 try:
@@ -317,6 +318,20 @@ class ReactBridge:
                 # here, then hand the playable file:// url to the webview.
                 await self.speak_text(data.get('text', ''))
 
+            elif cmd == IC.GENERATE_CARD_AUDIO:
+                await self._a_generate_card_audio(data, commandId)
+
+            elif cmd == IC.CANCEL_CARD_AUDIO:
+                # Flag-only: the synth loop re-checks between items, so the
+                # one clip currently synthesizing still finishes (its result
+                # event is then discarded webview-side). Acks immediately so
+                # the webview's promise never hangs.
+                if data.get('all'):
+                    self._card_audio_cancel_all = True
+                for key in (data.get('keys') or []):
+                    self._card_audio_cancel_keys.add(str(key))
+                self.send_cmd(IC.DID_CANCEL_CARD_AUDIO, {'queued': True}, commandId=commandId)
+
             elif cmd == IC.NETWORK_REQUEST:
                 url = data['url']
                 verb = data['verb']
@@ -356,6 +371,99 @@ class ReactBridge:
                     If you still need help, go to https://www.reddit.com/r/ankibrain/.
                     '''
             })
+
+    async def _a_generate_card_audio(self, data: dict, commandId):
+        """
+        Synthesize the requested card fields one at a time, pushing each
+        finished clip as a CARD_AUDIO_RESULT event; the batch settles with a
+        DID_GENERATE_CARD_AUDIO ack that resolves the webview's request
+        promise.
+
+        Sequential on purpose: ExternalScriptManager matches one response per
+        call on a single stdin/stdout pipe, and its write-lock is released
+        before the response readline — so concurrent batches could cross
+        their responses. An asyncio lock serializes whole batches instead.
+        Batch-level problems (engine absent/unsupported/disabled) reject the
+        promise with a stable sentinel the webview maps to the setup modal.
+        """
+        items = data.get('items') or []
+        if self._card_audio_lock is None:
+            self._card_audio_lock = asyncio.Lock()
+
+        async with self._card_audio_lock:
+            # Fresh batch: drop cancel marks left over from a previous one so
+            # a re-queued batch isn't silently skipped.
+            self._card_audio_cancel_all = False
+            self._card_audio_cancel_keys = set()
+
+            settings = mw.settingsManager.settings
+            if not bool(settings.get('ttsEnabled', True)):
+                self.send_cmd(IC.DID_GENERATE_CARD_AUDIO, error='TTS_DISABLED',
+                              commandId=commandId)
+                return
+
+            avail, reason = self.app.tts.availability()
+            if avail == 'unsupported':
+                self.send_cmd(IC.DID_GENERATE_CARD_AUDIO,
+                              error=f'TTS_UNSUPPORTED:{reason}', commandId=commandId)
+                return
+            if avail == 'absent':
+                # JS parks the batch and offers the one-click install;
+                # TTS_INSTALL_DONE ok replays it.
+                self.send_cmd(IC.DID_GENERATE_CARD_AUDIO, error='TTS_NOT_INSTALLED',
+                              commandId=commandId)
+                return
+
+            voice = await self.app.tts.default_voice()
+            speed = await self.app.tts.default_speed()
+            if not self.app.tts.voice_allowed(voice):
+                # ja pipeline needs its pack; tell JS precisely.
+                self.send_cmd(IC.DID_GENERATE_CARD_AUDIO,
+                              error='TTS_PACK_MISSING:' + voice, commandId=commandId)
+                return
+
+            generated = failed = cancelled = 0
+            for item in items:
+                uid = str(item.get('uid') or '')
+                field = str(item.get('field') or '')
+                if self._card_audio_cancel_all or f'{uid}:{field}' in self._card_audio_cancel_keys:
+                    cancelled += 1
+                    continue
+                try:
+                    out = await self.app.tts.speak_clean(
+                        item.get('text') or '',
+                        voice=voice,
+                        speed=speed,
+                        is_cloze=bool(item.get('isCloze')),
+                    )
+                except Exception as e:
+                    print(f'(ReactBridge) card audio synth failed for {uid}:{field}: {e}')
+                    self.send_cmd(IC.CARD_AUDIO_RESULT,
+                                  {'uid': uid, 'field': field, 'ok': False,
+                                   'error': str(e)[:200]})
+                    failed += 1
+                    continue
+                if not out or not out.get('path'):
+                    # Field scrubbed to nothing (e.g. markup only) — not an
+                    # engine error, just nothing to speak.
+                    self.send_cmd(IC.CARD_AUDIO_RESULT,
+                                  {'uid': uid, 'field': field, 'ok': False,
+                                   'error': 'Nothing to speak in that field.'})
+                    failed += 1
+                    continue
+                # Hand JS a media_tmp-relative id (like image ids) plus a
+                # file:// url for the in-panel preview.
+                audio_id = os.path.relpath(out['path'], MEDIA_TMP_DIR).replace(os.sep, '/')
+                self.send_cmd(IC.CARD_AUDIO_RESULT,
+                              {'uid': uid, 'field': field, 'ok': True,
+                               'id': audio_id, 'url': out.get('url'),
+                               'duration_s': out.get('duration_s')})
+                generated += 1
+
+            self.send_cmd(IC.DID_GENERATE_CARD_AUDIO,
+                          {'generated': generated, 'failed': failed,
+                           'cancelled': cancelled},
+                          commandId=commandId)
 
     async def speak_text(self, text: str):
         """

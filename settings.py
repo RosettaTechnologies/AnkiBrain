@@ -55,8 +55,12 @@ default_settings = {
     'ttsEnabled': True,            # master switch for all speak features
     'ttsVoice': 'af_heart',        # kokoro voice id; its first letter is the lang code
     'ttsSpeed': 1.0,
-    'ttsEmbedCardAudio': True,     # synthesize + attach [sound:...] when ADD_CARDS runs
-    'ttsCardAudioSides': 'answer',  # answer | question | both (basic cards)
+    # Review-screen TTS policy: none | front | back | both. Unlike the old
+    # ttsEmbedCardAudio/ttsCardAudioSides pair (which synthesized everything
+    # inline at ADD_CARDS time), this only drives the webview: it decides
+    # whether new cards auto-enqueue GENERATE_CARD_AUDIO jobs and what the
+    # "Generate audio for all cards" button targets. Adds never synthesize.
+    'ttsCardAudioMode': 'none',
     'ttsEngineRoot': '',           # voice data root override; empty = user_files/voice
 }
 

@@ -15,19 +15,7 @@ export async function pyAddCards(
   }
 
   try {
-    const res = await asendPythonCommand(IC.ADD_CARDS, { cards, deckName });
-
-    if (res && res.tts_note) {
-      // Card audio embedding was requested but skipped — never blocks the
-      // add itself (python degrades to cards-without-audio by design).
-      const msg =
-        res.tts_note === "absent"
-          ? "Cards were added without voice audio: the Kokoro voice engine is not installed yet. Set it up in Settings → Voice."
-          : res.tts_note === "unsupported"
-            ? "Cards were added without voice audio: the local voice engine does not support this platform."
-            : "Cards were added, but some voice audio could not be synthesized. Check Settings → Voice.";
-      infoToast("Card Audio Skipped", msg, 15000);
-    }
+    await asendPythonCommand(IC.ADD_CARDS, { cards, deckName });
 
     if (deleteCardsAfterAdding) {
       // If error is not caught, command was successful, so we can clear the cards in AnkiBrain.

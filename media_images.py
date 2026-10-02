@@ -97,20 +97,29 @@ def store_server_split_images(images: list) -> list:
     return out
 
 
+def _resolve_within_media_tmp(rel_id):
+    """
+    Resolve a media_tmp-relative id to an absolute on-disk path, guarding
+    against path traversal. Returns None when the file is missing (e.g.
+    purged by GC).
+    """
+    if not isinstance(rel_id, str) or rel_id == '':
+        return None
+
+    base = path.abspath(MEDIA_TMP_DIR)
+    candidate = path.abspath(path.join(base, rel_id))
+    if candidate != base and not candidate.startswith(base + path.sep):
+        return None
+
+    return candidate if path.isfile(candidate) else None
+
+
 def resolve_image_path(image_id: str):
     """
     Resolve a media_tmp image id to an absolute path, guarding against path
     traversal. Returns None when the file is missing (e.g. purged by GC).
     """
-    if not isinstance(image_id, str) or image_id == '':
-        return None
-
-    base = path.abspath(MEDIA_TMP_DIR)
-    candidate = path.abspath(path.join(base, image_id))
-    if candidate != base and not candidate.startswith(base + path.sep):
-        return None
-
-    return candidate if path.isfile(candidate) else None
+    return _resolve_within_media_tmp(image_id)
 
 
 MEDIA_TYPE_BY_EXT = {ext: mime for mime, ext in EXT_BY_MEDIA_TYPE.items()}
@@ -149,6 +158,56 @@ def resolve_card_image_paths(card: dict) -> list:
             else:
                 print(f'(media_images) Image no longer available, skipping: {image_id}')
     return paths
+
+
+def resolve_audio_path(audio_id: str):
+    """
+    Resolve a media_tmp tts id (e.g. 'tts/kokoro-af_heart-<hash>.wav') to an
+    absolute path, or None when the file is gone.
+    """
+    return _resolve_within_media_tmp(audio_id)
+
+
+def resolve_audio_entry(audio_id: str):
+    """
+    Resolve a media_tmp tts id to an audioRegistry descriptor {'id', 'url',
+    'mediaType'}, or None when the file is gone. Mirrors resolve_image_entry:
+    used to re-hydrate play/remove UI for cards restored from tempCards.
+    """
+    resolved = resolve_audio_path(audio_id)
+    if resolved is None:
+        return None
+
+    return {
+        'id': audio_id,
+        'url': Path(resolved).as_uri(),
+        'mediaType': 'audio/wav',
+    }
+
+
+def resolve_card_audio(card: dict) -> dict:
+    """
+    Map a card's 'audio' dict ({'front'|'back': media_tmp id}) to on-disk
+    paths, skipping missing files with the same graceful policy as images
+    (cards.py's _tts_html double-guards). Returns {'front': [...], 'back':
+    [...]}; cloze cards only ever use 'back' (the audio rides on Extra so it
+    never spoils the blank).
+    """
+    resolved = {'front': [], 'back': []}
+    audio = card.get('audio') or {}
+    if not isinstance(audio, dict):
+        return resolved
+
+    for side in ('front', 'back'):
+        audio_id = audio.get(side)
+        if not audio_id:
+            continue
+        p = resolve_audio_path(audio_id)
+        if p is not None:
+            resolved[side].append(p)
+        else:
+            print(f'(media_images) Card audio no longer available, skipping: {audio_id}')
+    return resolved
 
 
 def cleanup_media_tmp(max_age_days: int = 7):

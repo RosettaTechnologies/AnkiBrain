@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { cloneDeep } from "lodash";
+import { useSelector } from "react-redux";
 import {
   Box,
   Button,
@@ -10,6 +11,7 @@ import {
   IconButton,
   Input,
   Spacer,
+  Spinner,
   Tag,
   TagCloseButton,
   TagLabel,
@@ -19,6 +21,16 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { AddIcon, CloseIcon, DeleteIcon } from "@chakra-ui/icons";
+import { VscUnmute } from "react-icons/vsc";
+import {
+  cancelCardAudio,
+  cancelFieldAudio,
+  requestFieldAudio,
+} from "../../../api/cardAudio";
+import { playTtsUrl } from "../../../api/tts/player";
+import { infoToast } from "../../../api/toast";
+
+const NO_FIELDS = {};
 
 export function cardSnippet(card) {
   const text =
@@ -36,6 +48,13 @@ export function cardSnippet(card) {
  * media_tmp ids; the webview previews them via file:// urls from
  * imagesRegistry, and ADD_CARDS resolves the ids to bytes at import time.
  *
+ * Audio follows the same id pattern: card.audio maps field ('front'|'back';
+ * cloze cards only ever have 'back' — its resolved-sentence clip rides on the
+ * answer side) to a media_tmp tts id. Clips are synthesized on demand — the
+ * per-field button here, Apply-to-all, or mode auto-enqueue — never inline
+ * during "Add to Anki". Synthesis state (spinner / error / cancel marks)
+ * lives in the cardAudio redux slice, addressed by this card's uid.
+ *
  * Manual image adds are intentionally uncapped — the MAX_IMAGES_PER_CARD
  * limit only governs automatic attachment during generation.
  */
@@ -45,10 +64,28 @@ export function EditableCard(props) {
   const { colorMode } = useColorMode();
   const [newTag, setNewTag] = useState("");
 
+  const ttsEnabled = useSelector((s) => s.tts.settings.ttsEnabled !== false);
+  const generating = useSelector(
+    (s) => (card.uid && s.cardAudio.generating[card.uid]) || NO_FIELDS
+  );
+  const errors = useSelector(
+    (s) => (card.uid && s.cardAudio.errors[card.uid]) || NO_FIELDS
+  );
+  const audioById = useSelector((s) => s.audioRegistry.value);
+
   const setField = (field, value) => {
     modifyCard(index, (c) => {
       const cardCopy = cloneDeep(c);
       cardCopy[field] = value;
+      // A spoken clip only matches the text it was synthesized from, so
+      // editing invalidates it: the field drops back to "no audio" and can
+      // be regenerated (button, Apply-to-all, or mode auto-enqueue).
+      const audioField = field === "text" ? "back" : field;
+      if (cardCopy.audio && cardCopy.audio[audioField] !== undefined) {
+        const audio = { ...cardCopy.audio };
+        delete audio[audioField];
+        cardCopy.audio = audio;
+      }
       return cardCopy;
     });
   };
@@ -59,6 +96,31 @@ export function EditableCard(props) {
       cardCopy.images = (cardCopy.images || []).filter((id) => id !== imageId);
       return cardCopy;
     });
+  };
+
+  const removeFieldAudio = (field) => {
+    modifyCard(index, (c) => {
+      const cardCopy = cloneDeep(c);
+      if (cardCopy.audio) {
+        const audio = { ...cardCopy.audio };
+        delete audio[field];
+        cardCopy.audio = audio;
+      }
+      return cardCopy;
+    });
+  };
+
+  const playFieldAudio = (field) => {
+    const id = (card.audio || {})[field];
+    const entry = id ? audioById[id] : null;
+    if (!entry || !entry.url) {
+      infoToast(
+        "Audio Unavailable",
+        "This clip's file was cleaned up. Remove it and generate again."
+      );
+      return;
+    }
+    playTtsUrl(entry.url, cardSnippet(card));
   };
 
   const handleAddTag = () => {
@@ -77,6 +139,82 @@ export function EditableCard(props) {
   };
 
   const cardImages = card.images || [];
+  const generatingFields = Object.keys(generating);
+
+  /*
+   * Per-field audio controls, sitting right-aligned in the field's heading.
+   * Three states mirror the image pattern: generate (or retry after an
+   * error) → spinner + cancel while in flight → play + remove once attached.
+   * Hidden entirely when voice is off in Settings.
+   */
+  const fieldAudioControl = (field, label) => {
+    if (!ttsEnabled || !card.uid) {
+      return null;
+    }
+
+    if (generating[field]) {
+      return (
+        <Flex align={"center"} gap={1}>
+          <Spinner size={"xs"} color={"accent"} />
+          <Text fontSize={10} color={"gray"}>
+            {label} audio…
+          </Text>
+          <Button
+            size={"xs"}
+            variant={"ghost"}
+            colorScheme={"red"}
+            onClick={() => cancelFieldAudio(card.uid, field)}
+          >
+            Cancel
+          </Button>
+        </Flex>
+      );
+    }
+
+    const audioId = (card.audio || {})[field];
+    if (audioId) {
+      const entry = audioById[audioId];
+      return (
+        <Flex align={"center"}>
+          {entry && entry.url ? (
+            <IconButton
+              aria-label={`Play ${label} audio`}
+              icon={<VscUnmute />}
+              size={"xs"}
+              variant={"ghost"}
+              onClick={() => playFieldAudio(field)}
+            />
+          ) : (
+            <Text fontSize={10} color={"gray"} me={1}>
+              audio unavailable
+            </Text>
+          )}
+          <IconButton
+            aria-label={`Remove ${label} audio`}
+            icon={<CloseIcon boxSize={2.5} />}
+            size={"xs"}
+            colorScheme={"red"}
+            variant={"ghost"}
+            onClick={() => removeFieldAudio(field)}
+          />
+        </Flex>
+      );
+    }
+
+    const error = errors[field];
+    return (
+      <Button
+        size={"xs"}
+        variant={"ghost"}
+        colorScheme={error ? "orange" : "gray"}
+        title={error || undefined}
+        onClick={() => requestFieldAudio(card, field)}
+      >
+        <VscUnmute style={{ marginRight: 4 }} />
+        {error ? "Retry audio" : `${label} audio`}
+      </Button>
+    );
+  };
 
   return (
     <Card
@@ -91,6 +229,30 @@ export function EditableCard(props) {
               <Tag me={3}>
                 {index + 1} · {card.type}
               </Tag>
+
+              {/* Card-level audio status: spinning badge (click = cancel this
+                  card's jobs) while synthesizing, quiet badge per attached
+                  clip once done. */}
+              {generatingFields.length > 0 && (
+                <Tag
+                  size={"sm"}
+                  me={2}
+                  colorScheme={"purple"}
+                  cursor={"pointer"}
+                  onClick={() => cancelCardAudio(card.uid)}
+                >
+                  <Spinner size={"xs"} me={1.5} />
+                  <TagLabel>audio · cancel</TagLabel>
+                </Tag>
+              )}
+              {generatingFields.length === 0 &&
+                ((card.audio || {}).front || (card.audio || {}).back) && (
+                  <Tag size={"sm"} me={2} colorScheme={"teal"}>
+                    <VscUnmute style={{ marginRight: 4 }} />
+                    <TagLabel>audio</TagLabel>
+                  </Tag>
+                )}
+
               <Spacer />
               <Button
                 size={"sm"}
@@ -105,9 +267,13 @@ export function EditableCard(props) {
 
             {card.type === "cloze" ? (
               <VStack align={"stretch"} spacing={1}>
-                <Heading size={"xs"} color={"gray"}>
-                  Cloze text (deletions look like {"{{c1::answer}}"})
-                </Heading>
+                <Flex direction={"row"} align={"center"}>
+                  <Heading size={"xs"} color={"gray"}>
+                    Cloze text (deletions look like {"{{c1::answer}}"})
+                  </Heading>
+                  <Spacer />
+                  {fieldAudioControl("back", "answer")}
+                </Flex>
                 <Textarea
                   size={"sm"}
                   value={card.text || ""}
@@ -119,9 +285,13 @@ export function EditableCard(props) {
             ) : (
               <>
                 <VStack align={"stretch"} spacing={1}>
-                  <Heading size={"xs"} color={"gray"}>
-                    Front
-                  </Heading>
+                  <Flex direction={"row"} align={"center"}>
+                    <Heading size={"xs"} color={"gray"}>
+                      Front
+                    </Heading>
+                    <Spacer />
+                    {fieldAudioControl("front", "front")}
+                  </Flex>
                   <Textarea
                     size={"sm"}
                     value={card.front || ""}
@@ -131,9 +301,13 @@ export function EditableCard(props) {
                   />
                 </VStack>
                 <VStack align={"stretch"} spacing={1}>
-                  <Heading size={"xs"} color={"gray"}>
-                    Back
-                  </Heading>
+                  <Flex direction={"row"} align={"center"}>
+                    <Heading size={"xs"} color={"gray"}>
+                      Back
+                    </Heading>
+                    <Spacer />
+                    {fieldAudioControl("back", "back")}
+                  </Flex>
                   <Textarea
                     size={"sm"}
                     value={card.back || ""}

@@ -187,30 +187,12 @@ const VoiceSettings = (props) => {
             <SliderThumb />
           </Slider>
 
-          <Flex direction={"row"} alignItems={"center"} mb={2}>
-            <Switch
-              isChecked={!!settings.ttsEmbedCardAudio}
-              onChange={async (e) => {
-                await setTts("ttsEmbedCardAudio", e.target.checked);
-              }}
-            />
-            <Text ml={3}>Add audio to generated cards</Text>
-          </Flex>
-
-          {settings.ttsEmbedCardAudio && (
-            <Select
-              size={"sm"}
-              mb={3}
-              value={settings.ttsCardAudioSides || "answer"}
-              onChange={async (e) => {
-                await setTts("ttsCardAudioSides", e.target.value);
-              }}
-            >
-              <option value={"answer"}>Audio on answer side</option>
-              <option value={"question"}>Audio on question side</option>
-              <option value={"both"}>Audio on both sides</option>
-            </Select>
-          )}
+          <Text fontSize={12} color={"gray.500"} mb={3}>
+            Card audio is chosen per deck batch on the Make Cards screen (the
+            “Generate audio” dropdown there). New cards can auto-enqueue audio
+            as they are generated, and every field can be generated, replayed,
+            or removed individually before you add cards to Anki.
+          </Text>
 
           <Button
             mb={2}

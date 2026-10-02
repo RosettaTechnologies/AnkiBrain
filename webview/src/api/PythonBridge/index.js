@@ -5,6 +5,7 @@ import { addAIMessageToStore } from "../chat";
 import { InterprocessCommand as IC } from "./InterprocessCommand";
 import { playTtsUrl } from "../tts/player";
 import { completeInstallFlow, openSetupModal, refreshTtsStatus } from "../tts";
+import { handleCardAudioResult, retryQueuedAudioJobs } from "../cardAudio";
 import {
   setTtsInstallDone,
   setTtsInstallEvent,
@@ -95,7 +96,12 @@ export async function handlePythonDataReceived(
       store.dispatch(setTtsInstallDone(data));
       if (data && data.ok) {
         completeInstallFlow();
+        // Replay card-audio batches parked by the missing engine.
+        retryQueuedAudioJobs();
       }
+      break;
+    case IC.CARD_AUDIO_RESULT:
+      handleCardAudioResult(data);
       break;
     case IC.DID_EXPLAIN_TOPIC:
       handleDidExplainTopic(
@@ -243,8 +249,7 @@ export async function handlePythonDataReceived(
         "ttsEnabled",
         "ttsVoice",
         "ttsSpeed",
-        "ttsEmbedCardAudio",
-        "ttsCardAudioSides",
+        "ttsCardAudioMode",
       ]) {
         if (data[k] !== undefined) ttsPatch[k] = data[k];
       }
