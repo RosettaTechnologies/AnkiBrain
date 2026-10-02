@@ -10,7 +10,7 @@ import { postCreateCheckoutSession } from "../../api/server-api/networking/check
 import { setAppAlertModal } from "../../api/redux/slices/appAlertModal";
 import { getAPIEndpoints } from "../../api/server-api/networking";
 import { useColorMode } from "../../theme/colorMode";
-import { FaStripe } from "react-icons/fa";
+import { StripeIcon } from "../icons/StripeIcon";
 import { getUser } from "../../api/server-api/networking/user";
 
 export function SideBar(props) {
@@ -64,7 +64,7 @@ export function SideBar(props) {
                 </a>
               </p>
               <a className="AddBalanceInfo-cta" href={url}>
-                <FaStripe size={48} style={{ marginRight: 7.5 }} />
+                <StripeIcon size={48} style={{ marginRight: 7.5 }} />
                 Add Balance
               </a>
             </div>

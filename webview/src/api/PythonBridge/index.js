@@ -16,8 +16,7 @@ import { store } from "../redux";
 import { setBoolGlobalLoadingIndicator } from "../redux/slices/bGlobalLoadingIndicator";
 import { setChatLoading } from "../redux/slices/chatLoading";
 import { setDocumentsLoading } from "../redux/slices/documentsLoadingSlice";
-import { setAppAlertModal } from "../redux/slices/appAlertModal";
-import { errorToast, infoToast } from "../toast";
+import { errorToast } from "../toast";
 import { setPyCommandLock } from "../redux/slices/pyCommandLock";
 import { stopAllLoaders } from "../redux/stopAllLoaders";
 import { setCurrentVersion } from "../redux/slices/currentVersion";
@@ -30,19 +29,12 @@ import { logout, setUser } from "../user";
 import { setDevMode } from "../redux/slices/devMode";
 import { setupServerAPI } from "../server-api/networking";
 import { setColorMode } from "../redux/slices/colorMode";
-import { Button, Checkbox, Flex, Text } from "@chakra-ui/react";
-import { AiOutlineSmile } from "react-icons/ai";
-import { VscHeartFilled } from "react-icons/vsc";
-import { BiDonateHeart } from "react-icons/bi";
-import { MdOutlineRateReview } from "react-icons/md";
-import React from "react";
 import { setLanguage } from "../redux/slices/language";
 import { setCards } from "../redux/slices/cards";
 import { setShowCardBottomHint } from "../redux/slices/showCardBottomHint";
 import { setAutomaticallyAddCards } from "../redux/slices/automaticallyAddCards";
 import { setDeleteCardsAfterAdding } from "../redux/slices/deleteCardsAfterAdding";
 import { setShowBootReminderDialog } from "../redux/slices/showBootReminderDialog";
-import { pyEditSetting } from "./senders/pyEditSetting";
 import { setAppDidBoot } from "../redux/slices/appDidBoot";
 import { setCheckedAuth } from "../redux/slices/checkedAuth";
 import {
@@ -69,7 +61,7 @@ export async function handlePythonDataReceived(
                                                                                                                                                                                                     );
                                                                                                                                                                                                      */
 
-  let sourceDocuments, model, temperature;
+  let model;
   const cmd = pyResponseObject.cmd;
   const data = pyResponseObject.data;
 

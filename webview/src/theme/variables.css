@@ -104,6 +104,13 @@
   --app-library-header-bg: rgb(249, 249, 249);
 }
 
+/* Paint the document background with the active palette (IonApp paints
+   itself; this covers any area outside it, e.g. during boot). */
+body {
+  background-color: var(--ion-background-color);
+  color: var(--ion-text-color);
+}
+
 /*
  * Dark palette. Ionic toggles this via the `.ion-palette-dark` class on
  * <html> (see src/theme/colorMode.js). Ionic's own dark.class.css provides

@@ -1,6 +1,4 @@
 import "./App.css";
-import "bootstrap-icons/font/bootstrap-icons.css";
-import "bootstrap/dist/css/bootstrap.min.css";
 import React, { useEffect, useState } from "react";
 
 import { Navigate, Route, useNavigate } from "react-router-dom";
@@ -23,37 +21,12 @@ import { SettingsScreen } from "./Components/Screens/SettingsScreen/SettingsScre
 import { EmailVerificationModal } from "./Components/modals/EmailVerificationModal";
 import { InterprocessCommand } from "./api/PythonBridge/InterprocessCommand";
 import { PROD_SERVER_URL } from "./api/server-api/networking";
-import {
-  ChakraProvider,
-  ColorModeScript,
-  extendTheme,
-  useColorMode as useChakraColorMode,
-} from "@chakra-ui/react";
 import { BootReminderModal } from "./Components/modals/BootReminderModal";
 import { VoiceSetupModal } from "./Components/modals/VoiceSetupModal";
 
 /**
- * Temporary bridge: the screens that have not been migrated to Ionic yet
- * still read Chakra's internal color mode, so mirror the Redux-persisted
- * value into Chakra while both systems live side by side.
- * Removed together with ChakraProvider at the end of the migration.
- */
-function ChakraColorModeSync() {
-  const storeColorMode = useSelector((state) => state.colorMode.value);
-  const { colorMode: chakraColorMode, toggleColorMode } = useChakraColorMode();
-
-  useEffect(() => {
-    if (storeColorMode && storeColorMode !== chakraColorMode) {
-      toggleColorMode();
-    }
-  }, [storeColorMode, chakraColorMode, toggleColorMode]);
-
-  return null;
-}
-
-/**
  * Wraps a screen in an Ionic page (router transitions + full-height layout)
- * with the padding/scroll container the legacy screens expect.
+ * with the padding/scroll container the screens expect.
  */
 function ScreenPage({ children }) {
   return (
@@ -73,7 +46,6 @@ function App() {
   const showLoginModal = useSelector((state) => state.showLoginModal.value);
   const userMode = useSelector((state) => state.userMode.value);
   const user = useSelector((state) => state.user.value);
-  const appAlertModal = useSelector((state) => state.appAlertModal.value);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   let globalLoading = useSelector(
@@ -135,170 +107,92 @@ function App() {
     }
   }, [appDidBoot]);
 
-  const theme = extendTheme({
-    fonts: {
-      body: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu, 'Helvetica Neue', sans-serif",
-      heading:
-        "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu, 'Helvetica Neue', sans-serif",
-    },
-    colors: {
-      customBlack: "#1f1f1f",
-      accent: "#f3ceff",
-      secondary: "#afebf4",
-      nightPurple: "#312244",
-      customPurple: {
-        50: "#f8edfc",
-        100: "#ddcce8",
-        200: "#c4aad4",
-        300: "#aa88c3",
-        400: "#8f67b1",
-        500: "#734e97",
-        600: "#583c76",
-        700: "#3d2b55",
-        800: "#271a35",
-        900: "#100817",
-      },
-      offWhite: "rgb(250,250,250)",
-    },
-    styles: {
-      global: (props) => ({
-        body: {
-          color: props.colorMode === "dark" ? "white" : "customBlack",
-          bg: props.colorMode === "dark" ? "#16161d" : "white",
-        },
-      }),
-    },
-    components: {
-      Button: {
-        baseStyle: {
-          _hover: {
-            opacity: 0.5,
-          },
-          _focus: {
-            opacity: 0.25,
-          },
-        },
-        variants: {
-          accent: {
-            bg: "accent",
-            color: "customBlack",
-          },
-          secondary: {
-            bg: "secondary",
-            color: "customBlack",
-          },
-        },
-      },
-      Input: {
-        baseStyle: ({ colorMode }) => ({
-          bg: colorMode === "dark" ? "customPurple.800" : "white",
-          color: colorMode === "dark" ? "white" : "#1f1f1f",
-        }),
-      },
-      Textarea: {
-        baseStyle: ({ colorMode }) => ({
-          bg: "customPurple.800",
-          focusBorderColor: "accent",
-          _focus: {
-            borderColor: "accent",
-          },
-        }),
-      },
-    },
-  });
-
   return (
-    <>
-      <ColorModeScript initialColorMode={"dark"} />
-      <ChakraProvider theme={theme}>
-        <ChakraColorModeSync />
-        <div
-          className="App"
-          style={{
-            height: "100vh",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          {!needsAuth && showLoginModal && <LoginModal isOpen={showLoginModal} />}
+    <div
+      className="App"
+      style={{
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {!needsAuth && showLoginModal && <LoginModal isOpen={showLoginModal} />}
 
-          {globalLoading && <GlobalLoadingIndicator />}
-          <AppAlertModal />
-          {!needsAuth && (
-            <>
-              <BootReminderModal
-                show={showBootReminderModalNow}
-                onClose={() => {
-                  setShowBootReminderModalNow(false);
-                }}
-              />
-              <EmailVerificationModal />
-              <VoiceSetupModal />
-            </>
-          )}
+      {globalLoading && <GlobalLoadingIndicator />}
+      <AppAlertModal />
+      {!needsAuth && (
+        <>
+          <BootReminderModal
+            show={showBootReminderModalNow}
+            onClose={() => {
+              setShowBootReminderModalNow(false);
+            }}
+          />
+          <EmailVerificationModal />
+          <VoiceSetupModal />
+        </>
+      )}
 
-          {!globalLoading && needsAuth && <AuthScreen />}
+      {!globalLoading && needsAuth && <AuthScreen />}
 
-          {!globalLoading && !needsAuth && (
-            <>
-              <SideBar />
+      {!globalLoading && !needsAuth && (
+        <>
+          <SideBar />
 
-              <div className="AppTabsArea">
-                <IonTabs>
-                  <IonRouterOutlet>
-                    <Route
-                      path={PATHS.TOPIC_EXPLANATION}
-                      element={
-                        <ScreenPage>
-                          <TopicExplanationScreen />
-                        </ScreenPage>
-                      }
-                    />
-                    <Route
-                      path={PATHS.MAKE_CARDS}
-                      element={
-                        <ScreenPage>
-                          <CardMakingScreen />
-                        </ScreenPage>
-                      }
-                    />
-                    <Route
-                      path={PATHS.TALK}
-                      element={
-                        <ScreenPage>
-                          <TalkScreen />
-                        </ScreenPage>
-                      }
-                    />
-                    <Route
-                      path={PATHS.IMPORT}
-                      element={
-                        <ScreenPage>
-                          <ImportScreen />
-                        </ScreenPage>
-                      }
-                    />
-                    <Route
-                      path={PATHS.SETTINGS}
-                      element={
-                        <ScreenPage>
-                          <SettingsScreen />
-                        </ScreenPage>
-                      }
-                    />
-                    <Route
-                      path="*"
-                      element={<Navigate to={PATHS.MAKE_CARDS} replace />}
-                    />
-                  </IonRouterOutlet>
-                  <BottomNav />
-                </IonTabs>
-              </div>
-            </>
-          )}
-        </div>
-      </ChakraProvider>
-    </>
+          <div className="AppTabsArea">
+            <IonTabs>
+              <IonRouterOutlet>
+                <Route
+                  path={PATHS.TOPIC_EXPLANATION}
+                  element={
+                    <ScreenPage>
+                      <TopicExplanationScreen />
+                    </ScreenPage>
+                  }
+                />
+                <Route
+                  path={PATHS.MAKE_CARDS}
+                  element={
+                    <ScreenPage>
+                      <CardMakingScreen />
+                    </ScreenPage>
+                  }
+                />
+                <Route
+                  path={PATHS.TALK}
+                  element={
+                    <ScreenPage>
+                      <TalkScreen />
+                    </ScreenPage>
+                  }
+                />
+                <Route
+                  path={PATHS.IMPORT}
+                  element={
+                    <ScreenPage>
+                      <ImportScreen />
+                    </ScreenPage>
+                  }
+                />
+                <Route
+                  path={PATHS.SETTINGS}
+                  element={
+                    <ScreenPage>
+                      <SettingsScreen />
+                    </ScreenPage>
+                  }
+                />
+                <Route
+                  path="*"
+                  element={<Navigate to={PATHS.MAKE_CARDS} replace />}
+                />
+              </IonRouterOutlet>
+              <BottomNav />
+            </IonTabs>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
