@@ -28,10 +28,15 @@ import {
 } from "../../../api/cardAudio";
 import { playTtsUrl } from "../../../api/tts/player";
 import { infoToast } from "../../../api/toast";
+import { occlusionCardCount } from "../../../api/occlusion";
+import { OcclusionOverlay } from "./OcclusionOverlay";
 
 const NO_FIELDS = {};
 
 export function cardSnippet(card) {
+  if (card.type === "occlusion") {
+    return card.header || "Image occlusion";
+  }
   const text =
     card.type === "cloze" ? card.text || "" : card.front || card.text || "";
   const flat = text.replace(/\s+/g, " ").trim();
@@ -58,7 +63,7 @@ export function cardSnippet(card) {
  * limit only governs automatic attachment during generation.
  */
 export function EditableCard(props) {
-  const { card, index, imagesById, modifyCard, onDelete, onOpenImagePicker } =
+  const { card, index, imagesById, modifyCard, onDelete, onOpenImagePicker, onEditOcclusion } =
     props;
   const { colorMode } = useColorMode();
   const [newTag, setNewTag] = useState("");
@@ -140,6 +145,10 @@ export function EditableCard(props) {
   const hasFinalizedAudio = !!(
     (card.audio || {}).front || (card.audio || {}).back
   );
+  // Occlusion cards carry a single image id (not the 'images' list) and one
+  // or more masks; the preview overlays them on the thumbnail.
+  const occlusionImage = card.image ? imagesById[card.image] : null;
+  const occlusionMaskCount = (card.occlusions || []).length;
 
   /*
    * Per-field audio controls, sitting right-aligned in the field's heading.
@@ -264,7 +273,73 @@ export function EditableCard(props) {
               </Button>
             </Flex>
 
-            {card.type === "cloze" ? (
+            {card.type === "occlusion" ? (
+              <VStack align={"stretch"} spacing={3}>
+                <Flex direction={"row"} align={"center"}>
+                  <Heading size={"xs"} color={"gray"}>
+                    Image occlusion
+                  </Heading>
+                  <Spacer />
+                  <Button
+                    size={"xs"}
+                    variant={"outline"}
+                    onClick={() => onEditOcclusion(index)}
+                  >
+                    Edit masks
+                  </Button>
+                </Flex>
+
+                <Box
+                  position={"relative"}
+                  display={"inline-block"}
+                  maxW={"100%"}
+                  alignSelf={"flex-start"}
+                  borderWidth={"1px"}
+                  borderRadius={"md"}
+                  overflow={"hidden"}
+                  bg={colorMode === "light" ? "white" : "customPurple.700"}
+                >
+                  {occlusionImage ? (
+                    <>
+                      <img
+                        src={occlusionImage.url}
+                        alt={card.image}
+                        style={{
+                          display: "block",
+                          maxWidth: "100%",
+                          maxHeight: 220,
+                        }}
+                      />
+                      <OcclusionOverlay
+                        shapes={card.occlusions || []}
+                        showOrdinals
+                      />
+                    </>
+                  ) : (
+                    <Text fontSize={11} color={"gray"} p={3}>
+                      Image unavailable — re-import it and edit the card.
+                    </Text>
+                  )}
+                </Box>
+
+                <Text fontSize={11} color={"gray"}>
+                  {occlusionMaskCount} mask
+                  {occlusionMaskCount === 1 ? "" : "s"} ·{" "}
+                  {occlusionCardCount(card)} card
+                  {occlusionCardCount(card) === 1 ? "" : "s"} ·{" "}
+                  {card.occludeInactive
+                    ? "hide all, guess one"
+                    : "hide one, guess one"}
+                </Text>
+
+                {card.header && <Text fontSize={12}>{card.header}</Text>}
+                {card.backExtra && (
+                  <Text fontSize={11} color={"gray"}>
+                    {card.backExtra}
+                  </Text>
+                )}
+              </VStack>
+            ) : card.type === "cloze" ? (
               <VStack align={"stretch"} spacing={1}>
                 <Flex direction={"row"} align={"center"}>
                   <Heading size={"xs"} color={"gray"}>
@@ -318,11 +393,12 @@ export function EditableCard(props) {
               </>
             )}
 
-            <VStack align={"stretch"} spacing={2}>
-              <Flex direction={"row"} align={"center"}>
-                <Heading size={"xs"} color={"gray"}>
-                  Images (answer side)
-                </Heading>
+            {card.type !== "occlusion" && (
+              <VStack align={"stretch"} spacing={2}>
+                <Flex direction={"row"} align={"center"}>
+                  <Heading size={"xs"} color={"gray"}>
+                    Images (answer side)
+                  </Heading>
                 <Spacer />
                 <Button
                   size={"xs"}
@@ -377,7 +453,8 @@ export function EditableCard(props) {
                   No images on this card yet.
                 </Text>
               )}
-            </VStack>
+              </VStack>
+            )}
 
             <Flex direction={"row"} align={"center"} flexWrap={"wrap"}>
               {card.tags.map((tag, tagIndex) => (

@@ -56,3 +56,26 @@ async def postDocument(file_path: str, url, accessToken: str):
         res.raise_for_status() 
         res = res.json()
         return res
+
+
+async def postOcclusionImage(url, file_path, accessToken, fields=None):
+    """
+    Upload one image to the AnkiBrain server's occlusion endpoint and return
+    its JSON response (vision-suggested occlusion shapes). Used by server
+    mode; the bytes never cross the JS<->Python bridge.
+    """
+    headers = {'Authorization': f'Bearer {accessToken}'}
+    filename = os.path.basename(file_path)
+
+    with open(file_path, 'rb') as f:
+        file_data = f.read()
+
+    files = {'file': (filename, file_data)}
+    data = {key: str(value) for key, value in (fields or {}).items()}
+
+    async with httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=120, pool=120, read=300, write=300),
+            verify=False if is_dev_env() else True) as client:
+        res = await client.post(url, headers=headers, files=files, data=data)
+        res.raise_for_status()
+        return res.json()

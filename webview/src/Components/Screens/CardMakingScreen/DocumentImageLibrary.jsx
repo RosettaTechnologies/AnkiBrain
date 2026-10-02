@@ -12,12 +12,17 @@ import {
   ModalHeader,
   ModalOverlay,
   SimpleGrid,
+  Spinner,
   Text,
   useColorMode,
   VStack,
 } from "@chakra-ui/react";
 import { AddIcon, DeleteIcon } from "@chakra-ui/icons";
 import { cardSnippet } from "./EditableCard";
+import {
+  importImageFromClipboard,
+  importImagesFromFiles,
+} from "../../../api/occlusion";
 
 /*
  * "Images found in your document" panel.
@@ -39,10 +44,30 @@ export function DocumentImageLibrary(props) {
     cards = [],
     onInsert,
     onClearAll,
+    onMakeOcclusion,
     compact = false,
   } = props;
   const { colorMode } = useColorMode();
   const [previewImageId, setPreviewImageId] = useState(null);
+  const [importing, setImporting] = useState(null);
+
+  const handleImportFiles = async () => {
+    setImporting("files");
+    try {
+      await importImagesFromFiles();
+    } finally {
+      setImporting(null);
+    }
+  };
+
+  const handleImportClipboard = async () => {
+    setImporting("clipboard");
+    try {
+      await importImageFromClipboard();
+    } finally {
+      setImporting(null);
+    }
+  };
 
   const previewImage = previewImageId
     ? images.find((image) => image.id === previewImageId) || null
@@ -69,23 +94,50 @@ export function DocumentImageLibrary(props) {
         py={compact ? 1.5 : 0}
       >
         <Heading size={"sm"}>
-          Images found in your document ({images.length})
+          Images ({images.length})
         </Heading>
-        {images.length > 0 && (
-          <Flex justify={"end"} mt={1.5}>
+        <Flex justify={"end"} mt={1.5} gap={1.5} wrap={"wrap"}>
+          <Button
+            size={"xs"}
+            onClick={handleImportFiles}
+            isDisabled={importing !== null}
+            title={"Import image files for occlusion cards"}
+          >
+            {importing === "files" ? (
+              <Spinner size={"xs"} me={1.5} />
+            ) : (
+              <AddIcon me={1.5} boxSize={3} />
+            )}
+            Import
+          </Button>
+          <Button
+            size={"xs"}
+            onClick={handleImportClipboard}
+            isDisabled={importing !== null}
+            title={"Paste an image from the clipboard"}
+          >
+            {importing === "clipboard" ? (
+              <Spinner size={"xs"} me={1.5} />
+            ) : (
+              <AddIcon me={1.5} boxSize={3} />
+            )}
+            Clipboard
+          </Button>
+          {images.length > 0 && (
             <Button size={"xs"} onClick={onClearAll}>
               <DeleteIcon me={1.5} boxSize={3} />
               Clear All
             </Button>
-          </Flex>
-        )}
+          )}
+        </Flex>
       </Box>
 
       {images.length === 0 ? (
         <Text fontSize={13} color={"gray"}>
-          No images have been found yet. Process a document and AnkiBrain will
-          collect every image embedded in it here — you can then insert them
-          into cards before adding the cards to Anki.
+          No images yet. Process a document and AnkiBrain will collect every
+          image embedded in it here — or import an image file / paste one from
+          the clipboard. Images can be inserted into cards or turned into
+          image-occlusion cards before adding them to Anki.
         </Text>
       ) : (
         <SimpleGrid
@@ -147,7 +199,7 @@ export function DocumentImageLibrary(props) {
       >
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader fontSize={"md"}>Insert image into a card</ModalHeader>
+          <ModalHeader fontSize={"md"}>Use this image</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             {previewImage && (
@@ -165,6 +217,26 @@ export function DocumentImageLibrary(props) {
                     style={{ width: "100%", maxHeight: "35vh", objectFit: "contain" }}
                   />
                 </Box>
+
+                {onMakeOcclusion && (
+                  <Flex align={"center"} gap={2} wrap={"wrap"}>
+                    <Button
+                      size={"sm"}
+                      variant={"accent"}
+                      onClick={() => {
+                        onMakeOcclusion(previewImage);
+                        setPreviewImageId(null);
+                      }}
+                    >
+                      <AddIcon me={2} boxSize={3} />
+                      Make occlusion card
+                    </Button>
+                    <Text fontSize={11} color={"gray"}>
+                      Hides parts of this image for study (native Anki image
+                      occlusion).
+                    </Text>
+                  </Flex>
+                )}
 
                 {cards.length === 0 ? (
                   <Text fontSize={13} color={"gray"}>

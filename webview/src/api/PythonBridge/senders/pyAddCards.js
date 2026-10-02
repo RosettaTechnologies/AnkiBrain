@@ -4,6 +4,7 @@ import { infoToast, successToast } from "../../toast";
 import { setCards } from "../../redux/slices/cards";
 import { pyEditSetting } from "./pyEditSetting";
 import { store } from "../../redux";
+import { countAnkiCards } from "../../occlusion";
 
 export async function pyAddCards(
   cards,
@@ -23,10 +24,24 @@ export async function pyAddCards(
       await pyEditSetting("tempCards", []);
     }
 
-    successToast(
-      "Cards Added",
-      `${cards.length} cards have been added to deck: ${deckName}`
-    );
+    // Occlusion cards are one note producing N cards (one per ordinal);
+    // everything else is one note per card. Say so when they differ.
+    const { notes, cards: ankiCardCount } = countAnkiCards(cards);
+    if (ankiCardCount === notes) {
+      successToast(
+        "Cards Added",
+        `${notes} card${notes === 1 ? "" : "s"} ${
+          notes === 1 ? "has" : "have"
+        } been added to deck: ${deckName}`
+      );
+    } else {
+      successToast(
+        "Cards Added",
+        `${notes} note${notes === 1 ? "" : "s"} (${ankiCardCount} card${
+          ankiCardCount === 1 ? "" : "s"
+        }) added to deck: ${deckName}`
+      );
+    }
   } catch (err) {
     infoToast(
       "Could Not Add Cards",

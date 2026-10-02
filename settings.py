@@ -40,7 +40,7 @@ default_settings = {
     'deleteCardsAfterAdding': True,
     "colorMode": "dark",
     "currentVersion": get_ankibrain_version(),
-    "documents_saved": [],  # local mode only, server mode uses user.documentsSaved
+    "documents_saved": [],  # local mode only; server mode keeps documents on the account
     "lifetime_total_cost": 0,
     "user_mode": None,
     "llmModel": 'gpt-5.6-luna',

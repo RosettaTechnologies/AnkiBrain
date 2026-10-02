@@ -9,16 +9,18 @@ from AnkiBrainModule import AnkiBrain
 from AnkiBrainDocument import AnkiBrainDocument
 from InterprocessCommand import InterprocessCommand as IC
 from KokoroTTSAdapter import TTSNotInstalledError, TTSUnsupportedError
-from cards import add_basic_card, add_cloze_card
+from cards import add_basic_card, add_cloze_card, add_image_occlusion_card
 from media_images import (
     MEDIA_TMP_DIR,
     resolve_audio_entry,
     resolve_card_audio,
     resolve_card_image_paths,
     resolve_image_entry,
+    resolve_image_path,
     store_server_split_images,
 )
-from networking import fetch, postDocument
+from networking import fetch, postDocument, postOcclusionImage
+from util import UserMode
 
 
 def rewrite_json_file(new_data: dict, f):
@@ -159,6 +161,25 @@ class ReactBridge:
                             add_cloze_card(text, deck_name=deck_name, tags=tags,
                                            image_paths=image_paths,
                                            audio_paths=audio_paths['back'] or None)
+                        elif card_type == 'occlusion':
+                            # One native IO note per image; shapes sharing an
+                            # ordinal become one card. The image is required,
+                            # so a missing file raises instead of silently
+                            # adding a broken note.
+                            occlusion_image_path = resolve_image_path(card.get('image') or '')
+                            if occlusion_image_path is None:
+                                raise Exception(
+                                    'The image for an occlusion card is no longer available. '
+                                    'Re-import it and try again.')
+                            add_image_occlusion_card(
+                                occlusion_image_path,
+                                card.get('occlusions') or [],
+                                header=card.get('header', ''),
+                                back_extra=card.get('backExtra', ''),
+                                tags=tags,
+                                deck_name=deck_name,
+                                occlude_inactive=bool(card.get('occludeInactive')),
+                            )
                     self.send_cmd(IC.DID_ADD_CARDS, commandId=commandId)
                 except Exception as e:
                     self.send_cmd(IC.DID_ADD_CARDS, error=str(e), commandId=commandId)
@@ -262,6 +283,52 @@ class ReactBridge:
                     self.send_cmd(IC.DID_RESOLVE_AUDIO_IDS, {'entries': entries}, commandId=commandId)
                 except Exception as e:
                     self.send_cmd(IC.DID_RESOLVE_AUDIO_IDS, error=str(e), commandId=commandId)
+
+            # ── Image occlusion (built-in Anki Image Occlusion notetype) ──
+            elif cmd == IC.IMPORT_IMAGES:
+                # The file/clipboard pickers must run on the UI thread; the
+                # signal handlers answer DID_IMPORT_IMAGES with this commandId.
+                source = data.get('source') or 'files'
+                if source == 'clipboard':
+                    mw.ankiBrain.guiThreadSignaler.importClipboardImageSignal.emit(commandId)
+                else:
+                    mw.ankiBrain.guiThreadSignaler.importImagesSignal.emit(commandId)
+
+            elif cmd == IC.GENERATE_OCCLUSION_SHAPES:
+                try:
+                    image_path = resolve_image_path(data.get('imageId') or '')
+                    if image_path is None:
+                        raise Exception('The image is no longer available. Re-import it and try again.')
+
+                    context = data.get('context') or ''
+                    language = data.get('language') or 'English'
+
+                    if self.app.user_mode == UserMode.SERVER:
+                        url = data.get('url')
+                        access_token = data.get('accessToken')
+                        if not url or not access_token:
+                            raise Exception('Log in to use AI occlusion suggestions in server mode.')
+                        res = await postOcclusionImage(url, image_path, access_token, {
+                            'model': data.get('model') or 'gpt-5.6-luna',
+                            'language': language,
+                            'context': context,
+                        })
+                        if not isinstance(res, dict) or res.get('status') != 'success':
+                            message = (res or {}).get('message') or 'The server could not analyze the image.'
+                            raise Exception(message)
+                        payload = res.get('data') or {}
+                        self.send_cmd(IC.DID_GENERATE_OCCLUSION_SHAPES, {
+                            'shapes': payload.get('shapes') or [],
+                            'header': payload.get('header') or '',
+                            'backExtra': payload.get('backExtra') or '',
+                            'user': payload.get('user'),
+                        }, commandId=commandId)
+                    else:
+                        out = await self.app.chatAI.generate_occlusion_shapes(
+                            image_path, context=context, language=language)
+                        self.send_cmd(IC.DID_GENERATE_OCCLUSION_SHAPES, out, commandId=commandId)
+                except Exception as e:
+                    self.send_cmd(IC.DID_GENERATE_OCCLUSION_SHAPES, error=str(e), commandId=commandId)
 
             # ── AnkiBrain Voice (Kokoro TTS) ─────────────────────────────────
             elif cmd == IC.SYNTHESIZE_SPEECH:

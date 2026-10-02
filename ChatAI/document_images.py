@@ -9,18 +9,17 @@ from pathlib import Path
 Document image extraction for LOCAL mode card generation.
 
 Runs inside the ChatAI subprocess (own venv, sys.path is this directory).
-Mirrors server-mode extraction in
-ankibrain-server/routes/document/documentImages.js: extracted images are
-written to user_files/media_tmp/<run-id>/ with content-hash filenames, and
-each image carries an 'anchorChunk' index into the returned chunks so the
-webview can attach images positionally to cards generated from that batch.
+Mirrors the server-mode extraction contract: extracted images are written to
+user_files/media_tmp/<run-id>/ with content-hash filenames, and each image
+carries an 'anchorChunk' index into the returned chunks so the webview can
+attach images positionally to cards generated from that batch.
 """
 
 MEDIA_TMP_DIR = path.join(
     path.abspath(path.dirname(__file__)), '..', 'user_files', 'media_tmp'
 )
 
-# Keep in sync with documentImages.js and media_images.py.
+# Keep in sync with media_images.py and the server-side extraction limits.
 MIN_IMAGE_DIMENSION = 100
 MAX_IMAGE_BYTES = 4 * 1024 * 1024
 MAX_TOTAL_IMAGE_BYTES = 30 * 1024 * 1024

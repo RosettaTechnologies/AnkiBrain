@@ -44,6 +44,21 @@ class InterprocessCommand(Enum):
     RESOLVE_AUDIO_IDS = 'RESOLVE_AUDIO_IDS'
     DID_RESOLVE_AUDIO_IDS = 'DID_RESOLVE_AUDIO_IDS'
 
+    # ── Image occlusion (built-in Anki Image Occlusion notetype) ──────────
+    # IMPORT_IMAGES {source: 'files'|'clipboard'} -> DID_IMPORT_IMAGES
+    #   {images: [{id, url, mediaType}]}; the file/clipboard pickers run on
+    #   the UI thread (GUIThreadSignaler) and answer with the commandId.
+    # GENERATE_OCCLUSION_SHAPES {imageId, context?, language?, model?,
+    #   url?, accessToken?} -> DID_GENERATE_OCCLUSION_SHAPES
+    #   {shapes, header, backExtra, user?}. Local mode: the ChatAI subprocess
+    #   asks the vision model about the image. Server mode: this process
+    #   posts the image to the AnkiBrain server (url/accessToken supplied by
+    #   the webview, like UPLOAD_DOCUMENT).
+    IMPORT_IMAGES = 'IMPORT_IMAGES'
+    DID_IMPORT_IMAGES = 'DID_IMPORT_IMAGES'
+    GENERATE_OCCLUSION_SHAPES = 'GENERATE_OCCLUSION_SHAPES'
+    DID_GENERATE_OCCLUSION_SHAPES = 'DID_GENERATE_OCCLUSION_SHAPES'
+
     # ── AnkiBrain Voice (Kokoro TTS) ──────────────────────────────────────
     # SYNTHESIZE_SPEECH {text, voice?, speed?, auto?} -> DID_SYNTHESIZE_SPEECH
     # {path,url,voice,language,...} (promise-style; JS resolves via commandId).

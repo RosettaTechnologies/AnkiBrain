@@ -51,7 +51,11 @@ import {
 import { RiPriceTag3Line } from "react-icons/ri";
 import { VscUnmute } from "react-icons/vsc";
 import { generateCards } from "../../../api/cards";
-import { deleteCardAtIndex, setCards } from "../../../api/redux/slices/cards";
+import {
+  addCard,
+  deleteCardAtIndex,
+  setCards,
+} from "../../../api/redux/slices/cards";
 import { addImages, clearImages } from "../../../api/redux/slices/imagesRegistry";
 import {
   buildAudioItems,
@@ -89,6 +93,7 @@ import { CustomPromptMakeCardsModal } from "./CustomPromptMakeCardsModal";
 import { EditableCard } from "./EditableCard";
 import { ImagePickerModal } from "./ImagePickerModal";
 import { DocumentImageLibrary } from "./DocumentImageLibrary";
+import { OcclusionEditorModal } from "./OcclusionEditorModal";
 
 function ClearCardsAlert(props) {
   const cancelRef = useRef();
@@ -269,15 +274,24 @@ export function CardMakingScreen() {
   // document so cards can pull from earlier runs too.
   const [pickerCardIndex, setPickerCardIndex] = useState(null);
 
+  // Occlusion editor target: {image, cardIndex} while open; cardIndex null
+  // means a new card. Saving replaces the card at cardIndex (edit) or
+  // appends a new occlusion card (create).
+  const [occlusionEditor, setOcclusionEditor] = useState(null);
+
   const allImages = useMemo(() => Object.values(imagesById), [imagesById]);
 
   // How many cards each image is currently attached to — powers the library
-  // badges and lets the picker show "on N cards".
+  // badges and lets the picker show "on N cards". Occlusion cards reference
+  // their image through the singular `image` id, so they count too.
   const usageCounts = useMemo(() => {
     const counts = {};
     for (let card of cards) {
       for (let imageId of card.images || []) {
         counts[imageId] = (counts[imageId] || 0) + 1;
+      }
+      if (card.type === "occlusion" && card.image) {
+        counts[card.image] = (counts[card.image] || 0) + 1;
       }
     }
     return counts;
@@ -414,6 +428,51 @@ export function CardMakingScreen() {
       cardCopy.images = [...new Set([...(cardCopy.images || []), imageId])];
       return cardCopy;
     });
+  };
+
+  // Occlusion editor: opened from the Images panel (new card) or from a
+  // pending occlusion card (edit its masks/fields). The modal owns its draft
+  // state; this only routes the save.
+  const handleMakeOcclusion = (image) => {
+    setOcclusionEditor({ image, cardIndex: null });
+  };
+
+  const handleEditOcclusion = (index) => {
+    const card = cards[index];
+    if (!card) {
+      return;
+    }
+    // A restored card may reference an image whose media_tmp file was
+    // cleaned up; the modal then shows "image unavailable" instead of
+    // silently editing against nothing.
+    const image = imagesById[card.image] || {
+      id: card.image,
+      url: null,
+      mediaType: "image/png",
+    };
+    setOcclusionEditor({ image, cardIndex: index });
+  };
+
+  const handleSaveOcclusion = (occlusionCard) => {
+    const editor = occlusionEditor;
+    setOcclusionEditor(null);
+    if (!editor) {
+      return;
+    }
+
+    if (editor.cardIndex !== null) {
+      modifyCard(editor.cardIndex, (card) => ({
+        ...card,
+        ...occlusionCard,
+      }));
+      successToast("Occlusion Card Updated", "Your masks and fields were saved.");
+    } else {
+      dispatch(addCard({ ...occlusionCard, tags: [] }));
+      successToast(
+        "Occlusion Card Added",
+        `${occlusionCard.occlusions.length} mask(s) — review it below, then Add to Anki.`
+      );
+    }
   };
 
   const handleClearCards = async () => {
@@ -687,6 +746,7 @@ export function CardMakingScreen() {
     cards,
     onInsert: handleInsertImage,
     onClearAll: () => setShowClearImagesAlert(true),
+    onMakeOcclusion: handleMakeOcclusion,
     compact: true,
   };
 
@@ -1212,6 +1272,7 @@ export function CardMakingScreen() {
               onOpenImagePicker={(index) => {
                 setPickerCardIndex(index);
               }}
+              onEditOcclusion={handleEditOcclusion}
             />
           ))}
         </Box>
@@ -1297,6 +1358,20 @@ export function CardMakingScreen() {
             return cardCopy;
           });
         }}
+      />
+
+      <OcclusionEditorModal
+        isOpen={occlusionEditor !== null}
+        image={occlusionEditor ? occlusionEditor.image : null}
+        initialCard={
+          occlusionEditor && occlusionEditor.cardIndex !== null
+            ? cards[occlusionEditor.cardIndex] || null
+            : null
+        }
+        onClose={() => {
+          setOcclusionEditor(null);
+        }}
+        onSave={handleSaveOcclusion}
       />
     </div>
   );
