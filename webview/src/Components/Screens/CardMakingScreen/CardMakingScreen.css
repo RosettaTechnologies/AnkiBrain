@@ -1,11 +1,5 @@
 @import '../../../variables.css';
 
-.header {
-    font-family: Arial, sans-serif;
-    font-size: 22px;
-    font-weight: bold;
-}
-
 /*
  * Full-height column layout so the toolbar sits on top and the card
  * previewer + images panel each scroll in their own column instead of the
@@ -21,19 +15,204 @@
 
 .card-toolbar {
     flex: 0 0 auto;
+    padding: 8px 12px;
+    background: var(--app-toolbar-bg);
+    border-bottom: 1px solid var(--app-border);
+}
+
+.card-toolbar-nav {
+    display: flex;
+    align-items: center;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--app-toolbar-divider);
+}
+
+.card-view-segment {
+    max-width: 460px;
+}
+
+.card-toolbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.ToolbarGroup {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.card-toolbar-label {
+    font-size: 12px;
+    color: gray;
+    white-space: nowrap;
+}
+
+.card-type-select {
+    width: 110px;
+    font-size: 13px;
+}
+
+.card-toolbar-input {
+    width: 160px;
+    --background: var(--app-input-bg);
+    --padding-start: 8px;
+    --padding-end: 8px;
+    min-height: 32px;
+    font-size: 13px;
+}
+
+.card-toolbar-input--tag {
+    width: 140px;
+}
+
+.card-toolbar-spacer {
+    flex: 1;
+}
+
+.card-toolbar-progress {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.card-toolbar-progressBar {
+    flex: 1;
+}
+
+.card-toolbar-progressText {
+    font-size: 12px;
+    color: gray;
+    white-space: nowrap;
 }
 
 .card-body {
     flex: 1 1 auto;
     min-height: 0;
+    display: flex;
+    flex-direction: row;
 }
 
 .card-previewer {
+    flex: 1;
     min-width: 0;
+    overflow-y: auto;
+    padding: 12px 40px 12px 20px;
+}
+
+.card-failedView {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 12px;
+}
+
+.card-failedView p {
+    margin-bottom: 20px;
+}
+
+.card-lastProcessed {
+    font-size: 12px;
+    color: gray;
+    margin-bottom: 8px;
+}
+
+.card-audioBox {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    max-width: 300px;
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+    background: var(--app-panel-subtle);
+}
+
+.card-audioBox-title {
+    margin: 0 0 6px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: gray;
+}
+
+.card-audioBox-select {
+    width: 100%;
+}
+
+.card-audioBox-hint {
+    font-size: 11px;
+    color: gray;
+    margin-top: 4px;
+}
+
+.card-audioBox-btn {
+    margin-top: 8px;
+}
+
+.card-reviewHeading {
+    margin: 8px 0;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.card-textView {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 12px;
+}
+
+.card-textView-input {
+    --background: var(--app-input-bg);
+    min-height: 200px;
+}
+
+.card-textView-counter {
+    align-self: flex-end;
+    font-size: 12px;
+    color: gray;
 }
 
 .card-images-panel {
+    width: 270px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    padding: 12px 40px 12px 12px;
+    border-left: 1px solid var(--app-border);
+    background: var(--app-panel-subtle);
     scrollbar-width: thin;
+}
+
+/* Model/notes popover content */
+.card-details-popover {
+    padding: 12px;
+    max-width: 320px;
+}
+
+.card-details-popover p {
+    font-size: 12px;
+    margin: 0 0 8px 0;
+}
+
+.card-details-muted {
+    color: gray;
+}
+
+/* Make Cards From Document confirmation modal */
+.MakeCardsFromDocAlert p {
+    margin: 0 0 12px 0;
+}
+
+.MakeCardsFromDocAlert-loud {
+    font-size: 20px;
+}
+
+.MakeCardsFromDocAlert-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
 }
 
 /*
@@ -42,25 +221,22 @@
  * where the panel edge is, so its open/close affordance is obvious.
  */
 .images-edge-toggle {
-    /* Chakra Button's base style sets position:relative in a later-injected
-       emotion sheet; !important keeps the tab pinned to the edge. */
-    position: absolute !important;
-    top: 50% !important;
-    right: 0 !important;
-    transform: translateY(-50%) !important;
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
     writing-mode: vertical-rl;
-    height: auto !important;
-    padding: 12px 5px !important;
-    border-radius: 8px 0 0 8px !important;
+    height: auto;
+    padding: 12px 5px;
+    border-radius: 8px 0 0 8px;
     font-size: 12px;
     letter-spacing: 0.4px;
     z-index: 10;
+    margin: 0;
     box-shadow: -2px 2px 10px rgba(0, 0, 0, 0.45);
     transition: transform 0.1s ease-in-out;
 }
 
 .images-edge-toggle:hover {
-    opacity: 1 !important;
-    transform: translateY(-50%) scale(1.04) !important;
-    background-color: var(--chakra-colors-accent);
+    transform: translateY(-50%) scale(1.04);
 }

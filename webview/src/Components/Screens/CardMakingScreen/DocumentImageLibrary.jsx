@@ -1,22 +1,17 @@
 import { useState } from "react";
 import {
-  Badge,
-  Box,
-  Button,
-  Flex,
-  Heading,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalHeader,
-  ModalOverlay,
-  SimpleGrid,
-  Text,
-  VStack,
-} from "@chakra-ui/react";
-import { useColorMode } from "../../../theme/colorMode";
-import { AddIcon, DeleteIcon } from "@chakra-ui/icons";
+  IonBadge,
+  IonButton,
+  IonButtons,
+  IonContent,
+  IonHeader,
+  IonIcon,
+  IonModal,
+  IonTitle,
+  IonToolbar,
+} from "@ionic/react";
+import { add, trash } from "ionicons/icons";
+import "./DocumentImageLibrary.css";
 import { cardSnippet } from "./EditableCard";
 
 /*
@@ -41,190 +36,160 @@ export function DocumentImageLibrary(props) {
     onClearAll,
     compact = false,
   } = props;
-  const { colorMode } = useColorMode();
   const [previewImageId, setPreviewImageId] = useState(null);
 
   const previewImage = previewImageId
     ? images.find((image) => image.id === previewImageId) || null
     : null;
 
-  // The sticky header must match the surface it floats over: the fixed
-  // column paints customPurple.800 / a light gray wash; the drawer body
-  // uses the theme background.
-  const headerBg =
-    colorMode === "light"
-      ? compact
-        ? "rgb(249,249,249)"
-        : "white"
-      : "customPurple.800";
-
   return (
-    <Box>
-      <Box
-        mb={2}
-        position={compact ? "sticky" : "static"}
-        top={0}
-        zIndex={compact ? 1 : "auto"}
-        bg={compact ? headerBg : "transparent"}
-        py={compact ? 1.5 : 0}
+    <div className="DocumentImageLibrary">
+      <div
+        className={
+          "DocumentImageLibrary-header" +
+          (compact ? " DocumentImageLibrary-header--sticky" : "")
+        }
       >
-        <Heading size={"sm"}>
+        <h4 className="DocumentImageLibrary-title">
           Images found in your document ({images.length})
-        </Heading>
+        </h4>
         {images.length > 0 && (
-          <Flex justify={"end"} mt={1.5}>
-            <Button size={"xs"} onClick={onClearAll}>
-              <DeleteIcon me={1.5} boxSize={3} />
+          <div className="DocumentImageLibrary-clearRow">
+            <IonButton size="small" color="light" onClick={onClearAll}>
+              <IonIcon slot="start" icon={trash} />
               Clear All
-            </Button>
-          </Flex>
+            </IonButton>
+          </div>
         )}
-      </Box>
+      </div>
 
       {images.length === 0 ? (
-        <Text fontSize={13} color={"gray"}>
+        <p className="DocumentImageLibrary-empty">
           No images have been found yet. Process a document and AnkiBrain will
           collect every image embedded in it here — you can then insert them
           into cards before adding the cards to Anki.
-        </Text>
+        </p>
       ) : (
-        <SimpleGrid
-          columns={compact ? 1 : { base: 3, md: 4, lg: 5 }}
-          spacing={3}
+        <div
+          className={
+            "DocumentImageLibrary-grid" +
+            (compact ? " DocumentImageLibrary-grid--compact" : "")
+          }
         >
           {images.map((image) => {
             const usedOn = usageCounts[image.id] || 0;
             return (
-              <Box
+              <button
                 key={image.id}
-                as={"button"}
-                textAlign={"left"}
-                p={1.5}
-                borderWidth={"1px"}
-                borderRadius={"md"}
-                borderColor={colorMode === "light" ? "rgba(0,0,0,0.1)" : "customPurple.700"}
-                backgroundColor={colorMode === "light" ? "white" : "customPurple.700"}
+                type="button"
+                className="DocumentImageLibrary-card"
                 onClick={() => setPreviewImageId(image.id)}
               >
-                <Box position={"relative"}>
+                <div className="DocumentImageLibrary-thumbWrap">
                   <img
                     src={image.url}
                     alt={image.id}
-                    style={{
-                      width: "100%",
-                      maxHeight: compact ? 160 : 110,
-                      objectFit: "contain",
-                      display: "block",
-                    }}
+                    className={
+                      "DocumentImageLibrary-thumb" +
+                      (compact ? " DocumentImageLibrary-thumb--compact" : "")
+                    }
                   />
                   {usedOn > 0 && (
-                    <Badge
-                      position={"absolute"}
-                      top={0}
-                      right={0}
-                      colorScheme={"green"}
-                      fontSize={9}
+                    <IonBadge
+                      className="DocumentImageLibrary-badge"
+                      color="success"
                     >
                       {usedOn} card{usedOn === 1 ? "" : "s"}
-                    </Badge>
+                    </IonBadge>
                   )}
-                </Box>
-                <Text fontSize={9} color={"gray"} mt={1} noOfLines={1}>
+                </div>
+                <span className="DocumentImageLibrary-anchor">
                   {image.anchorChunk !== null && image.anchorChunk !== undefined
                     ? `section ~${image.anchorChunk}`
                     : "unanchored"}
-                </Text>
-              </Box>
+                </span>
+              </button>
             );
           })}
-        </SimpleGrid>
+        </div>
       )}
 
-      <Modal
+      <IonModal
         isOpen={previewImage !== null}
-        onClose={() => setPreviewImageId(null)}
-        size={"lg"}
+        onDidDismiss={() => setPreviewImageId(null)}
       >
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader fontSize={"md"}>Insert image into a card</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            {previewImage && (
-              <VStack spacing={3} align={"stretch"}>
-                <Box
-                  p={2}
-                  borderWidth={"1px"}
-                  borderRadius={"md"}
-                  borderColor={colorMode === "light" ? "rgba(0,0,0,0.1)" : "customPurple.700"}
-                  bg={colorMode === "light" ? "white" : "customPurple.700"}
-                >
-                  <img
-                    src={previewImage.url}
-                    alt={previewImage.id}
-                    style={{ width: "100%", maxHeight: "35vh", objectFit: "contain" }}
-                  />
-                </Box>
+        <IonHeader>
+          <IonToolbar>
+            <IonTitle>Insert image into a card</IonTitle>
+            <IonButtons slot="end">
+              <IonButton onClick={() => setPreviewImageId(null)}>
+                Close
+              </IonButton>
+            </IonButtons>
+          </IonToolbar>
+        </IonHeader>
+        <IonContent className="ion-padding">
+          {previewImage && (
+            <div className="DocumentImageLibrary-preview">
+              <div className="DocumentImageLibrary-previewBox">
+                <img
+                  src={previewImage.url}
+                  alt={previewImage.id}
+                  className="DocumentImageLibrary-previewImg"
+                />
+              </div>
 
-                {cards.length === 0 ? (
-                  <Text fontSize={13} color={"gray"}>
-                    No cards yet — generate cards from your document first, then
-                    come back to insert this image into them.
-                  </Text>
-                ) : (
-                  <>
-                    <Text fontSize={12} color={"gray"}>
-                      Pick a card below. You can insert into as many as you
-                      like, then close this dialog.
-                    </Text>
-                    <VStack spacing={1} maxH={260} overflowY={"auto"} align={"stretch"}>
-                      {cards.map((card, cardIndex) => {
-                        const alreadyOn = (card.images || []).includes(
-                          previewImage.id
-                        );
-                        return (
-                          <Flex
-                            key={cardIndex}
-                            direction={"row"}
-                            align={"center"}
-                            py={1.5}
-                            px={2}
-                            borderRadius={"md"}
-                            bg={
-                              colorMode === "light"
-                                ? "rgba(0,0,0,0.03)"
-                                : "customPurple.800"
+              {cards.length === 0 ? (
+                <p className="DocumentImageLibrary-empty">
+                  No cards yet — generate cards from your document first, then
+                  come back to insert this image into them.
+                </p>
+              ) : (
+                <>
+                  <p className="DocumentImageLibrary-empty">
+                    Pick a card below. You can insert into as many as you like,
+                    then close this dialog.
+                  </p>
+                  <div className="DocumentImageLibrary-cardList">
+                    {cards.map((card, cardIndex) => {
+                      const alreadyOn = (card.images || []).includes(
+                        previewImage.id
+                      );
+                      return (
+                        <div
+                          className="DocumentImageLibrary-cardRow"
+                          key={cardIndex}
+                        >
+                          <span className="DocumentImageLibrary-cardSnippet">
+                            {cardIndex + 1}. {cardSnippet(card)}
+                          </span>
+                          <IonButton
+                            size="small"
+                            color="light"
+                            disabled={alreadyOn}
+                            onClick={() =>
+                              onInsert(previewImage.id, cardIndex)
                             }
                           >
-                            <Text fontSize={12} noOfLines={1} flex={1}>
-                              {cardIndex + 1}. {cardSnippet(card)}
-                            </Text>
-                            <Button
-                              size={"xs"}
-                              ml={2}
-                              isDisabled={alreadyOn}
-                              onClick={() => onInsert(previewImage.id, cardIndex)}
-                            >
-                              {alreadyOn ? (
-                                <Badge colorScheme={"green"}>Inserted</Badge>
-                              ) : (
-                                <>
-                                  <AddIcon me={1.5} boxSize={2.5} />
-                                  Insert
-                                </>
-                              )}
-                            </Button>
-                          </Flex>
-                        );
-                      })}
-                    </VStack>
-                  </>
-                )}
-              </VStack>
-            )}
-          </ModalBody>
-        </ModalContent>
-      </Modal>
-    </Box>
+                            {alreadyOn ? (
+                              <IonBadge color="success">Inserted</IonBadge>
+                            ) : (
+                              <>
+                                <IonIcon slot="start" icon={add} />
+                                Insert
+                              </>
+                            )}
+                          </IonButton>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </IonContent>
+      </IonModal>
+    </div>
   );
 }

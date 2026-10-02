@@ -2,26 +2,15 @@ import { useState } from "react";
 import { cloneDeep } from "lodash";
 import { useSelector } from "react-redux";
 import {
-  Box,
-  Button,
-  Card,
-  CardBody,
-  Flex,
-  Heading,
-  IconButton,
-  Input,
-  Spacer,
-  Spinner,
-  Tag,
-  TagCloseButton,
-  TagLabel,
-  Text,
-  Textarea,
-  VStack,
-} from "@chakra-ui/react";
-import { useColorMode } from "../../../theme/colorMode";
-import { AddIcon, CloseIcon, DeleteIcon } from "@chakra-ui/icons";
-import { VscUnmute } from "react-icons/vsc";
+  IonBadge,
+  IonButton,
+  IonIcon,
+  IonInput,
+  IonSpinner,
+  IonTextarea,
+} from "@ionic/react";
+import { add, close, trash, volumeHighOutline } from "ionicons/icons";
+import "./EditableCard.css";
 import {
   cancelFieldAudio,
   requestFieldAudio,
@@ -60,7 +49,6 @@ export function cardSnippet(card) {
 export function EditableCard(props) {
   const { card, index, imagesById, modifyCard, onDelete, onOpenImagePicker } =
     props;
-  const { colorMode } = useColorMode();
   const [newTag, setNewTag] = useState("");
 
   const generating = useSelector(
@@ -154,31 +142,19 @@ export function EditableCard(props) {
     }
 
     if (generating[field]) {
-      // Explicit centering on every child: the label is an inline-flex box
-      // with collapsed leading, so the spinner and text share one midline
-      // regardless of inherited line-height.
       return (
-        <Flex alignItems="center" gap={1.5} flexShrink={0}>
-          <Spinner size={"sm"} color={"accent"} thickness="2px" alignSelf="center" flexShrink={0} />
-          <Text
-            fontSize={11}
-            color={"gray"}
-            lineHeight={1}
-            display={"inline-flex"}
-            alignItems="center"
-            alignSelf="center"
-          >
-            {label} audio
-          </Text>
-          <Button
-            size={"xs"}
-            variant={"ghost"}
-            colorScheme={"red"}
+        <span className="EditableCard-audioControl">
+          <IonSpinner name="crescent" className="EditableCard-audioSpinner" />
+          <span className="EditableCard-audioText">{label} audio</span>
+          <IonButton
+            size="small"
+            fill="clear"
+            color="danger"
             onClick={() => cancelFieldAudio(card.uid, field)}
           >
             Cancel
-          </Button>
-        </Flex>
+          </IonButton>
+        </span>
       );
     }
 
@@ -186,240 +162,219 @@ export function EditableCard(props) {
     if (audioId) {
       const entry = audioById[audioId];
       return (
-        <Flex align={"center"}>
+        <span className="EditableCard-audioControl">
           {entry && entry.url ? (
-            <IconButton
+            <IonButton
+              size="small"
+              fill="clear"
               aria-label={`Play ${label} audio`}
-              icon={<VscUnmute />}
-              size={"xs"}
-              variant={"ghost"}
               onClick={() => playFieldAudio(field)}
-            />
+            >
+              <IonIcon slot="icon-only" icon={volumeHighOutline} />
+            </IonButton>
           ) : (
-            <Text fontSize={10} color={"gray"} me={1}>
-              audio unavailable
-            </Text>
+            <span className="EditableCard-audioText">audio unavailable</span>
           )}
-          <IconButton
+          <IonButton
+            size="small"
+            fill="clear"
+            color="danger"
             aria-label={`Remove ${label} audio`}
-            icon={<CloseIcon boxSize={2.5} />}
-            size={"xs"}
-            colorScheme={"red"}
-            variant={"ghost"}
             onClick={() => removeFieldAudio(field)}
-          />
-        </Flex>
+          >
+            <IonIcon slot="icon-only" icon={close} />
+          </IonButton>
+        </span>
       );
     }
 
     const error = errors[field];
     return (
-      <Button
-        size={"xs"}
-        variant={"ghost"}
-        colorScheme={error ? "orange" : "gray"}
+      <IonButton
+        size="small"
+        fill="clear"
+        color={error ? "warning" : "medium"}
         title={error || undefined}
         onClick={() => requestFieldAudio(card, field)}
       >
-        <VscUnmute style={{ marginRight: 4 }} />
+        <IonIcon slot="start" icon={volumeHighOutline} />
         {error ? "Retry audio" : "Add audio"}
-      </Button>
+      </IonButton>
     );
   };
 
   return (
-    <Card
-      mb={3}
-      backgroundColor={colorMode === "light" ? "offWhite" : "customPurple.800"}
-      color={colorMode === "light" ? "customBlack" : "white"}
-    >
-      <CardBody>
-        <Flex direction={"row"} align={"start"}>
-          <VStack flex={1} align={"stretch"} spacing={3} me={3}>
-            <Flex direction={"row"} align={"center"}>
-              <Tag me={3}>
-                {index + 1} · {card.type}
-              </Tag>
+    <div className="EditableCard">
+      <div className="EditableCard-main">
+        <div className="EditableCard-headerRow">
+          <span className="EditableCard-typeTag">
+            {index + 1} · {card.type}
+          </span>
 
-              {/* Card-level audio indicator: a plain "audio" label once the
-                  card has at least one finalized clip. In-flight jobs show
-                  only their per-field spinner (with that field's Cancel) —
-                  no second cancel affordance here. */}
-              {hasFinalizedAudio && (
-                <Tag size={"sm"} me={2} colorScheme={"teal"}>
-                  <VscUnmute style={{ marginRight: 4 }} />
-                  <TagLabel>audio</TagLabel>
-                </Tag>
-              )}
+          {/* Card-level audio indicator: a plain "audio" label once the
+              card has at least one finalized clip. In-flight jobs show
+              only their per-field spinner (with that field's Cancel) —
+              no second cancel affordance here. */}
+          {hasFinalizedAudio && (
+            <IonBadge className="EditableCard-audioBadge" color="success">
+              <IonIcon icon={volumeHighOutline} />
+              audio
+            </IonBadge>
+          )}
 
-              <Spacer />
-              <Button
-                size={"sm"}
-                colorScheme={"red"}
-                variant={"ghost"}
-                onClick={() => onDelete(index)}
-              >
-                <DeleteIcon me={2} boxSize={3} />
-                Delete
-              </Button>
-            </Flex>
+          <span className="EditableCard-spacer" />
+          <IonButton
+            size="small"
+            fill="clear"
+            color="danger"
+            onClick={() => onDelete(index)}
+          >
+            <IonIcon slot="start" icon={trash} />
+            Delete
+          </IonButton>
+        </div>
 
-            {card.type === "cloze" ? (
-              <VStack align={"stretch"} spacing={1}>
-                <Flex direction={"row"} align={"center"}>
-                  <Heading size={"xs"} color={"gray"}>
-                    Cloze text (deletions look like {"{{c1::answer}}"})
-                  </Heading>
-                  <Spacer />
-                  {fieldAudioControl("back", "answer")}
-                </Flex>
-                <Textarea
-                  size={"sm"}
-                  value={card.text || ""}
-                  onChange={(e) => setField("text", e.target.value)}
-                  bg={colorMode === "light" ? "white" : "customPurple.700"}
-                  focusBorderColor={"accent"}
-                />
-              </VStack>
-            ) : (
-              <>
-                <VStack align={"stretch"} spacing={1}>
-                  <Flex direction={"row"} align={"center"}>
-                    <Heading size={"xs"} color={"gray"}>
-                      Front
-                    </Heading>
-                    <Spacer />
-                    {fieldAudioControl("front", "front")}
-                  </Flex>
-                  <Textarea
-                    size={"sm"}
-                    value={card.front || ""}
-                    onChange={(e) => setField("front", e.target.value)}
-                    bg={colorMode === "light" ? "white" : "customPurple.700"}
-                    focusBorderColor={"accent"}
-                  />
-                </VStack>
-                <VStack align={"stretch"} spacing={1}>
-                  <Flex direction={"row"} align={"center"}>
-                    <Heading size={"xs"} color={"gray"}>
-                      Back
-                    </Heading>
-                    <Spacer />
-                    {fieldAudioControl("back", "back")}
-                  </Flex>
-                  <Textarea
-                    size={"sm"}
-                    value={card.back || ""}
-                    onChange={(e) => setField("back", e.target.value)}
-                    bg={colorMode === "light" ? "white" : "customPurple.700"}
-                    focusBorderColor={"accent"}
-                  />
-                </VStack>
-              </>
-            )}
+        {card.type === "cloze" ? (
+          <div className="EditableCard-field">
+            <div className="EditableCard-fieldHeader">
+              <span className="EditableCard-fieldLabel">
+                Cloze text (deletions look like {"{{c1::answer}}"})
+              </span>
+              <span className="EditableCard-spacer" />
+              {fieldAudioControl("back", "answer")}
+            </div>
+            <IonTextarea
+              className="EditableCard-textarea"
+              fill="solid"
+              autoGrow={true}
+              value={card.text || ""}
+              onIonInput={(e) => setField("text", e.detail.value || "")}
+            />
+          </div>
+        ) : (
+          <>
+            <div className="EditableCard-field">
+              <div className="EditableCard-fieldHeader">
+                <span className="EditableCard-fieldLabel">Front</span>
+                <span className="EditableCard-spacer" />
+                {fieldAudioControl("front", "front")}
+              </div>
+              <IonTextarea
+                className="EditableCard-textarea"
+                fill="solid"
+                autoGrow={true}
+                value={card.front || ""}
+                onIonInput={(e) => setField("front", e.detail.value || "")}
+              />
+            </div>
+            <div className="EditableCard-field">
+              <div className="EditableCard-fieldHeader">
+                <span className="EditableCard-fieldLabel">Back</span>
+                <span className="EditableCard-spacer" />
+                {fieldAudioControl("back", "back")}
+              </div>
+              <IonTextarea
+                className="EditableCard-textarea"
+                fill="solid"
+                autoGrow={true}
+                value={card.back || ""}
+                onIonInput={(e) => setField("back", e.detail.value || "")}
+              />
+            </div>
+          </>
+        )}
 
-            <VStack align={"stretch"} spacing={2}>
-              <Flex direction={"row"} align={"center"}>
-                <Heading size={"xs"} color={"gray"}>
-                  Images (answer side)
-                </Heading>
-                <Spacer />
-                <Button
-                  size={"xs"}
-                  variant={"outline"}
-                  onClick={() => onOpenImagePicker(index)}
-                >
-                  <AddIcon me={2} boxSize={2.5} />
-                  Add image
-                </Button>
-              </Flex>
+        <div className="EditableCard-field">
+          <div className="EditableCard-fieldHeader">
+            <span className="EditableCard-fieldLabel">
+              Images (answer side)
+            </span>
+            <span className="EditableCard-spacer" />
+            <IonButton
+              size="small"
+              fill="outline"
+              onClick={() => onOpenImagePicker(index)}
+            >
+              <IonIcon slot="start" icon={add} />
+              Add image
+            </IonButton>
+          </div>
 
-              {cardImages.length > 0 ? (
-                <Flex direction={"row"} flexWrap={"wrap"}>
-                  {cardImages.map((imageId) => {
-                    const image = imagesById[imageId];
-                    return (
-                      <Box key={imageId} m={1} position={"relative"}>
-                        {image ? (
-                          <img
-                            src={image.url}
-                            alt={imageId}
-                            style={{
-                              maxWidth: 140,
-                              maxHeight: 100,
-                              display: "block",
-                            }}
-                          />
-                        ) : (
-                          <Text fontSize={10} color={"gray"}>
-                            image unavailable
-                          </Text>
-                        )}
-                        <IconButton
-                          aria-label={"Remove image"}
-                          icon={<CloseIcon boxSize={2.5} />}
-                          size={"xs"}
-                          colorScheme={"red"}
-                          position={"absolute"}
-                          top={0}
-                          right={0}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            removeImage(imageId);
-                          }}
-                        />
-                      </Box>
-                    );
-                  })}
-                </Flex>
-              ) : (
-                <Text fontSize={11} color={"gray"}>
-                  No images on this card yet.
-                </Text>
-              )}
-            </VStack>
+          {cardImages.length > 0 ? (
+            <div className="EditableCard-images">
+              {cardImages.map((imageId) => {
+                const image = imagesById[imageId];
+                return (
+                  <div key={imageId} className="EditableCard-imageWrap">
+                    {image ? (
+                      <img
+                        src={image.url}
+                        alt={imageId}
+                        className="EditableCard-image"
+                      />
+                    ) : (
+                      <span className="EditableCard-unavailable">
+                        image unavailable
+                      </span>
+                    )}
+                    <IonButton
+                      className="EditableCard-imageRemove"
+                      size="small"
+                      color="danger"
+                      aria-label={"Remove image"}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        removeImage(imageId);
+                      }}
+                    >
+                      <IonIcon slot="icon-only" icon={close} />
+                    </IonButton>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <span className="EditableCard-unavailable">
+              No images on this card yet.
+            </span>
+          )}
+        </div>
 
-            <Flex direction={"row"} align={"center"} flexWrap={"wrap"}>
-              {card.tags.map((tag, tagIndex) => (
-                <Tag
-                  key={tag + tagIndex}
-                  size={"md"}
-                  me={2}
-                  mb={2}
-                  colorScheme={"green"}
-                >
-                  <TagLabel>{tag}</TagLabel>
-                  <TagCloseButton
-                    onClick={(e) => {
-                      e.preventDefault();
-                      modifyCard(index, () => {
-                        let cardCopy = cloneDeep(card);
-                        cardCopy.tags.splice(tagIndex, 1);
-                        return cardCopy;
-                      });
-                    }}
-                  />
-                </Tag>
-              ))}
-              <Input
-                size={"sm"}
-                width={140}
-                placeholder={"Add tag..."}
-                value={newTag}
-                onChange={(e) => setNewTag(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleAddTag();
-                  }
+        <div className="EditableCard-tags">
+          {card.tags.map((tag, tagIndex) => (
+            <span className="EditableCard-tag" key={tag + tagIndex}>
+              {tag}
+              <IonIcon
+                className="EditableCard-tagClose"
+                icon={close}
+                onClick={(e) => {
+                  e.preventDefault();
+                  modifyCard(index, () => {
+                    let cardCopy = cloneDeep(card);
+                    cardCopy.tags.splice(tagIndex, 1);
+                    return cardCopy;
+                  });
                 }}
               />
-              <Button size={"sm"} ml={2} onClick={handleAddTag}>
-                Add
-              </Button>
-            </Flex>
-          </VStack>
-        </Flex>
-      </CardBody>
-    </Card>
+            </span>
+          ))}
+          <IonInput
+            className="EditableCard-tagInput"
+            fill="solid"
+            placeholder={"Add tag..."}
+            value={newTag}
+            onIonInput={(e) => setNewTag(e.detail.value || "")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleAddTag();
+              }
+            }}
+          />
+          <IonButton size="small" color="light" onClick={handleAddTag}>
+            Add
+          </IonButton>
+        </div>
+      </div>
+    </div>
   );
 }

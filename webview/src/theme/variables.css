@@ -93,6 +93,15 @@
 
   /* Explanation panel (Topic Explanation screen). */
   --app-panel-bg: #ffffff;
+
+  /* Make Cards screen surfaces. */
+  --app-toolbar-bg: rgb(250, 250, 250);
+  --app-toolbar-divider: rgba(0, 0, 0, 0.08);
+  --app-border: rgba(0, 0, 0, 0.1);
+  --app-card-bg: rgb(250, 250, 250);
+  --app-panel-subtle: rgba(0, 0, 0, 0.02);
+  --app-library-card-bg: #ffffff;
+  --app-library-header-bg: rgb(249, 249, 249);
 }
 
 /*
@@ -131,4 +140,13 @@
 
   /* Explanation panel (Topic Explanation screen). */
   --app-panel-bg: #271a35;
+
+  /* Make Cards screen surfaces. */
+  --app-toolbar-bg: #271a35;
+  --app-toolbar-divider: #3d2b55;
+  --app-border: #3d2b55;
+  --app-card-bg: #271a35;
+  --app-panel-subtle: #271a35;
+  --app-library-card-bg: #3d2b55;
+  --app-library-header-bg: #271a35;
 }

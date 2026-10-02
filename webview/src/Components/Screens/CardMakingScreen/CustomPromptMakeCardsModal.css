@@ -1,0 +1,11 @@
+.CustomPromptMakeCards-description {
+  font-size: 14px;
+  color: gray;
+  margin-top: 0;
+}
+
+.CustomPromptMakeCards-textarea {
+  --background: var(--app-input-bg);
+  min-height: 120px;
+  margin-bottom: 16px;
+}

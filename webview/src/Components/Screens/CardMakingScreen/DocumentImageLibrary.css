@@ -1,0 +1,136 @@
+.DocumentImageLibrary {
+  display: flex;
+  flex-direction: column;
+}
+
+.DocumentImageLibrary-header {
+  margin-bottom: 8px;
+}
+
+.DocumentImageLibrary-header--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--app-library-header-bg);
+  padding: 6px 0;
+}
+
+.DocumentImageLibrary-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.DocumentImageLibrary-clearRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.DocumentImageLibrary-empty {
+  font-size: 13px;
+  color: gray;
+}
+
+.DocumentImageLibrary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.DocumentImageLibrary-grid--compact {
+  grid-template-columns: 1fr;
+}
+
+.DocumentImageLibrary-card {
+  text-align: left;
+  padding: 6px;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background-color: var(--app-library-card-bg);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.DocumentImageLibrary-card:hover {
+  border-color: var(--ion-color-primary);
+}
+
+.DocumentImageLibrary-thumbWrap {
+  position: relative;
+}
+
+.DocumentImageLibrary-thumb {
+  width: 100%;
+  max-height: 110px;
+  object-fit: contain;
+  display: block;
+}
+
+.DocumentImageLibrary-thumb--compact {
+  max-height: 160px;
+}
+
+.DocumentImageLibrary-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 9px;
+}
+
+.DocumentImageLibrary-anchor {
+  display: block;
+  font-size: 9px;
+  color: gray;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.DocumentImageLibrary-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.DocumentImageLibrary-previewBox {
+  padding: 8px;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background: var(--app-library-card-bg);
+}
+
+.DocumentImageLibrary-previewImg {
+  width: 100%;
+  max-height: 35vh;
+  object-fit: contain;
+}
+
+.DocumentImageLibrary-cardList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.DocumentImageLibrary-cardRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--app-panel-subtle);
+  gap: 8px;
+}
+
+.DocumentImageLibrary-cardSnippet {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

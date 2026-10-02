@@ -1,0 +1,57 @@
+.ImagePickerModal-empty {
+  color: gray;
+  font-size: 13px;
+}
+
+.ImagePickerModal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.ImagePickerModal-card {
+  text-align: left;
+  padding: 6px;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background-color: var(--app-panel-subtle);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.ImagePickerModal-card--selected {
+  border-color: var(--app-accent);
+}
+
+.ImagePickerModal-thumbWrap {
+  position: relative;
+}
+
+.ImagePickerModal-thumb {
+  width: 100%;
+  max-height: 110px;
+  object-fit: contain;
+  display: block;
+}
+
+.ImagePickerModal-check {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  background: var(--app-accent);
+  color: #1f1f1f;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.ImagePickerModal-anchor {
+  display: block;
+  font-size: 10px;
+  color: gray;
+  margin-top: 4px;
+}

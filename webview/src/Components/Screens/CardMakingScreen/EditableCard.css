@@ -1,0 +1,147 @@
+.EditableCard {
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background-color: var(--app-card-bg);
+  color: var(--ion-text-color);
+  border: 1px solid var(--app-border);
+}
+
+.EditableCard-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.EditableCard-headerRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.EditableCard-typeTag {
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: var(--app-panel-subtle);
+  border: 1px solid var(--app-border);
+  font-size: 12px;
+}
+
+.EditableCard-audioBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+}
+
+.EditableCard-spacer {
+  flex: 1;
+}
+
+.EditableCard-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.EditableCard-fieldHeader {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.EditableCard-fieldLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: gray;
+}
+
+.EditableCard-textarea {
+  --background: var(--app-input-bg);
+  --padding-start: 8px;
+  --padding-end: 8px;
+  font-size: 14px;
+}
+
+.EditableCard-audioControl {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.EditableCard-audioSpinner {
+  width: 16px;
+  height: 16px;
+}
+
+.EditableCard-audioText {
+  font-size: 11px;
+  color: gray;
+  line-height: 1;
+}
+
+.EditableCard-images {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.EditableCard-imageWrap {
+  position: relative;
+  margin: 4px;
+}
+
+.EditableCard-image {
+  max-width: 140px;
+  max-height: 100px;
+  display: block;
+}
+
+.EditableCard-imageRemove {
+  position: absolute;
+  top: 0;
+  right: 0;
+  --padding-start: 4px;
+  --padding-end: 4px;
+  min-height: 24px;
+}
+
+.EditableCard-unavailable {
+  font-size: 11px;
+  color: gray;
+}
+
+.EditableCard-tags {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.EditableCard-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: var(--ion-color-success, #2dd55b);
+  color: #000;
+  font-size: 12px;
+}
+
+.EditableCard-tagClose {
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.EditableCard-tagInput {
+  width: 140px;
+  --background: var(--app-input-bg);
+  --padding-start: 8px;
+  --padding-end: 8px;
+  min-height: 32px;
+  font-size: 13px;
+}

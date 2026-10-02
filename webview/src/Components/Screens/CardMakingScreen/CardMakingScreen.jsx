@@ -3,53 +3,38 @@ import { useDispatch, useSelector } from "react-redux";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cloneDeep, debounce } from "lodash";
 import {
-  AlertDialog,
-  AlertDialogBody,
-  AlertDialogCloseButton,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogOverlay,
-  Box,
-  Button,
-  Drawer,
-  DrawerBody,
-  DrawerCloseButton,
-  DrawerContent,
-  DrawerHeader,
-  DrawerOverlay,
-  Flex,
-  Heading,
-  Input,
-  Popover,
-  PopoverArrow,
-  PopoverBody,
-  PopoverCloseButton,
-  PopoverContent,
-  PopoverTrigger,
-  Progress,
-  Select,
-  Spinner,
-  Text,
-  Textarea,
-  useBreakpointValue,
-  useToast,
-} from "@chakra-ui/react";
-import { useColorMode } from "../../../theme/colorMode";
-import { pyAddCards } from "../../../api/PythonBridge/senders/pyAddCards";
+  IonAlert,
+  IonButton,
+  IonButtons,
+  IonContent,
+  IonHeader,
+  IonIcon,
+  IonInput,
+  IonLabel,
+  IonModal,
+  IonPopover,
+  IonProgressBar,
+  IonSegment,
+  IonSegmentButton,
+  IonSelect,
+  IonSelectOption,
+  IonSpinner,
+  IonTextarea,
+  IonTitle,
+  IonToolbar,
+} from "@ionic/react";
 import {
-  AddIcon,
-  CheckIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  CloseIcon,
-  DeleteIcon,
-  InfoIcon,
-  SettingsIcon,
-  StarIcon,
-} from "@chakra-ui/icons";
-import { RiPriceTag3Line } from "react-icons/ri";
-import { VscUnmute } from "react-icons/vsc";
+  add,
+  checkmark,
+  close,
+  informationCircleOutline,
+  options as optionsIcon,
+  pricetagOutline,
+  star,
+  trash,
+  volumeHighOutline,
+} from "ionicons/icons";
+import { pyAddCards } from "../../../api/PythonBridge/senders/pyAddCards";
 import { generateCards } from "../../../api/cards";
 import { deleteCardAtIndex, setCards } from "../../../api/redux/slices/cards";
 import { addImages, clearImages } from "../../../api/redux/slices/imagesRegistry";
@@ -90,36 +75,61 @@ import { EditableCard } from "./EditableCard";
 import { ImagePickerModal } from "./ImagePickerModal";
 import { DocumentImageLibrary } from "./DocumentImageLibrary";
 
+/*
+ * Media query hook replacing Chakra's useBreakpointValue for the one
+ * breakpoint this screen needs (lg = 62em = 992px).
+ */
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia
+      ? window.matchMedia(query).matches
+      : false
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) {
+      return;
+    }
+    const mql = window.matchMedia(query);
+    const handler = (event) => setMatches(event.matches);
+    setMatches(mql.matches);
+    if (mql.addEventListener) {
+      mql.addEventListener("change", handler);
+    } else {
+      mql.addListener(handler);
+    }
+    return () => {
+      if (mql.removeEventListener) {
+        mql.removeEventListener("change", handler);
+      } else {
+        mql.removeListener(handler);
+      }
+    };
+  }, [query]);
+
+  return matches;
+}
+
 function ClearCardsAlert(props) {
-  const cancelRef = useRef();
   return (
-    <AlertDialog
-      leastDestructiveRef={cancelRef}
+    <IonAlert
       isOpen={props.isOpen}
-      onClose={props.onCancel}
-    >
-      <AlertDialogOverlay>
-        <AlertDialogContent>
-          <AlertDialogHeader fontSize={"lg"} fontWeight={"bold"}>
-            Clear All Cards
-          </AlertDialogHeader>
-          <AlertDialogBody>
-            <Text>Are you sure? You can't undo this action. </Text>
-            <Text>
-              <b>Note</b>: this only clears cards in AnkiBrain, not Anki.
-            </Text>
-          </AlertDialogBody>
-          <AlertDialogFooter>
-            <Button ref={cancelRef} onClick={props.onCancel}>
-              Cancel
-            </Button>
-            <Button colorScheme="red" onClick={props.onOK} ml={3}>
-              Clear All
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialogOverlay>
-    </AlertDialog>
+      header="Clear All Cards"
+      message={"Are you sure? You can't undo this action. Note: this only clears cards in AnkiBrain, not Anki."}
+      buttons={[
+        {
+          text: "Cancel",
+          role: "cancel",
+          handler: props.onCancel,
+        },
+        {
+          text: "Clear All",
+          role: "destructive",
+          handler: props.onOK,
+        },
+      ]}
+      onDidDismiss={props.onCancel}
+    />
   );
 }
 
@@ -129,42 +139,33 @@ function ClearCardsAlert(props) {
  * clearing detaches them too.
  */
 function ClearImagesAlert(props) {
-  const cancelRef = useRef();
   return (
-    <AlertDialog
-      leastDestructiveRef={cancelRef}
+    <IonAlert
       isOpen={props.isOpen}
-      onClose={props.onCancel}
-    >
-      <AlertDialogOverlay>
-        <AlertDialogContent>
-          <AlertDialogHeader fontSize={"lg"} fontWeight={"bold"}>
-            Clear All Images
-          </AlertDialogHeader>
-          <AlertDialogBody>
-            <Text>Are you sure? You can't undo this action.</Text>
-            {props.usedImageCount > 0 && (
-              <Text>
-                <b>Note</b>: this also detaches {props.usedImageCount}{" "}
-                image{props.usedImageCount === 1 ? "" : "s"} currently inserted
-                on cards.
-              </Text>
-            )}
-            <Text>
-              <b>Note</b>: this only clears images in AnkiBrain, not Anki.
-            </Text>
-          </AlertDialogBody>
-          <AlertDialogFooter>
-            <Button ref={cancelRef} onClick={props.onCancel}>
-              Cancel
-            </Button>
-            <Button colorScheme="red" onClick={props.onOK} ml={3}>
-              Clear All
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialogOverlay>
-    </AlertDialog>
+      header="Clear All Images"
+      message={
+        "Are you sure? You can't undo this action." +
+        (props.usedImageCount > 0
+          ? ` Note: this also detaches ${props.usedImageCount} image${
+              props.usedImageCount === 1 ? "" : "s"
+            } currently inserted on cards.`
+          : "") +
+        " Note: this only clears images in AnkiBrain, not Anki."
+      }
+      buttons={[
+        {
+          text: "Cancel",
+          role: "cancel",
+          handler: props.onCancel,
+        },
+        {
+          text: "Clear All",
+          role: "destructive",
+          handler: props.onOK,
+        },
+      ]}
+      onDidDismiss={props.onCancel}
+    />
   );
 }
 
@@ -174,16 +175,14 @@ function ClearImagesAlert(props) {
  */
 function ToolbarGroup(props) {
   return (
-    <Flex gap={1.5} align={"center"} flexShrink={0} {...props}>
+    <div className="ToolbarGroup" {...props}>
       {props.children}
-    </Flex>
+    </div>
   );
 }
 
 export function CardMakingScreen() {
   const dispatch = useDispatch();
-  const topicExplanation = useSelector((state) => state.topicExplanation.value);
-  const { colorMode } = useColorMode();
 
   const makeCardsText = useSelector((state) => state.makeCardsText.value);
   const makeCardsLoading = useSelector((state) => state.makeCardsText.loading);
@@ -200,24 +199,22 @@ export function CardMakingScreen() {
   const [showClearImagesAlert, setShowClearImagesAlert] = useState(false);
   const [showMakeCardsFromDocumentAlert, setShowMakeCardsFromDocumentAlert] =
     useState(false);
-  const cancelRef = useRef();
   const [selectedCardType, setSelectedCardType] = useState("basic");
   const customPromptMakeCards = useSelector(
     (state) => state.customPrompts.value.makeCards
   );
-  const toast = useToast();
 
   // Which editor view is active. Replaces the old Tabs; the segment buttons
   // live in the toolbar so all page actions sit in one wrapping strip.
   const [view, setView] = useState("documents");
 
   // The extracted-images side panel. Expanded by default; on narrow windows
-  // it floats as an overlay drawer instead of a fixed column. Separate
-  // states because the breakpoint resolves to "base" for a frame on mount,
-  // and an auto-opened drawer would cover the previewer at startup.
+  // it floats as an overlay modal instead of a fixed column. Separate states
+  // because the breakpoint resolves to "base" for a frame on mount, and an
+  // auto-opened overlay would cover the previewer at startup.
   const [showImagesPanel, setShowImagesPanel] = useState(true);
   const [imagesDrawerOpen, setImagesDrawerOpen] = useState(false);
-  const isDrawerMode = useBreakpointValue({ base: true, lg: false });
+  const isDrawerMode = !useMediaQuery("(min-width: 992px)");
   const panelOpen = isDrawerMode ? imagesDrawerOpen : showImagesPanel;
   const toggleImagesPanel = () => {
     if (isDrawerMode) {
@@ -462,12 +459,7 @@ export function CardMakingScreen() {
     }
 
     if (tag.includes(" ")) {
-      toast({
-        title: "Invalid Tag",
-        description: "Tags cannot contain spaces.",
-        status: "error",
-        isClosable: true,
-      });
+      errorToast("Invalid Tag", "Tags cannot contain spaces.");
 
       return;
     }
@@ -690,21 +682,6 @@ export function CardMakingScreen() {
     compact: true,
   };
 
-  const segmentPill = (key, label) => (
-    <Button
-      size={"sm"}
-      variant={view === key ? "accent" : "ghost"}
-      fontWeight={view === key ? "bold" : "normal"}
-      color={view === key ? "customBlack" : "gray"}
-      boxShadow={view === key ? "0 0 0 2px rgba(243,206,255,0.35)" : "none"}
-      borderRadius={"full"}
-      px={5}
-      onClick={() => setView(key)}
-    >
-      {label}
-    </Button>
-  );
-
   return (
     <div className={"CardMakingScreen"}>
       <ClearCardsAlert
@@ -732,56 +709,62 @@ export function CardMakingScreen() {
         }}
       />
 
-      <AlertDialog
-        leastDestructiveRef={cancelRef}
+      <IonModal
         isOpen={showMakeCardsFromDocumentAlert}
-        onClose={() => {
+        onDidDismiss={() => {
           setShowMakeCardsFromDocumentAlert(false);
         }}
       >
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <Text>Make Cards From Document</Text>
-              <AlertDialogCloseButton />
-            </AlertDialogHeader>
-            <AlertDialogBody>
-              <Text>
-                AnkiBrain can make cards out of an entire document up to{" "}
-                {isLocalMode() ? "1 GB" : "100 MB"} in size.
-              </Text>
-              <Text>
-                AnkiBrain will read <b>every single word</b> in your document,
-                including author names, table of contents, indices, etc.
-              </Text>
-              <Text fontSize={24}>
-                To reduce junk cards, <b>you must remove irrelevant pages</b>{" "}
-                from your document!
-              </Text>
-            </AlertDialogBody>
-            <AlertDialogFooter>
-              <Button
-                me={5}
-                ref={cancelRef}
+        <IonHeader>
+          <IonToolbar>
+            <IonTitle>Make Cards From Document</IonTitle>
+            <IonButtons slot="end">
+              <IonButton
+                onClick={() => {
+                  setShowMakeCardsFromDocumentAlert(false);
+                }}
+              >
+                Close
+              </IonButton>
+            </IonButtons>
+          </IonToolbar>
+        </IonHeader>
+        <IonContent className="ion-padding">
+          <div className="MakeCardsFromDocAlert">
+            <p>
+              AnkiBrain can make cards out of an entire document up to{" "}
+              {isLocalMode() ? "1 GB" : "100 MB"} in size.
+            </p>
+            <p>
+              AnkiBrain will read <b>every single word</b> in your document,
+              including author names, table of contents, indices, etc.
+            </p>
+            <p className="MakeCardsFromDocAlert-loud">
+              To reduce junk cards, <b>you must remove irrelevant pages</b> from
+              your document!
+            </p>
+            <div className="MakeCardsFromDocAlert-actions">
+              <IonButton
+                fill="clear"
                 onClick={() => {
                   setShowMakeCardsFromDocumentAlert(false);
                 }}
               >
                 Cancel
-              </Button>
-              <Button
-                variant={"accent"}
+              </IonButton>
+              <IonButton
+                color="accent"
                 onClick={async () => {
                   setShowMakeCardsFromDocumentAlert(false);
                   await makeCardsFromDocument();
                 }}
               >
                 I understand, proceed
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
+              </IonButton>
+            </div>
+          </div>
+        </IonContent>
+      </IonModal>
 
       <CustomPromptMakeCardsModal
         isOpen={showCustomPromptModal}
@@ -791,122 +774,109 @@ export function CardMakingScreen() {
       />
 
       {/* ───────────────────────── Toolbar ───────────────────────── */}
-      <Box
-        className="card-toolbar"
-        flexShrink={0}
-        px={3}
-        py={2}
-        bg={colorMode === "light" ? "offWhite" : "customPurple.800"}
-        borderBottomWidth={"1px"}
-        borderBottomColor={
-          colorMode === "light" ? "rgba(0,0,0,0.1)" : "customPurple.700"
-        }
-      >
-        {/* Row 1: pill navigation — visually separate from the action strip */}
-        <Flex
-          align={"center"}
-          gap={2}
-          pb={2}
-          mb={2}
-          borderBottomWidth={"1px"}
-          borderBottomColor={
-            colorMode === "light" ? "rgba(0,0,0,0.08)" : "customPurple.700"
-          }
-        >
-          {segmentPill("documents", "From Documents")}
-          {segmentPill("text", "From Text")}
-          {failedCards.length > 0 &&
-            segmentPill("failed", `Failed Cards (${failedCards.length})`)}
-        </Flex>
+      <div className="card-toolbar">
+        {/* Row 1: view navigation — visually separate from the action strip */}
+        <div className="card-toolbar-nav">
+          <IonSegment
+            className="card-view-segment"
+            value={view}
+            onIonChange={(e) => setView(e.detail.value)}
+          >
+            <IonSegmentButton value="documents">
+              <IonLabel>From Documents</IonLabel>
+            </IonSegmentButton>
+            <IonSegmentButton value="text">
+              <IonLabel>From Text</IonLabel>
+            </IonSegmentButton>
+            {failedCards.length > 0 && (
+              <IonSegmentButton value="failed">
+                <IonLabel>Failed Cards ({failedCards.length})</IonLabel>
+              </IonSegmentButton>
+            )}
+          </IonSegment>
+        </div>
 
         {/* Row 2+: action strip, wraps between groups at narrow widths */}
-        <Flex wrap={"wrap"} align={"center"} gap={2}>
+        <div className="card-toolbar-actions">
           {/* Primary action (context-aware) + card type */}
           {view !== "failed" && (
             <ToolbarGroup>
               {view === "documents" ? (
-                <Button
-                  size={"sm"}
-                  variant={"accent"}
-                  isDisabled={makeCardsLoading}
+                <IonButton
+                  size="small"
+                  color="accent"
+                  disabled={makeCardsLoading}
                   onClick={() => {
                     setShowMakeCardsFromDocumentAlert(true);
                   }}
                 >
                   {makeCardsLoading ? (
                     <>
-                      <Spinner size={"sm"} me={2} />
+                      <IonSpinner name="crescent" slot="start" />
                       Generating…
                     </>
                   ) : (
                     <>
-                      <AddIcon me={2} />
+                      <IonIcon slot="start" icon={add} />
                       Make Cards From Document
                     </>
                   )}
-                </Button>
+                </IonButton>
               ) : (
-                <Button
-                  size={"sm"}
-                  variant={"accent"}
-                  isDisabled={makeCardsText === "" || makeCardsLoading}
+                <IonButton
+                  size="small"
+                  color="accent"
+                  disabled={makeCardsText === "" || makeCardsLoading}
                   onClick={handleMakeFromTextClick}
                 >
                   {makeCardsLoading ? (
                     <>
-                      <Spinner size={"sm"} me={2} />
+                      <IonSpinner name="crescent" slot="start" />
                       Generating…
                     </>
                   ) : (
                     <>
-                      <StarIcon me={2} />
+                      <IonIcon slot="start" icon={star} />
                       Make Cards From Text
                     </>
                   )}
-                </Button>
+                </IonButton>
               )}
-              <ToolbarGroup ms={1} h={"32px"} gap={2}>
-                <Text
-                  fontSize={12}
-                  color={"gray"}
-                  lineHeight={"32px"}
-                  whiteSpace={"nowrap"}
-                >
-                  Type
-                </Text>
-                <Select
-                  size={"sm"}
-                  width={100}
+              <ToolbarGroup>
+                <span className="card-toolbar-label">Type</span>
+                <IonSelect
+                  className="card-type-select"
                   value={selectedCardType}
-                  onChange={(e) => {
-                    setSelectedCardType(e.target.value);
+                  interface="popover"
+                  onIonChange={(e) => {
+                    setSelectedCardType(e.detail.value);
                   }}
                 >
-                  <option value={"basic"}>Basic</option>
-                  <option value={"cloze"}>Cloze</option>
-                </Select>
+                  <IonSelectOption value={"basic"}>Basic</IonSelectOption>
+                  <IonSelectOption value={"cloze"}>Cloze</IonSelectOption>
+                </IonSelect>
               </ToolbarGroup>
             </ToolbarGroup>
           )}
 
           {/* Deck + global tag */}
           <ToolbarGroup>
-            <Input
-              size={"sm"}
-              width={160}
+            <IonInput
+              className="card-toolbar-input"
+              fill="solid"
               placeholder={"Deck (optional)"}
               value={deck}
-              onChange={(e) => {
-                setDeck(e.target.value);
+              onIonInput={(e) => {
+                setDeck(e.detail.value || "");
               }}
             />
-            <Input
-              size={"sm"}
-              width={140}
+            <IonInput
+              className="card-toolbar-input card-toolbar-input--tag"
+              fill="solid"
               placeholder={"Global tag"}
               value={tag}
-              onChange={(e) => {
-                setTag(e.target.value);
+              onIonInput={(e) => {
+                setTag(e.detail.value || "");
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -914,23 +884,27 @@ export function CardMakingScreen() {
                 }
               }}
             />
-            <Button size={"sm"} onClick={handleAddTag} aria-label={"Apply tag"}>
-              <AddIcon boxSize={3} />
-            </Button>
+            <IonButton
+              size="small"
+              fill="outline"
+              onClick={handleAddTag}
+              aria-label={"Apply tag"}
+            >
+              <IonIcon slot="icon-only" icon={add} />
+            </IonButton>
           </ToolbarGroup>
 
-          {/* Push the secondary cluster to the right on wide windows */}
-          <Box flex={1} display={{ base: "none", xl: "block" }} />
+          <div className="card-toolbar-spacer" />
 
           {/* Secondary actions */}
           <ToolbarGroup>
             {/* Adds are instant (no inline synthesis anymore), but stay
                 locked while any card generation or audio job is still in
                 flight — half-spoken cards must not sneak into the deck. */}
-            <Button
-              size={"xs"}
-              variant={"secondary"}
-              isDisabled={
+            <IonButton
+              size="small"
+              color="secondary"
+              disabled={
                 cards.length <= 0 || audioInFlight > 0 || makeCardsLoading
               }
               title={
@@ -944,105 +918,99 @@ export function CardMakingScreen() {
             >
               {audioInFlight > 0 || makeCardsLoading ? (
                 <>
-                  <Spinner size={"xs"} me={1.5} />
+                  <IonSpinner name="crescent" slot="start" />
                   Working…
                 </>
               ) : (
                 <>
-                  <CheckIcon me={1.5} />
+                  <IonIcon slot="start" icon={checkmark} />
                   Add to Anki
                 </>
               )}
-            </Button>
-            <Button
-              size={"xs"}
+            </IonButton>
+            <IonButton
+              size="small"
+              color="light"
               onClick={() => {
                 setShowClearCardsAlert(true);
               }}
             >
-              <DeleteIcon me={1.5} />
+              <IonIcon slot="start" icon={trash} />
               Clear Cards ({cards.length})
-            </Button>
-            <Button size={"xs"} onClick={clearAllTags}>
-              <RiPriceTag3Line style={{ marginRight: "4px" }} size={13} />
+            </IonButton>
+            <IonButton size="small" color="light" onClick={clearAllTags}>
+              <IonIcon slot="start" icon={pricetagOutline} />
               Clear Tags
-            </Button>
-            <Button
-              size={"xs"}
+            </IonButton>
+            <IonButton
+              size="small"
+              color="light"
               onClick={() => {
                 setShowCustomPromptModal(true);
               }}
             >
-              <SettingsIcon me={1.5} />
+              <IonIcon slot="start" icon={optionsIcon} />
               Prompt
-            </Button>
+            </IonButton>
 
             {/* Model / notes popover — absorbs the old gray-info rows */}
-            <Popover placement={"bottom-end"}>
-              <PopoverTrigger>
-                <Button size={"xs"}>
-                  <InfoIcon me={1.5} />
-                  Details
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent>
-                <PopoverArrow />
-                <PopoverCloseButton />
-                <PopoverBody>
-                  <Flex direction={"column"} gap={1}>
-                    <Text fontSize={12}>
-                      Model: <b>{model}</b> · Temperature: <b>{temperature}</b>{" "}
-                      · Language: <b>{language}</b>
-                    </Text>
-                    <Text fontSize={12} color={"gray"}>
-                      Max {isLocalMode() ? "1 GB" : "100 MB"} per document
-                      file.
-                    </Text>
-                    <Text fontSize={12} color={"gray"}>
-                      Every image embedded in your document is collected in the
-                      Images panel, so you can insert images into cards before
-                      adding them to Anki.
-                    </Text>
-                    {automaticallyAddCards && (
-                      <Text fontSize={12} color={"gray"}>
-                        Every 100 cards will automatically be added to Anki
-                        (change this in Settings)
-                      </Text>
-                    )}
-                    <Text fontSize={12} color={"gray"}>
-                      Edit text and tags, or add/remove images on each card
-                      before adding them to Anki. Images always appear on the
-                      answer side.
-                    </Text>
-                    <Text fontSize={12} color={"gray"}>
-                      Voice clips are generated while you review (per-field
-                      button or the Generate audio dropdown), never when you
-                      add — and cards can't be added until every queued
-                      generation is finished.
-                    </Text>
-                  </Flex>
-                </PopoverBody>
-              </PopoverContent>
-            </Popover>
+            <IonPopover trigger="card-details-trigger" triggerAction="click">
+              <div className="card-details-popover">
+                <p>
+                  Model: <b>{model}</b> · Temperature: <b>{temperature}</b> ·{" "}
+                  Language: <b>{language}</b>
+                </p>
+                <p className="card-details-muted">
+                  Max {isLocalMode() ? "1 GB" : "100 MB"} per document file.
+                </p>
+                <p className="card-details-muted">
+                  Every image embedded in your document is collected in the
+                  Images panel, so you can insert images into cards before
+                  adding them to Anki.
+                </p>
+                {automaticallyAddCards && (
+                  <p className="card-details-muted">
+                    Every 100 cards will automatically be added to Anki (change
+                    this in Settings)
+                  </p>
+                )}
+                <p className="card-details-muted">
+                  Edit text and tags, or add/remove images on each card before
+                  adding them to Anki. Images always appear on the answer side.
+                </p>
+                <p className="card-details-muted">
+                  Voice clips are generated while you review (per-field button
+                  or the Generate audio dropdown), never when you add — and
+                  cards can't be added until every queued generation is
+                  finished.
+                </p>
+              </div>
+            </IonPopover>
+            <IonButton
+              id="card-details-trigger"
+              size="small"
+              color="light"
+            >
+              <IonIcon slot="start" icon={informationCircleOutline} />
+              Details
+            </IonButton>
           </ToolbarGroup>
-        </Flex>
+        </div>
 
         {/* Progress row — only while a document run is active */}
         {makeCardsLoading && view === "documents" && (
-          <Flex align={"center"} gap={3} mt={2}>
-            <Progress
-              flex={1}
-              hasStripe
-              isAnimated
-              value={makeCardsFromDocProgress}
-              size={"sm"}
+          <div className="card-toolbar-progress">
+            <IonProgressBar
+              className="card-toolbar-progressBar"
+              value={makeCardsFromDocProgress / 100}
             />
-            <Text fontSize={12} color={"gray"} whiteSpace={"nowrap"}>
+            <span className="card-toolbar-progressText">
               {makeCardsFromDocProgress}% · ETA {formatTime(eta || 0)}
-            </Text>
-            <Button
-              size={"xs"}
-              colorScheme={"red"}
+            </span>
+            <IonButton
+              size="small"
+              color="danger"
+              fill="outline"
               onClick={() => {
                 infoToast(
                   "Processing Will Stop",
@@ -1051,64 +1019,38 @@ export function CardMakingScreen() {
                 terminateMakingCardsFromDoc.current = true;
               }}
             >
-              <DeleteIcon me={1.5} boxSize={3} />
+              <IonIcon slot="start" icon={trash} />
               Stop
-            </Button>
-          </Flex>
+            </IonButton>
+          </div>
         )}
-      </Box>
+      </div>
 
       {/* ───────────────────────── Body ───────────────────────── */}
-      <Flex className="card-body" flex={1} minH={0} direction={"row"}>
+      <div className="card-body">
         {/* Left: view-specific editor + card previewer (scrolls internally) */}
-        <Box
-          className="card-previewer"
-          flex={1}
-          minW={0}
-          overflowY={"auto"}
-          pl={5}
-          pr={10}
-          py={3}
-        >
+        <div className="card-previewer">
           {view === "text" && (
-            <Flex direction={"column"} mb={3}>
-              <Textarea
-                bg={colorMode === "light" ? "white" : "customPurple.800"}
-                focusBorderColor={"accent"}
-                style={{ minHeight: 200 }}
-                onChange={(event) => {
-                  const text = event.target.value;
-                  const currentWordCount = text.trim().split(/\s+/).length;
-                  if (currentWordCount < 750) {
-                    debouncedCardsTextChangeHandler(text);
-                  }
-                }}
-                placeholder={
-                  "You can generate in Topic Explanation or copy-paste any information into here..."
-                }
-              >
-                {makeCardsText}
-              </Textarea>
-              <Text alignSelf={"end"} fontSize={12} color={"gray"} p={0} m={0}>
-                {makeCardsText.trim().split(/\s+/).length}/750
-              </Text>
-            </Flex>
+            <TextEditorView
+              makeCardsText={makeCardsText}
+              onTextChange={debouncedCardsTextChangeHandler}
+            />
           )}
 
           {view === "failed" && (
-            <Flex direction={"column"} mb={3}>
-              {failedCards.map((rawString) => (
-                <Text mb={5}>{rawString}</Text>
+            <div className="card-failedView">
+              {failedCards.map((rawString, index) => (
+                <p key={index}>{rawString}</p>
               ))}
-            </Flex>
+            </div>
           )}
 
           {view === "documents" && documentContext.docName && (
-            <Text fontSize={12} color={"gray"} mb={2}>
+            <p className="card-lastProcessed">
               Last processed: <b>{documentContext.docName}</b> ·{" "}
               {documentContext.chunksCount} text sections ·{" "}
               {documentContext.imagesCount} images found
-            </Text>
+            </p>
           )}
 
           {/* Card-audio section: the dropdown is the standing policy (new
@@ -1118,81 +1060,75 @@ export function CardMakingScreen() {
               synthesizing. Visible even with the engine absent — clicking
               generate just opens the setup dialog. */}
           {!(ttsStatus && ttsStatus.status === "unsupported") && (
-            <Box
-              mb={3}
-              px={3}
-              py={2}
-              maxW={300}
-              borderWidth={"1px"}
-              borderRadius={"md"}
-              borderColor={
-                colorMode === "light" ? "rgba(0,0,0,0.1)" : "customPurple.700"
-              }
-              bg={colorMode === "light" ? "rgba(0,0,0,0.02)" : "customPurple.800"}
-            >
-              <Heading size={"xs"} color={"gray"} mb={1.5}>
-                Audio
-              </Heading>
-              <Select
-                size={"sm"}
+            <div className="card-audioBox">
+              <h4 className="card-audioBox-title">Audio</h4>
+              <IonSelect
+                className="card-audioBox-select"
                 value={ttsCardAudioMode}
+                interface="popover"
                 aria-label={"Card audio mode"}
-                onChange={(e) => {
-                  handleAudioModeChange(e.target.value);
+                onIonChange={(e) => {
+                  handleAudioModeChange(e.detail.value);
                 }}
               >
-                <option value={"none"}>Don't generate audio</option>
-                <option value={"front"}>Generate audio for front</option>
-                <option value={"back"}>Generate audio for back</option>
-                <option value={"both"}>Generate audio for front and back</option>
-              </Select>
-              <Text fontSize={11} color={"gray"} mt={1}>
+                <IonSelectOption value={"none"}>
+                  Don't generate audio
+                </IonSelectOption>
+                <IonSelectOption value={"front"}>
+                  Generate audio for front
+                </IonSelectOption>
+                <IonSelectOption value={"back"}>
+                  Generate audio for back
+                </IonSelectOption>
+                <IonSelectOption value={"both"}>
+                  Generate audio for front and back
+                </IonSelectOption>
+              </IonSelect>
+              <p className="card-audioBox-hint">
                 Applies automatically to cards as they're created.
-              </Text>
+              </p>
               {audioInFlight > 0 ? (
                 <>
-                  <Button
-                    mt={2}
-                    size={"sm"}
-                    variant={"outline"}
-                    colorScheme={"red"}
-                    width={"100%"}
+                  <IonButton
+                    className="card-audioBox-btn"
+                    size="small"
+                    fill="outline"
+                    color="danger"
+                    expand="block"
                     onClick={cancelAllCardAudio}
                   >
-                    <CloseIcon me={1.5} boxSize={2.5} />
+                    <IonIcon slot="start" icon={close} />
                     Stop ({audioInFlight})
-                  </Button>
-                  <Text fontSize={11} color={"gray"} mt={1}>
+                  </IonButton>
+                  <p className="card-audioBox-hint">
                     Stops all queued audio. Individual fields can be cancelled
                     on their card.
-                  </Text>
+                  </p>
                 </>
               ) : (
                 <>
-                  <Button
-                    mt={2}
-                    size={"sm"}
-                    variant={"outline"}
-                    width={"100%"}
-                    isDisabled={
-                      ttsCardAudioMode === "none" || cards.length === 0
-                    }
+                  <IonButton
+                    className="card-audioBox-btn"
+                    size="small"
+                    fill="outline"
+                    expand="block"
+                    disabled={ttsCardAudioMode === "none" || cards.length === 0}
                     onClick={handleGenerateAudioForAll}
                   >
-                    <VscUnmute style={{ marginRight: 5 }} />
+                    <IonIcon slot="start" icon={volumeHighOutline} />
                     Apply to all cards
-                  </Button>
-                  <Text fontSize={11} color={"gray"} mt={1}>
+                  </IonButton>
+                  <p className="card-audioBox-hint">
                     Apply to all existing cards.
-                  </Text>
+                  </p>
                 </>
               )}
-            </Box>
+            </div>
           )}
 
-          <Heading size={"sm"} mb={2}>
+          <h4 className="card-reviewHeading">
             Review & edit cards ({cards.length})
-          </Heading>
+          </h4>
           {cards.map((card, i) => (
             <EditableCard
               key={card.uid || i}
@@ -1214,65 +1150,49 @@ export function CardMakingScreen() {
               }}
             />
           ))}
-        </Box>
+        </div>
 
         {/* Right: images side panel (fixed column on wide windows) */}
         {!isDrawerMode && showImagesPanel && (
-          <Box
-            className="card-images-panel"
-            w={270}
-            flexShrink={0}
-            overflowY={"auto"}
-            pl={3}
-            pr={10}
-            py={3}
-            borderLeftWidth={"1px"}
-            borderLeftColor={
-              colorMode === "light" ? "rgba(0,0,0,0.1)" : "customPurple.700"
-            }
-            bg={colorMode === "light" ? "rgba(0,0,0,0.02)" : "customPurple.800"}
-          >
+          <div className="card-images-panel">
             <DocumentImageLibrary {...libraryProps} />
-          </Box>
+          </div>
         )}
-      </Flex>
+      </div>
 
       {/* Panel toggle: a vertical tab pinned to the screen's right edge so
           it reads as the sidebar's open/close handle, not a page button. */}
-      <Button
+      <IonButton
         className="images-edge-toggle"
-        variant={"accent"}
+        color="accent"
         onClick={toggleImagesPanel}
         aria-label={
           panelOpen ? "Collapse images panel" : "Expand images panel"
         }
-        leftIcon={
-          panelOpen ? (
-            <ChevronRightIcon boxSize={3} />
-          ) : (
-            <ChevronLeftIcon boxSize={3} />
-          )
-        }
       >
         Images ({allImages.length})
-      </Button>
+      </IonButton>
 
-      {/* Narrow windows: the panel floats as an overlay drawer instead */}
+      {/* Narrow windows: the panel floats as an overlay modal instead */}
       {isDrawerMode && (
-        <Drawer
+        <IonModal
           isOpen={imagesDrawerOpen}
-          onClose={() => setImagesDrawerOpen(false)}
-          placement={"end"}
+          onDidDismiss={() => setImagesDrawerOpen(false)}
         >
-          <DrawerOverlay />
-          <DrawerContent maxW={"300px"}>
-            <DrawerCloseButton />
-            <DrawerHeader fontSize={"md"}>Images found</DrawerHeader>
-            <DrawerBody>
-              <DocumentImageLibrary {...libraryProps} />
-            </DrawerBody>
-          </DrawerContent>
-        </Drawer>
+          <IonHeader>
+            <IonToolbar>
+              <IonTitle>Images found</IonTitle>
+              <IonButtons slot="end">
+                <IonButton onClick={() => setImagesDrawerOpen(false)}>
+                  Close
+                </IonButton>
+              </IonButtons>
+            </IonToolbar>
+          </IonHeader>
+          <IonContent className="ion-padding">
+            <DocumentImageLibrary {...libraryProps} />
+          </IonContent>
+        </IonModal>
       )}
 
       <ImagePickerModal
@@ -1298,6 +1218,39 @@ export function CardMakingScreen() {
           });
         }}
       />
+    </div>
+  );
+}
+
+/*
+ * "From Text" editor. The draft is local so the debounced redux write can't
+ * snap the textarea back to a stale value mid-typing; it re-seeds from the
+ * store whenever the view remounts.
+ */
+function TextEditorView({ makeCardsText, onTextChange }) {
+  const [draft, setDraft] = useState(makeCardsText);
+  const wordCount = draft.trim().split(/\s+/).length;
+
+  return (
+    <div className="card-textView">
+      <IonTextarea
+        className="card-textView-input"
+        fill="solid"
+        autoGrow={true}
+        value={draft}
+        onIonInput={(event) => {
+          const text = event.detail.value || "";
+          setDraft(text);
+          const currentWordCount = text.trim().split(/\s+/).length;
+          if (currentWordCount < 750) {
+            onTextChange(text);
+          }
+        }}
+        placeholder={
+          "You can generate in Topic Explanation or copy-paste any information into here..."
+        }
+      />
+      <span className="card-textView-counter">{wordCount}/750</span>
     </div>
   );
 }
