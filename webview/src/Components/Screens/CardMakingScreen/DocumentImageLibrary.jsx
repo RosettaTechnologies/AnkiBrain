@@ -134,10 +134,9 @@ export function DocumentImageLibrary(props) {
 
       {images.length === 0 ? (
         <Text fontSize={13} color={"gray"}>
-          No images yet. Process a document and AnkiBrain will collect every
-          image embedded in it here — or import an image file / paste one from
-          the clipboard. Images can be inserted into cards or turned into
-          image-occlusion cards before adding them to Anki.
+          No images yet. If you process a document, all its images will appear here.
+          Or, you can import an image file / paste one from the clipboard.
+          Images can be inserted into cards or turned into image-occlusion cards before adding them to Anki.
         </Text>
       ) : (
         <SimpleGrid
@@ -240,8 +239,7 @@ export function DocumentImageLibrary(props) {
 
                 {cards.length === 0 ? (
                   <Text fontSize={13} color={"gray"}>
-                    No cards yet — generate cards from your document first, then
-                    come back to insert this image into them.
+                    If you have generated cards, you can insert this image into them.
                   </Text>
                 ) : (
                   <>
