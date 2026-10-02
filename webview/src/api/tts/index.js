@@ -52,6 +52,10 @@ export async function speak(text) {
 
 export function openSetupModal() {
   store.dispatch(setSetupModalOpen(true));
+  // The modal branches on engine status (install vs repair), so refetch it
+  // rather than trusting the Redux cache — e.g. the engine may have been
+  // uninstalled outside the Settings screen since the last refresh.
+  refreshTtsStatus();
 }
 
 export function closeSetupModal() {

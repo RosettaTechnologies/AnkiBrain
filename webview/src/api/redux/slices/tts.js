@@ -47,7 +47,19 @@ export const ttsSlice = createSlice({
     setSetupModalOpen: (state, action) => {
       // Boolean payload. Nothing is queued for replay — closing the modal
       // ends the flow; the user repeats the voice action after installing.
-      state.setupModalOpen = action.payload === true;
+      const open = action.payload === true;
+      if (open && !state.install.active) {
+        // A modal opened outside a live install always branches on the
+        // current engine status, never on a previous flow's terminal screen.
+        // Without this, uninstalling after an earlier install in the same
+        // session leaves done={ok:true} behind and the modal renders "Voice
+        // engine ready" instead of the install prompt (restart masked it by
+        // resetting the in-memory store).
+        state.install.done = null;
+        state.install.event = null;
+        state.install.log = [];
+      }
+      state.setupModalOpen = open;
     },
     setSpeaking: (state, action) => {
       state.speaking = action.payload;
