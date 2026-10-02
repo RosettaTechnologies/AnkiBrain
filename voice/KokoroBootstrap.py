@@ -192,7 +192,22 @@ def _fetch(url, dest, sha256, runner, stage, message, watched=None, estimate_mb=
     try:
         req = urllib.request.Request(url, headers={'User-Agent': 'AnkiBrain-Voice'})
         with urllib.request.urlopen(req, timeout=60) as r, open(tmp, 'wb') as f:
-            shutil.copyfileobj(r, f)
+            # Chunked rather than copyfileobj so Cancel can interrupt a large
+            # download (the PyTorch wheel is the big one) instead of waiting
+            # for it to finish before the next cancel check.
+            while True:
+                if runner.cancel.is_set():
+                    raise BootstrapError('cancel', 'Voice install cancelled.', None)
+                chunk = r.read(1 << 20)
+                if not chunk:
+                    break
+                f.write(chunk)
+    except BootstrapError:
+        # e.g. the cancel above — already in the caller's vocabulary, do not
+        # relabel it as a download failure.
+        if path.isfile(tmp):
+            os.remove(tmp)
+        raise
     except Exception as e:
         if path.isfile(tmp):
             os.remove(tmp)

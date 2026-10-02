@@ -310,8 +310,30 @@ class ReactBridge:
                 self.send_cmd(IC.DID_TTS_INSTALL, {'started': bool(started)}, commandId=commandId)
 
             elif cmd == IC.TTS_CANCEL_INSTALL:
-                self.app.tts.cancel_install()
-                self.send_cmd(IC.DID_TTS_INSTALL, {'cancelled': True}, commandId=commandId)
+                # The setup modal's one way out: cancel the bootstrap, wait
+                # for its worker to exit, stop the engine subprocess (on
+                # Windows it locks the venv), then delete the whole partial
+                # tree on a worker thread. The ack resolves only once cleanup
+                # finished, so the UI closes on truth rather than a hope;
+                # a still-stopping bootstrap or locked files come back as
+                # {ok: False, error} and the modal offers Cancel again.
+                tts = self.app.tts
+                still_running = await asyncio.to_thread(tts.cancel_install_and_wait)
+                if still_running:
+                    res = {'ok': False,
+                           'error': 'The install is still stopping. Try Cancel again in a moment.'}
+                else:
+                    try:
+                        await tts.stop()
+                    except Exception:
+                        pass
+                    try:
+                        await asyncio.to_thread(tts.uninstall_data)
+                        res = {'ok': True}
+                    except Exception as e:
+                        print(f'(ReactBridge) voice cancel cleanup failed: {e}')
+                        res = {'ok': False, 'error': str(e)[:300]}
+                self.send_cmd(IC.DID_TTS_INSTALL, {'cancelled': True, **res}, commandId=commandId)
 
             elif cmd == IC.TTS_UNINSTALL:
                 # Stop the engine subprocess first (it locks the venv on

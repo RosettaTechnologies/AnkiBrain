@@ -279,6 +279,21 @@ class KokoroTTSAdapter:
         if self._bootstrap_cancel:
             self._bootstrap_cancel.set()
 
+    def cancel_install_and_wait(self, join_timeout=30):
+        """
+        Cancel an in-flight bootstrap and block until its worker thread has
+        exited — the cancel flag is checked between download chunks and
+        subprocess stages, so this is seconds in practice, with the join
+        timeout as the backstop. Returns False when the worker is done, True
+        when it is still alive after join_timeout. Must run OUTSIDE the UI
+        thread (the caller runs it via asyncio.to_thread).
+        """
+        self.cancel_install()
+        th = self._bootstrap_thread
+        if th and th.is_alive():
+            th.join(timeout=join_timeout)
+        return bool(th and th.is_alive())
+
     # ───────────────────────────── uninstall ──────────────────────────────
 
     def uninstall_data(self):
