@@ -79,6 +79,14 @@
   --ion-card-background: #ffffff;
   --ion-toolbar-background: #ffffff;
   --ion-item-background: #ffffff;
+
+  /* Chat / message surfaces (Talk screen). Light values. */
+  --app-chat-bg: rgba(175, 235, 244, 0.25);
+  --app-input-bg: #ffffff;
+  --app-ai-bubble-bg: #ffffff;
+  --app-user-bubble-bg: #ffffff;
+  --app-snippet-bg: rgb(250, 250, 250);
+  --app-snippet-text: #1f1f1f;
 }
 
 /*
@@ -103,4 +111,12 @@
   --ion-item-background: #271a35;
   --ion-tab-bar-background: #1f1f28;
   --ion-tab-bar-background-focused: #312244;
+
+  /* Chat / message surfaces (Talk screen). Dark values. */
+  --app-chat-bg: #271a35;
+  --app-input-bg: #3d2b55;
+  --app-ai-bubble-bg: #91ddec;
+  --app-user-bubble-bg: #f3ceff;
+  --app-snippet-bg: #1f1f1f;
+  --app-snippet-text: #ffffff;
 }

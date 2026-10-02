@@ -1,42 +1,12 @@
-import { Box, Text } from "@chakra-ui/react";
-import { useColorMode } from "../../../theme/colorMode";
+import { IonIcon } from "@ionic/react";
+import { person } from "ionicons/icons";
 
 export const UserMessage = (props) => {
-  const { colorMode } = useColorMode();
   return (
-    <Box
-      className={"TalkScreenMessage UserMessage"}
-      bg={colorMode === "light" ? "white" : "accent"}
-      color={"customBlack"}
-      style={{
-        alignSelf: "flex-end",
-        marginLeft: 0,
-        marginRight: 15,
-        marginTop: 15,
-        marginBottom: 15,
-        paddingTop: 5,
-      }}
-      key={props.key}
-      css={{
-        overflowWrap: "break-word",
-        hyphens: "auto",
-        wordBreak: "break-word",
-      }}
-    >
-      <i
-        className={"bi bi-person-fill"}
-        style={{
-          width: 50,
-          height: 50,
-          fontSize: 36,
-          justifyContent: "center",
-          alignItems: "center",
-          display: "flex",
-          color: "var(--color-text)",
-        }}
-      ></i>
+    <div className="TalkScreenMessage UserMessage">
+      <IonIcon className="TalkScreenMessage-icon" icon={person} />
 
-      <Text style={{ textAlign: "center" }}>{props.messageData.text}</Text>
-    </Box>
+      <span className="TalkScreenMessage-text">{props.messageData.text}</span>
+    </div>
   );
 };
