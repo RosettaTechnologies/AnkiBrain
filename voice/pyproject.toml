@@ -17,13 +17,17 @@
 
 [project]
 name = "ankibrain-voice"
-version = "1.1.0"
+version = "1.2.0"
 description = "Kokoro-82M local TTS engine for AnkiBrain (run via uv sync, never packaged)"
 requires-python = "==3.11.*"
 dependencies = [
     "kokoro==0.9.4",
     "misaki[en,zh]==0.9.4",
     "soundfile>=0.12.1",
+    # Automatic source-language detection for TTS (Settings > Voice >
+    # Auto-detect). Pure Python; numpy 2.x is already in the graph via
+    # torch/misaki, so this adds ~5 MB and no platform-specific wheels.
+    "py3langid==0.4.0",
     # Declared directly (not just transitively via kokoro) so the
     # [tool.uv.sources] platform routing below actually applies: uv only
     # honors sources for the project's own dependencies.

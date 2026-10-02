@@ -195,27 +195,35 @@ class KokoroTTSAdapter:
 
     # ───────────────────────────── synthesis ─────────────────────────────
 
-    async def synth(self, text, voice=None, speed=None):
+    async def synth(self, text, voice=None, speed=None, auto=None):
         import time
         if self.script_manager is None or (
                 self.script_manager.process and self.script_manager.process.returncode is not None):
             await self.start()
         self.last_request_at = time.monotonic()
 
+        if auto is None:
+            auto = self.auto_enabled()
         out = await self.script_manager.call({
             'cmd': 'SYNTH',
             'text': text,
             'voice': voice,
             'speed': speed,
+            'auto': bool(auto),
         })
         return out['data']
 
-    async def speak_clean(self, text, voice=None, speed=None, is_cloze=False):
-        """Speak with the HTML/cloze stripping + settings defaults applied."""
+    async def speak_clean(self, text, voice=None, speed=None, is_cloze=False, auto=None):
+        """
+        Speak with the HTML/cloze stripping + settings defaults applied.
+        `auto` (None = follow the ttsAutoDetect setting) lets the engine
+        detect the text's language and swap to a voice that can speak it;
+        `voice` stays the fallback for uncertain/unsupported text.
+        """
         cleaned = clean_text_for_speech(text, is_cloze=is_cloze)
         if not cleaned:
             return None
-        return await self.synth(cleaned, voice=voice, speed=speed)
+        return await self.synth(cleaned, voice=voice, speed=speed, auto=auto)
 
     async def default_voice(self):
         try:
@@ -236,6 +244,14 @@ class KokoroTTSAdapter:
         except Exception:
             pass
         return 1.0
+
+    def auto_enabled(self):
+        """Settings-backed switch for engine-side language detection."""
+        try:
+            from aqt import mw
+            return bool(mw.settingsManager.settings.get('ttsAutoDetect', True))
+        except Exception:
+            return True
 
     # ───────────────────────────── bootstrap (install) ───────────────────
 

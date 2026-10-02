@@ -5,6 +5,7 @@ import {
   setTtsInstallActive,
   setTtsInstallDone,
   setTtsInstallEvent,
+  setTtsSettings,
 } from "./tts";
 
 // Isolate the install substate these tests mutate; the store is a singleton
@@ -94,4 +95,15 @@ test("setup modal mode only treats add_ja as special", () => {
   // Anything unexpected falls back to the default install/repair flow.
   store.dispatch(setSetupModalMode("repair"));
   expect(store.getState().tts.setupModalMode).toBe("default");
+});
+
+test("auto language detection defaults on and hydrates from settings", () => {
+  store.dispatch(setTtsSettings({}));
+  expect(store.getState().tts.settings.ttsAutoDetect).toBe(true);
+
+  store.dispatch(setTtsSettings({ ttsAutoDetect: false }));
+  expect(store.getState().tts.settings.ttsAutoDetect).toBe(false);
+
+  // Restore the default for any later test in this file.
+  store.dispatch(setTtsSettings({ ttsAutoDetect: true }));
 });

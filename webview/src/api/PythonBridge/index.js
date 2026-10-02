@@ -84,7 +84,9 @@ export async function handlePythonDataReceived(
       playTtsUrl(pyResponseObject.url, pyResponseObject.text || "");
       break;
     case "ttsSetupRequired":
-      openSetupModal();
+      // Python may request a specific flow (e.g. 'add_ja' for a detected
+      // Japanese text whose pack is not installed).
+      openSetupModal(pyResponseObject.mode || "default");
       break;
     case "ttsError":
       errorToast("Voice Error", String(pyResponseObject.message || "").slice(0, 300));
@@ -249,6 +251,7 @@ export async function handlePythonDataReceived(
       for (const k of [
         "ttsVoice",
         "ttsSpeed",
+        "ttsAutoDetect",
         "ttsCardAudioMode",
       ]) {
         if (data[k] !== undefined) ttsPatch[k] = data[k];

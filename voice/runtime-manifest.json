@@ -56,6 +56,11 @@
     "_comment": "Warmup downloads model .pth + config + the catalog voices' .pt files. HF_HOME points at user_files/voice/hf_cache."
   },
 
+  "detector": {
+    "package": "py3langid==0.4.0",
+    "_comment": "Automatic TTS source-language detection (Settings > Voice > Auto-detect). Pin lives here + voice/uv.lock and uv.lock is authoritative; confidence thresholds live in KokoroTTS/__init__.py and are calibrated via KokoroTTS/lang_check.py. Any change here bumps the manifest hash and triggers the self-heal re-sync."
+  },
+
   "spacy_model": {
     "name": "en_core_web_sm",
     "version": "3.8.0",

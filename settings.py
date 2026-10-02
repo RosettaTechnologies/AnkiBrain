@@ -56,6 +56,10 @@ default_settings = {
     # screen installs or uninstalls it); speak/audio buttons that find it
     # absent just open the setup dialog.
     'ttsVoice': 'af_heart',        # kokoro voice id; its first letter is the lang code
+    # Engine-side source-language detection: foreign text is spoken with a
+    # first voice of its detected language; ttsVoice is the fallback for
+    # uncertain/unsupported text. On by default.
+    'ttsAutoDetect': True,
     'ttsSpeed': 1.0,
     # Review-screen TTS policy: none | front | back | both. Unlike the old
     # ttsEmbedCardAudio/ttsCardAudioSides pair (which synthesized everything

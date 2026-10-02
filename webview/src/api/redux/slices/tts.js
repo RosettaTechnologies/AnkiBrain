@@ -23,6 +23,10 @@ export const ttsSlice = createSlice({
     settings: {
       ttsVoice: "af_heart",
       ttsSpeed: 1.0,
+      // Engine-side source-language detection (on by default): foreign text
+      // is spoken with a first voice of its detected language; ttsVoice is
+      // the fallback for uncertain/unsupported text.
+      ttsAutoDetect: true,
       // Review-screen TTS policy (none|front|back|both): drives the
       // auto-enqueue of audio for freshly generated cards and the target of
       // "Generate audio for all cards".

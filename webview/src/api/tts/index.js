@@ -31,10 +31,17 @@ export async function refreshTtsStatus() {
   }
 }
 
-export async function speak(text) {
+export async function speak(text, opts = {}) {
   if (!text) return null;
   try {
-    const out = await pySpeakText(text);
+    // opts.auto: false plays `voice` verbatim (Settings preview); omitted
+    // follows the ttsAutoDetect setting engine-side.
+    const out = await pySpeakText(
+      text,
+      opts.voice ?? null,
+      opts.speed ?? null,
+      opts.auto ?? null
+    );
     if (out && out.url) playTtsUrl(out.url, text.slice(0, 60));
     return out;
   } catch (err) {

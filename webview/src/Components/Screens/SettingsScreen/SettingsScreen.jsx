@@ -1,6 +1,7 @@
 import {
   Box,
   Button,
+  Checkbox,
   Divider,
   Flex,
   Input,
@@ -242,6 +243,22 @@ const VoiceSettings = (props) => {
             ))}
           </Select>
 
+          <Checkbox
+            mb={1}
+            size={"sm"}
+            isChecked={settings.ttsAutoDetect !== false}
+            onChange={async (e) => {
+              await setTts("ttsAutoDetect", e.target.checked);
+            }}
+          >
+            <Text fontSize={13}>Auto-detect language from text</Text>
+          </Checkbox>
+          <Text fontSize={11} color={"gray.500"} mb={2}>
+            Speaks each text with a voice for its detected language (e.g.
+            Spanish text uses a Spanish voice). The selected voice is used
+            when the language can&apos;t be detected.
+          </Text>
+
           <Text fontSize={13} mb={1}>
             Speed ({Number(settings.ttsSpeed || 1).toFixed(2)}×)
           </Text>
@@ -268,7 +285,10 @@ const VoiceSettings = (props) => {
             mb={2}
             variant={"outline"}
             onClick={() => {
-              speak("Hello! This is how AnkiBrain voice sounds.");
+              // Preview the SELECTED voice verbatim: auto-detection would
+              // otherwise route this English sentence to the English default
+              // voice and hide the user's non-English pick.
+              speak("Hello! This is how AnkiBrain voice sounds.", { auto: false });
             }}
           >
             <i className={"bi bi-play-fill"} style={{ marginRight: 6 }} />

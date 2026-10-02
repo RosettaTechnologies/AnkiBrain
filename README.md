@@ -20,6 +20,10 @@ cancel/retry, and repairs re-use the local cache.
   Chinese. Japanese is an optional pack (needs cmake + a C/C++ compiler to build
   `pyopenjtalk` unless prebuilt wheels are available in the wheelhouse referenced by
   `voice/runtime-manifest.json`).
+- **Automatic language detection (on by default):** each text is spoken with a
+  voice for its detected language (Spanish text → Spanish voice, and so on).
+  The voice selected in Settings is the fallback when the language can't be
+  detected or its pack isn't installed; toggle it in Settings → Voice.
 - Requirements: Windows 10+, macOS 12+ on **Apple Silicon** (PyTorch no longer ships
   Intel-mac wheels), Linux x86_64/aarch64. Windows boxes with long-path support
   disabled auto-relocate the engine to `%LOCALAPPDATA%\AnkiBrain\voice`.

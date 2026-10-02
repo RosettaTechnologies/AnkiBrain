@@ -268,12 +268,21 @@ class ReactBridge:
                 try:
                     voice = data.get('voice') or await self.app.tts.default_voice()
                     speed = data.get('speed') or await self.app.tts.default_speed()
-                    if not self.app.tts.voice_allowed(voice):
-                        # ja pipeline needs its pack; tell JS precisely.
+                    # auto: None -> ttsAutoDetect setting; explicit False from
+                    # the Settings preview plays the selected voice verbatim.
+                    auto = data.get('auto')
+                    if auto is None:
+                        auto = self.app.tts.auto_enabled()
+                    if not auto and not self.app.tts.voice_allowed(voice):
+                        # Fixed mode: the requested voice itself needs the ja
+                        # pack. With auto on the fallback only matters when
+                        # detection abstains — the engine raises the same
+                        # sentinel for genuinely Japanese text instead.
                         self.send_cmd(IC.DID_SYNTHESIZE_SPEECH, error='TTS_PACK_MISSING:' + voice,
                                       commandId=commandId)
                     else:
-                        out = await self.app.tts.speak_clean(data.get('text', ''), voice=voice, speed=speed)
+                        out = await self.app.tts.speak_clean(data.get('text', ''), voice=voice,
+                                                             speed=speed, auto=auto)
                         if out is None:
                             self.send_cmd(IC.DID_SYNTHESIZE_SPEECH, {'url': None}, commandId=commandId)
                         else:
@@ -462,8 +471,11 @@ class ReactBridge:
 
             voice = await self.app.tts.default_voice()
             speed = await self.app.tts.default_speed()
-            if not self.app.tts.voice_allowed(voice):
-                # ja pipeline needs its pack; tell JS precisely.
+            auto = self.app.tts.auto_enabled()
+            if not auto and not self.app.tts.voice_allowed(voice):
+                # Fixed mode: the batch's voice itself needs the ja pack.
+                # With auto on, per-item detection decides — the engine
+                # raises TTS_PACK_MISSING only for actual Japanese text.
                 self.send_cmd(IC.DID_GENERATE_CARD_AUDIO,
                               error='TTS_PACK_MISSING:' + voice, commandId=commandId)
                 return
@@ -481,12 +493,21 @@ class ReactBridge:
                         voice=voice,
                         speed=speed,
                         is_cloze=bool(item.get('isCloze')),
+                        auto=auto,
                     )
                 except Exception as e:
+                    msg = str(e)
+                    if msg.startswith('TTS_PACK_MISSING'):
+                        # Engine-side auto-detection hit a language whose pack
+                        # is not installed (Japanese today). Abort the batch
+                        # and ack the sentinel: JS opens the incremental
+                        # add-pack modal, exactly like an absent engine.
+                        self.send_cmd(IC.DID_GENERATE_CARD_AUDIO, error=msg, commandId=commandId)
+                        return
                     print(f'(ReactBridge) card audio synth failed for {uid}:{field}: {e}')
                     self.send_cmd(IC.CARD_AUDIO_RESULT,
                                   {'uid': uid, 'field': field, 'ok': False,
-                                   'error': str(e)[:200]})
+                                   'error': msg[:200]})
                     failed += 1
                     continue
                 if not out or not out.get('path'):
@@ -531,5 +552,11 @@ class ReactBridge:
             # after install; the user presses Speak again themselves.
             self.send_to_js({'cmd': 'ttsSetupRequired'})
         except Exception as e:
-            print(f'(ReactBridge) speak_text failed: {e}')
-            self.send_to_js({'cmd': 'ttsError', 'message': str(e)})
+            msg = str(e)
+            if msg.startswith('TTS_PACK_MISSING'):
+                # Detected (or selected) Japanese without the pack: open the
+                # incremental add-pack modal rather than a raw error toast.
+                self.send_to_js({'cmd': 'ttsSetupRequired', 'mode': 'add_ja'})
+            else:
+                print(f'(ReactBridge) speak_text failed: {e}')
+                self.send_to_js({'cmd': 'ttsError', 'message': msg})

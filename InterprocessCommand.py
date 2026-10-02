@@ -45,8 +45,11 @@ class InterprocessCommand(Enum):
     DID_RESOLVE_AUDIO_IDS = 'DID_RESOLVE_AUDIO_IDS'
 
     # ── AnkiBrain Voice (Kokoro TTS) ──────────────────────────────────────
-    # SYNTHESIZE_SPEECH -> DID_SYNTHESIZE_SPEECH {path,url,...} (promise-style;
-    # JS resolves via commandId). TTS_STATUS reports installed/platform/voices.
+    # SYNTHESIZE_SPEECH {text, voice?, speed?, auto?} -> DID_SYNTHESIZE_SPEECH
+    # {path,url,voice,language,...} (promise-style; JS resolves via commandId).
+    # auto: null -> ttsAutoDetect setting, false -> speak `voice` verbatim,
+    # true -> engine-side language detection picks a fitting voice.
+    # TTS_STATUS reports installed/platform/voices.
     # TTS_INSTALL {groups} kicks off the bootstrap: ['core'] full install,
     # ['core','ja'] full install incl. Japanese, ['ja'] adds the pack to an
     # already installed engine. Progress arrives via pushed
