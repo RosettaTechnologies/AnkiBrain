@@ -1,0 +1,87 @@
+.AuthScreen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 24px;
+  overflow: auto;
+}
+
+.AuthScreen-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--ion-border-color, rgba(0, 0, 0, 0.2));
+  background-color: var(--app-panel-bg);
+}
+
+.AuthScreen-title {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+}
+
+.AuthScreen-subtitle {
+  font-size: 13px;
+  color: gray;
+  margin: 0 0 24px 0;
+}
+
+.AuthScreen-label {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.AuthScreen-input {
+  --background: var(--app-input-bg);
+  --padding-start: 10px;
+  --padding-end: 10px;
+  margin-bottom: 14px;
+}
+
+.AuthScreen-checkbox {
+  --size: 18px;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.AuthScreen-checkboxLabel {
+  font-size: 12px;
+  white-space: normal;
+}
+
+.AuthScreen-link {
+  color: #319795;
+}
+
+.AuthScreen-hint {
+  font-size: 12px;
+  color: gray;
+}
+
+.AuthScreen-center {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0;
+}
+
+.AuthScreen-secondaryBtn {
+  margin-top: 12px;
+}
+
+.AuthScreen-divider {
+  border: none;
+  border-top: 1px solid var(--ion-border-color, rgba(0, 0, 0, 0.2));
+  margin: 20px 0 12px 0;
+}
+
+.AuthScreen-forgot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 16px;
+}

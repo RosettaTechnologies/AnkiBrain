@@ -1,18 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import {
-  Box,
-  Button,
-  Checkbox,
-  Divider,
-  Flex,
-  Heading,
-  Input,
-  Link,
-  Spinner,
-  Text,
-} from "@chakra-ui/react";
-import { useColorMode } from "../../../theme/colorMode";
+import { IonButton, IonCheckbox, IonInput, IonSpinner } from "@ionic/react";
+import "./AuthScreen.css";
 import {
   login,
   logout,
@@ -200,9 +189,9 @@ export function AuthScreen() {
   if (!checkedAuth) {
     return (
       <AuthCard title="AnkiBrain" subtitle="Checking your session...">
-        <Flex justify="center" py={6}>
-          <Spinner thickness="3px" color="accent" size="lg" />
-        </Flex>
+        <div className="AuthScreen-center">
+          <IonSpinner name="circular" />
+        </div>
       </AuthCard>
     );
   }
@@ -214,25 +203,32 @@ export function AuthScreen() {
         subtitle={`We sent a verification code to ${user.email}.`}
       >
         <form onSubmit={handleVerify}>
-          <Input
-            mb={3}
+          <IonInput
+            className="AuthScreen-input"
+            fill="solid"
             placeholder="Verification code..."
             value={verificationCode}
-            onChange={(e) => {
-              setVerificationCode(e.target.value);
+            onIonInput={(e) => {
+              setVerificationCode(e.detail.value || "");
             }}
           />
-          <Button type="submit" variant="accent" width="100%" isDisabled={busy}>
+          <IonButton
+            type="submit"
+            color="accent"
+            expand="block"
+            disabled={busy}
+          >
             Validate
-          </Button>
+          </IonButton>
         </form>
-        <Text fontSize={12} mt={3} color="gray">
+        <p className="AuthScreen-hint">
           If you don&apos;t see the code, <b>check your spam folder.</b>
-        </Text>
-        <Button
-          mt={3}
-          width="100%"
-          isDisabled={busy}
+        </p>
+        <IonButton
+          className="AuthScreen-secondaryBtn"
+          color="light"
+          expand="block"
+          disabled={busy}
           onClick={() => {
             run(async () => {
               await resendVerificationCode(user.accessToken);
@@ -240,11 +236,15 @@ export function AuthScreen() {
           }}
         >
           Resend verification code to my email
-        </Button>
-        <Divider mt={5} mb={3} />
-        <Button variant="ghost" width="100%" onClick={handleLogoutFromVerify}>
+        </IonButton>
+        <hr className="AuthScreen-divider" />
+        <IonButton
+          fill="clear"
+          expand="block"
+          onClick={handleLogoutFromVerify}
+        >
           Log in with a different account
-        </Button>
+        </IonButton>
       </AuthCard>
     );
   }
@@ -261,57 +261,60 @@ export function AuthScreen() {
       >
         {!resetCodeSent ? (
           <form onSubmit={handleRequestResetCode}>
-            <Input
-              mb={3}
+            <IonInput
+              className="AuthScreen-input"
+              fill="solid"
               type="email"
               placeholder="Email address"
               value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
+              onIonInput={(e) => {
+                setEmail(e.detail.value || "");
               }}
             />
-            <Button
+            <IonButton
               type="submit"
-              variant="accent"
-              width="100%"
-              isDisabled={busy}
+              color="accent"
+              expand="block"
+              disabled={busy}
             >
               Send verification code
-            </Button>
+            </IonButton>
           </form>
         ) : (
           <form onSubmit={handleConfirmReset}>
-            <Input
-              mb={3}
+            <IonInput
+              className="AuthScreen-input"
+              fill="solid"
               placeholder="Verification code"
               value={resetCode}
-              onChange={(e) => {
-                setResetCode(e.target.value);
+              onIonInput={(e) => {
+                setResetCode(e.detail.value || "");
               }}
             />
-            <Input
-              mb={3}
+            <IonInput
+              className="AuthScreen-input"
+              fill="solid"
               type="password"
               placeholder="New password"
               value={newPassword}
-              onChange={(e) => {
-                setNewPassword(e.target.value);
+              onIonInput={(e) => {
+                setNewPassword(e.detail.value || "");
               }}
             />
-            <Button
+            <IonButton
               type="submit"
-              variant="accent"
-              width="100%"
-              isDisabled={busy}
+              color="accent"
+              expand="block"
+              disabled={busy}
             >
               Reset password
-            </Button>
+            </IonButton>
           </form>
         )}
-        <Button
-          variant="ghost"
-          width="100%"
-          mt={3}
+        <IonButton
+          className="AuthScreen-secondaryBtn"
+          fill="clear"
+          expand="block"
           onClick={() => {
             setResetCodeSent(false);
             setResetCode("");
@@ -320,7 +323,7 @@ export function AuthScreen() {
           }}
         >
           Back to login
-        </Button>
+        </IonButton>
       </AuthCard>
     );
   }
@@ -337,155 +340,139 @@ export function AuthScreen() {
       }
     >
       <form onSubmit={isSignup ? handleSignup : handleLogin}>
-        <label className="form-label" htmlFor="auth-email">
+        <label className="AuthScreen-label" htmlFor="auth-email">
           Email address
         </label>
-        <Input
+        <IonInput
+          className="AuthScreen-input"
+          fill="solid"
           id="auth-email"
-          mb={3}
           type="email"
           value={email}
-          onChange={(e) => {
-            setEmail(e.target.value);
+          onIonInput={(e) => {
+            setEmail(e.detail.value || "");
           }}
         />
-        <label className="form-label" htmlFor="auth-password">
+        <label className="AuthScreen-label" htmlFor="auth-password">
           Password
         </label>
-        <Input
+        <IonInput
+          className="AuthScreen-input"
+          fill="solid"
           id="auth-password"
-          mb={3}
           type="password"
           value={password}
-          onChange={(e) => {
-            setPassword(e.target.value);
+          onIonInput={(e) => {
+            setPassword(e.detail.value || "");
           }}
         />
         {isSignup && (
           <>
-            <label className="form-label" htmlFor="auth-confirm">
+            <label className="AuthScreen-label" htmlFor="auth-confirm">
               Confirm password
             </label>
-            <Input
+            <IonInput
+              className="AuthScreen-input"
+              fill="solid"
               id="auth-confirm"
-              mb={3}
               type="password"
               value={confirmPassword}
-              onChange={(e) => {
-                setConfirmPassword(e.target.value);
+              onIonInput={(e) => {
+                setConfirmPassword(e.detail.value || "");
               }}
             />
-            <Checkbox
-              mb={2}
-              isChecked={agreedPP}
-              onChange={(e) => {
-                setAgreedPP(e.target.checked);
+            <IonCheckbox
+              className="AuthScreen-checkbox"
+              checked={agreedPP}
+              onIonChange={(e) => {
+                setAgreedPP(e.detail.checked);
               }}
             >
-              <Text as="span" fontSize={12}>
+              <span className="AuthScreen-checkboxLabel">
                 I have read and agree to the{" "}
-                <Link color="teal.500" href={privacyPolicyLink} isExternal>
+                <a
+                  className="AuthScreen-link"
+                  href={privacyPolicyLink}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   Privacy Policy
-                </Link>
-              </Text>
-            </Checkbox>
-            <Checkbox
-              mb={3}
-              isChecked={agreedTOS}
-              onChange={(e) => {
-                setAgreedTOS(e.target.checked);
+                </a>
+              </span>
+            </IonCheckbox>
+            <IonCheckbox
+              className="AuthScreen-checkbox"
+              checked={agreedTOS}
+              onIonChange={(e) => {
+                setAgreedTOS(e.detail.checked);
               }}
             >
-              <Text as="span" fontSize={12}>
+              <span className="AuthScreen-checkboxLabel">
                 I have read and agree to the{" "}
-                <Link color="teal.500" href={termsOfServiceLink} isExternal>
+                <a
+                  className="AuthScreen-link"
+                  href={termsOfServiceLink}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   Terms of Service
-                </Link>
-              </Text>
-            </Checkbox>
+                </a>
+              </span>
+            </IonCheckbox>
           </>
         )}
-        <Button
-          type="submit"
-          variant="accent"
-          width="100%"
-          isDisabled={busy}
-        >
+        <IonButton type="submit" color="accent" expand="block" disabled={busy}>
           {isSignup ? "Create Account" : "Login"}
-        </Button>
+        </IonButton>
       </form>
 
-      <Divider mt={5} mb={3} />
+      <hr className="AuthScreen-divider" />
 
       {!isSignup && (
         <>
-          <Button
-            variant="secondary"
-            width="100%"
-            onClick={() => {
-              setMode(MODES.SIGNUP);
-            }}
-          >
+          <IonButton color="secondary" expand="block" onClick={() => setMode(MODES.SIGNUP)}>
             Sign Up
-          </Button>
-          <Flex direction="column" align="center" mt={4}>
-            <Text fontSize={12}>Forgot password?</Text>
-            <Button
-              variant="ghost"
-              size="sm"
+          </IonButton>
+          <div className="AuthScreen-forgot">
+            <span className="AuthScreen-hint">Forgot password?</span>
+            <IonButton
+              fill="clear"
+              size="small"
               onClick={() => {
                 setResetCodeSent(false);
                 setMode(MODES.RESET);
               }}
             >
               Reset my password
-            </Button>
-          </Flex>
+            </IonButton>
+          </div>
         </>
       )}
 
       {isSignup && (
-        <Button
-          variant="ghost"
-          width="100%"
-          mt={3}
+        <IonButton
+          className="AuthScreen-secondaryBtn"
+          fill="clear"
+          expand="block"
           onClick={() => {
             setMode(MODES.LOGIN);
           }}
         >
           Already have an account? Log in
-        </Button>
+        </IonButton>
       )}
     </AuthCard>
   );
 }
 
 function AuthCard({ title, subtitle, children }) {
-  const { colorMode } = useColorMode();
   return (
-    <Flex
-      direction="column"
-      align="center"
-      justify="center"
-      height="100%"
-      p={6}
-    >
-      <Box
-        width="100%"
-        maxWidth="420px"
-        p={8}
-        borderRadius="lg"
-        borderWidth="1px"
-        bg={colorMode === "dark" ? "customPurple.800" : "white"}
-      >
-        <Heading fontSize={22} mb={1}>
-          {title}
-        </Heading>
-        <Text fontSize={13} color="gray" mb={6}>
-          {subtitle}
-        </Text>
+    <div className="AuthScreen">
+      <div className="AuthScreen-card">
+        <h2 className="AuthScreen-title">{title}</h2>
+        <p className="AuthScreen-subtitle">{subtitle}</p>
         {children}
-      </Box>
-    </Flex>
+      </div>
+    </div>
   );
 }
