@@ -1,0 +1,173 @@
+.SettingsScreen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.SettingsScreen-segment {
+  max-width: 325px;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.SettingsScreen-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.SettingsScreen-wideBtn {
+  width: 325px;
+  max-width: 100%;
+  margin: 0 0 12px 0;
+}
+
+.SettingsScreen-divider {
+  border: none;
+  border-top: 1px solid var(--ion-border-color, rgba(0, 0, 0, 0.2));
+  margin: 16px 0;
+  width: 100%;
+}
+
+.SettingsScreen-sectionHeader {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin: 12px 0 8px 0;
+}
+
+.SettingsScreen-sectionIcon {
+  font-size: 22px;
+  margin-right: 10px;
+}
+
+.SettingsScreen-sectionTitle {
+  font-weight: 700;
+}
+
+.SettingsScreen-voice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 325px;
+  max-width: 100%;
+}
+
+.SettingsScreen-hint {
+  font-size: 12px;
+  color: var(--ion-color-medium);
+  margin: 0 0 10px 0;
+  align-self: flex-start;
+}
+
+.SettingsScreen-hint--small {
+  font-size: 11px;
+}
+
+.SettingsScreen-label {
+  font-size: 13px;
+  margin-bottom: 4px;
+  align-self: flex-start;
+}
+
+.SettingsScreen-select {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.SettingsScreen-select--wide {
+  max-width: 500px;
+}
+
+.SettingsScreen-checkbox {
+  --size: 18px;
+  font-size: 13px;
+  align-self: flex-start;
+  margin-bottom: 6px;
+}
+
+.SettingsScreen-checkboxLabel {
+  font-size: 13px;
+}
+
+.SettingsScreen-range {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.SettingsScreen-advanced {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.SettingsScreen-field {
+  display: flex;
+  flex-direction: column;
+  width: 325px;
+  max-width: 100%;
+  margin-bottom: 12px;
+}
+
+.SettingsScreen-input {
+  --background: var(--app-input-bg);
+  --padding-start: 10px;
+  --padding-end: 10px;
+}
+
+.SettingsScreen-toggleRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 12px 0;
+}
+
+.SettingsScreen-serverLine {
+  font-size: 12px;
+  color: gray;
+  margin-top: 20px;
+}
+
+.SettingsScreen-toggleList {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.SettingsScreen-toggleItem {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.SettingsScreen-toggleText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.SettingsScreen-toggleText span {
+  font-size: 14px;
+}
+
+.SettingsScreen-toggleText .SettingsScreen-hint {
+  align-self: stretch;
+  margin-top: 4px;
+}
+
+.SettingsScreen-pwReset {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.SettingsScreen-pwReset .SettingsScreen-field {
+  width: 100%;
+  margin-bottom: 0;
+}
