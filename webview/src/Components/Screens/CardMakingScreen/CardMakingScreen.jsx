@@ -1,6 +1,7 @@
 import "./CardMakingScreen.css";
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { cloneDeep, debounce } from "lodash";
 import {
   AlertDialog,
@@ -223,7 +224,14 @@ export function CardMakingScreen() {
 
   // Which editor view is active. Replaces the old Tabs; the segment buttons
   // live in the toolbar so all page actions sit in one wrapping strip.
-  const [view, setView] = useState("documents");
+  // "Send to Make Cards" navigates here with { state: { view: "text" } }, so
+  // text sent from Talk / Topic Explanation opens on From Text.
+  const location = useLocation();
+  const [view, setView] = useState(
+    ["documents", "text", "failed"].includes(location.state?.view)
+      ? location.state.view
+      : "documents"
+  );
 
   // The extracted-images side panel. Expanded by default; on narrow windows
   // it floats as an overlay drawer instead of a fixed column. Separate
