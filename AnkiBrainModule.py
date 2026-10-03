@@ -30,7 +30,9 @@ class GUIThreadSignaler(QObject):
     Required class for calling UI updates from the non-UI thread.
     """
     resetUISignal = pyqtSignal()
-    openFileBrowserSignal = pyqtSignal(int)  # takes commandId so we can resolve the request
+    # (commandId, allow_images): allow_images widens the picker filter so
+    # Make Cards can accept documents AND images in one selection.
+    openFileBrowserSignal = pyqtSignal(int, bool)
     importImagesSignal = pyqtSignal(int)  # image-occlusion: pick image file(s)
     importClipboardImageSignal = pyqtSignal(int)  # image-occlusion: paste image
     showNoAPIKeyDialogSignal = pyqtSignal()
@@ -54,10 +56,24 @@ class GUIThreadSignaler(QObject):
     def reset_ui(self):
         mw.reset()
 
-    def open_file_browser(self, commandId):
+    def open_file_browser(self, commandId, allow_images=False):
         print(f'Opening file browser with commandId {commandId}')
         dialog = QFileDialog()
-        full_paths, _ = dialog.getOpenFileNames()
+        if allow_images:
+            # Make Cards picker: documents and image files in one selection.
+            # The Import screen's document browser keeps the unfiltered
+            # dialog (it must never accept an image as a document).
+            name_filter = (
+                'Documents and images (*.pdf *.docx *.pptx *.txt *.html '
+                '*.png *.jpg *.jpeg *.gif *.webp *.bmp);;'
+                'Documents (*.pdf *.docx *.pptx *.txt *.html);;'
+                'Images (*.png *.jpg *.jpeg *.gif *.webp *.bmp);;'
+                'All files (*)'
+            )
+            full_paths, _ = dialog.getOpenFileNames(
+                None, 'Select document(s) or image(s)', '', name_filter)
+        else:
+            full_paths, _ = dialog.getOpenFileNames()
 
         # No files selected (empty array).
         if not full_paths:

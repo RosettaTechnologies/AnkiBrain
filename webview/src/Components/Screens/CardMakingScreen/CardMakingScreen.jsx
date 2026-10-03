@@ -81,7 +81,14 @@ import {
   setMakeCardsText,
 } from "../../../api/redux/slices/makeCardsText";
 import { errorToast, infoToast, successToast } from "../../../api/toast";
-import { splitDocument } from "../../../api/documents";
+import { pickCardsSource, splitSelectedDocument } from "../../../api/documents";
+import { importImagePaths } from "../../../api/occlusion";
+import {
+  cancelAllOcclusionGeneration,
+  cancelOcclusionGeneration,
+  createOcclusionCards,
+} from "../../../api/occlusionGeneration";
+import { countOcclusionGenerating } from "../../../api/redux/slices/occlusionGeneration";
 import { isLocalMode } from "../../../api/user";
 import { pyEditSetting } from "../../../api/PythonBridge/senders/pyEditSetting";
 import { store } from "../../../api/redux";
@@ -203,8 +210,10 @@ export function CardMakingScreen() {
   const [tag, setTag] = useState("");
   const [showClearCardsAlert, setShowClearCardsAlert] = useState(false);
   const [showClearImagesAlert, setShowClearImagesAlert] = useState(false);
-  const [showMakeCardsFromDocumentAlert, setShowMakeCardsFromDocumentAlert] =
-    useState(false);
+  // Make Cards file selection awaiting the document warning: {documents,
+  // images} from the combined picker, or null. Images-only selections skip
+  // the warning and process immediately.
+  const [pendingCardsSource, setPendingCardsSource] = useState(null);
   const cancelRef = useRef();
   const [selectedCardType, setSelectedCardType] = useState("basic");
   const customPromptMakeCards = useSelector(
@@ -266,6 +275,28 @@ export function CardMakingScreen() {
   const audioInFlight = useMemo(
     () => countGenerating(audioGenerating),
     [audioGenerating]
+  );
+
+  // In-flight AI mask generation for occlusion cards (Make Cards → Image
+  // Occlusion): drives the batch progress row and the Add-to-Anki gate,
+  // mirroring card audio.
+  const occlusionGenerating = useSelector(
+    (state) => state.occlusionGeneration.generating
+  );
+  const occlusionInFlight = useMemo(
+    () => countOcclusionGenerating(occlusionGenerating),
+    [occlusionGenerating]
+  );
+  // Occlusion cards whose masks never arrived (cancelled, failed, or a
+  // restart dropped the job). Adding them fails python-side, so they block
+  // Add-to-Anki until retried, edited, or deleted.
+  const occlusionMissingMasks = useMemo(
+    () =>
+      cards.filter(
+        (card) =>
+          card.type === "occlusion" && (card.occlusions || []).length === 0
+      ).length,
+    [cards]
   );
   const appDidBoot = useSelector((state) => state.appDidBoot.value);
 
@@ -476,9 +507,13 @@ export function CardMakingScreen() {
   };
 
   const handleClearCards = async () => {
-    // Cancel any queued audio before the cards (their uids) go away.
+    // Cancel any queued audio / mask generation before the cards (their
+    // uids) go away.
     if (audioInFlight > 0) {
       cancelAllCardAudio();
+    }
+    if (occlusionInFlight > 0) {
+      cancelAllOcclusionGeneration();
     }
     dispatch(setCards([]));
     await pyEditSetting("tempCards", []);
@@ -561,9 +596,24 @@ export function CardMakingScreen() {
       // drains so bulk cleanup still happens, just not mid-clip. The count
       // is read live from the store because the auto-enqueue effect above
       // marks this batch's jobs in the same commit — the render closure's
-      // audioInFlight value would be stale by one pass.
+      // audioInFlight value would be stale by one pass. Same deferral for
+      // mask generation, and zero-mask occlusion cards would reject the
+      // whole python batch, so hold until they are resolved.
       const liveAudioJobs = countGenerating(store.getState().cardAudio.generating);
-      if (automaticallyAddCards && cards.length > 100 && liveAudioJobs === 0) {
+      const liveOcclusionJobs = countOcclusionGenerating(
+        store.getState().occlusionGeneration.generating
+      );
+      const hasMasklessOcclusion = cards.some(
+        (card) =>
+          card.type === "occlusion" && (card.occlusions || []).length === 0
+      );
+      if (
+        automaticallyAddCards &&
+        cards.length > 100 &&
+        liveAudioJobs === 0 &&
+        liveOcclusionJobs === 0 &&
+        !hasMasklessOcclusion
+      ) {
         // Make sure global tag is applied.
         infoToast(
           "Automatically Adding Cards",
@@ -583,44 +633,162 @@ export function CardMakingScreen() {
     })();
   }, [cards, audioInFlight]);
 
-  async function makeCardsFromDocument() {
-    if (makeCardsLoading) {
+  /*
+   * Make Cards…: one picker for documents and images.
+   *   - Image files always become image-occlusion cards (AI masks generated
+   *     in the background, cancellable per card).
+   *   - Documents keep the historical text-card flow, except with the Image
+   *     Occlusion type, where the document's images become occlusion cards
+   *     and no text cards are generated.
+   */
+  const handleMakeCardsClick = async () => {
+    if (makeCardsLoading || occlusionInFlight > 0) {
       return;
     }
 
-    // Same implementation for local/server modes.
+    let source = null;
+    try {
+      source = await pickCardsSource();
+    } catch (err) {
+      errorToast("Error", String((err && err.message) || err));
+      return;
+    }
+    if (!source) {
+      return;
+    }
+
+    if (source.documents.length > 1) {
+      infoToast(
+        "Multiple Documents",
+        "You have selected multiple documents. Only the first one will be used. This will be changed in a future update!"
+      );
+    }
+
+    // The warning exists so users strip junk pages before the whole
+    // document is read — only relevant when a document is in the selection.
+    if (source.documents.length > 0) {
+      setPendingCardsSource(source);
+    } else {
+      await processCardsSource(source);
+    }
+  };
+
+  const processCardsSource = async (source) => {
+    setPendingCardsSource(null);
+    if (!source) {
+      return;
+    }
+
+    const imageFiles = source.images || [];
+    const documentDescriptor = (source.documents || [])[0] || null;
+
     try {
       dispatch(setMakeCardsLoading(true));
-      let splitResult = await splitDocument(dispatch);
-      if (!splitResult || !splitResult.chunks) {
-        dispatch(setMakeCardsLoading(false));
-        return;
-      }
 
-      let chunks = splitResult.chunks;
-      if (typeof chunks === "string") {
-        chunks = JSON.parse(chunks);
-      }
-      let images = splitResult.images || [];
-
-      // Keep extracted images available for previews and for ADD_CARDS,
-      // which resolves ids to files in media_tmp.
-      dispatch(addImages(images));
-
-      // Record what this run found so the tab can show a status line and so
-      // the library/picker can sort "images from this document" first.
-      dispatch(
-        setDocumentContext({
-          docName: splitResult.doc
-            ? splitResult.doc.file_name_with_extension ||
-              splitResult.doc.file_name ||
-              ""
-            : "",
-          runId: images.length > 0 ? images[0].id.split("/")[0] : "",
-          chunksCount: chunks.length,
-          imagesCount: images.length,
-        })
+      // Import selected image files first so their occlusion cards appear
+      // alongside whatever the document produces.
+      const importedImages = await importImagePaths(
+        imageFiles.map((file) => file.path)
       );
+
+      let splitResult = null;
+      if (documentDescriptor) {
+        splitResult = await splitSelectedDocument(documentDescriptor, dispatch);
+        if (!splitResult) {
+          return;
+        }
+      }
+
+      const docImages = (splitResult && splitResult.images) || [];
+      if (splitResult) {
+        // Keep extracted images available for previews and for ADD_CARDS,
+        // which resolves ids to files in media_tmp.
+        dispatch(addImages(docImages));
+
+        // Record what this run found so the tab can show a status line and
+        // so the library/picker can sort "images from this document" first.
+        dispatch(
+          setDocumentContext({
+            docName: splitResult.doc
+              ? splitResult.doc.file_name_with_extension ||
+                splitResult.doc.file_name ||
+                ""
+              : "",
+            runId: docImages.length > 0 ? docImages[0].id.split("/")[0] : "",
+            chunksCount: splitResult.chunks.length,
+            imagesCount: docImages.length,
+          })
+        );
+      }
+
+      const occlusionMode = selectedCardType === "occlusion";
+      const imagesToOcclude = occlusionMode
+        ? [...docImages, ...importedImages]
+        : importedImages;
+
+      if (imagesToOcclude.length > 0) {
+        const contexts = buildImageContexts(
+          docImages,
+          splitResult ? splitResult.chunks : []
+        );
+        const created = createOcclusionCards(imagesToOcclude, contexts);
+        successToast(
+          "Making Occlusion Cards",
+          `${created.length} image${created.length === 1 ? "" : "s"} queued — masks are generated automatically. Review them below.`
+        );
+        if (!occlusionMode) {
+          infoToast(
+            "Images Added as Occlusion Cards",
+            "Image files always become image-occlusion cards. Images found inside a document are attached to the cards made from its text."
+          );
+        }
+      } else if (occlusionMode) {
+        infoToast(
+          "No Images Found",
+          documentDescriptor
+            ? "No images were found in this document — nothing to turn into occlusion cards."
+            : "No images could be imported."
+        );
+      }
+
+      if (!occlusionMode && splitResult) {
+        await generateTextCardsFromDocument(splitResult);
+      }
+    } catch (err) {
+      errorToast("Error", err.message);
+    } finally {
+      dispatch(setMakeCardsLoading(false));
+    }
+  };
+
+  // Chunk text near each document image, passed to the vision model as
+  // context (the image's anchorChunk indexes into the split chunks).
+  const buildImageContexts = (images, chunks) => {
+    const contexts = {};
+    if (!chunks || chunks.length === 0) {
+      return contexts;
+    }
+    for (const image of images) {
+      const anchor = image.anchorChunk;
+      if (typeof anchor !== "number" || !Number.isFinite(anchor)) {
+        continue;
+      }
+      const index = Math.min(Math.max(Math.floor(anchor), 0), chunks.length - 1);
+      if (chunks[index]) {
+        contexts[image.id] = chunks[index];
+      }
+    }
+    return contexts;
+  };
+
+  // Text-card generation for a split document (Basic/Cloze types). Same
+  // batching/ETA behavior as before, now decoupled from the picker.
+  const generateTextCardsFromDocument = async (splitResult) => {
+    try {
+      dispatch(setMakeCardsLoading(true));
+
+      const chunks = splitResult.chunks;
+      const images = splitResult.images || [];
 
       const model = store.getState().appSettings.ai.llmModel;
       const maxCharsPerBatch = getCardGenChunkSize(model);
@@ -733,12 +901,37 @@ export function CardMakingScreen() {
   };
 
   const handleMakeFromTextClick = async () => {
+    if (selectedCardType === "occlusion") {
+      infoToast(
+        "Image Occlusion",
+        "Image occlusion cards are made from documents and images, not text. Use Make Cards… in From Documents/Images."
+      );
+      return;
+    }
     if (makeCardsText.trim().split(/\s+/).length <= 750) {
       await handleMakeCards(makeCardsText, customPromptMakeCards, selectedCardType);
     } else {
       errorToast("Too many tokens");
     }
   };
+
+  // Why Add-to-Anki is unavailable right now (undefined = available). A
+  // card with no masks can't be added (python rejects the whole batch), so
+  // failed/cancelled mask generation blocks the button until resolved.
+  const addBlockedReason =
+    audioInFlight > 0
+      ? "Waiting for audio generation to finish"
+      : makeCardsLoading
+        ? "Waiting for card generation to finish"
+        : occlusionInFlight > 0
+          ? "Waiting for mask generation to finish"
+          : occlusionMissingMasks > 0
+            ? `${occlusionMissingMasks} occlusion card${
+                occlusionMissingMasks === 1 ? " has" : "s have"
+              } no masks — retry, edit, or delete ${
+                occlusionMissingMasks === 1 ? "it" : "them"
+              } first`
+            : undefined;
 
   const libraryProps = {
     images: sortedImages,
@@ -794,21 +987,22 @@ export function CardMakingScreen() {
 
       <AlertDialog
         leastDestructiveRef={cancelRef}
-        isOpen={showMakeCardsFromDocumentAlert}
+        isOpen={pendingCardsSource !== null}
         onClose={() => {
-          setShowMakeCardsFromDocumentAlert(false);
+          setPendingCardsSource(null);
         }}
       >
         <AlertDialogOverlay>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <Text>Make Cards From Document</Text>
+              <Text>Make Cards</Text>
               <AlertDialogCloseButton />
             </AlertDialogHeader>
             <AlertDialogBody>
               <Text>
                 AnkiBrain can make cards out of an entire document up to{" "}
-                {isLocalMode() ? "1 GB" : "100 MB"} in size.
+                {isLocalMode() ? "1 GB" : "100 MB"} in size, and turn image
+                files into image-occlusion cards.
               </Text>
               <Text>
                 AnkiBrain will read <b>every single word</b> in your document,
@@ -818,13 +1012,18 @@ export function CardMakingScreen() {
                 To reduce junk cards, <b>you must remove irrelevant pages</b>{" "}
                 from your document!
               </Text>
+              <Text fontSize={12} color={"gray"}>
+                Images found in the document are turned into image-occlusion
+                cards when the Image Occlusion type is selected; otherwise
+                they are attached to the cards made from the text.
+              </Text>
             </AlertDialogBody>
             <AlertDialogFooter>
               <Button
                 me={5}
                 ref={cancelRef}
                 onClick={() => {
-                  setShowMakeCardsFromDocumentAlert(false);
+                  setPendingCardsSource(null);
                 }}
               >
                 Cancel
@@ -832,8 +1031,7 @@ export function CardMakingScreen() {
               <Button
                 variant={"accent"}
                 onClick={async () => {
-                  setShowMakeCardsFromDocumentAlert(false);
-                  await makeCardsFromDocument();
+                  await processCardsSource(pendingCardsSource);
                 }}
               >
                 I understand, proceed
@@ -873,7 +1071,7 @@ export function CardMakingScreen() {
             colorMode === "light" ? "rgba(0,0,0,0.08)" : "customPurple.700"
           }
         >
-          {segmentPill("documents", "From Documents")}
+          {segmentPill("documents", "From Documents/Images")}
           {segmentPill("text", "From Text")}
           {failedCards.length > 0 &&
             segmentPill("failed", `Failed Cards (${failedCards.length})`)}
@@ -888,12 +1086,10 @@ export function CardMakingScreen() {
                 <Button
                   size={"sm"}
                   variant={"accent"}
-                  isDisabled={makeCardsLoading}
-                  onClick={() => {
-                    setShowMakeCardsFromDocumentAlert(true);
-                  }}
+                  isDisabled={makeCardsLoading || occlusionInFlight > 0}
+                  onClick={handleMakeCardsClick}
                 >
-                  {makeCardsLoading ? (
+                  {makeCardsLoading || occlusionInFlight > 0 ? (
                     <>
                       <Spinner size={"sm"} me={2} />
                       Generating…
@@ -901,7 +1097,7 @@ export function CardMakingScreen() {
                   ) : (
                     <>
                       <AddIcon me={2} />
-                      Make Cards From Document
+                      Make Cards...
                     </>
                   )}
                 </Button>
@@ -909,7 +1105,17 @@ export function CardMakingScreen() {
                 <Button
                   size={"sm"}
                   variant={"accent"}
-                  isDisabled={makeCardsText === "" || makeCardsLoading}
+                  isDisabled={
+                    makeCardsText === "" ||
+                    makeCardsLoading ||
+                    occlusionInFlight > 0 ||
+                    selectedCardType === "occlusion"
+                  }
+                  title={
+                    selectedCardType === "occlusion"
+                      ? "Image occlusion cards are made from documents and images — use Make Cards… in From Documents/Images"
+                      : undefined
+                  }
                   onClick={handleMakeFromTextClick}
                 >
                   {makeCardsLoading ? (
@@ -936,7 +1142,7 @@ export function CardMakingScreen() {
                 </Text>
                 <Select
                   size={"sm"}
-                  width={100}
+                  width={140}
                   value={selectedCardType}
                   onChange={(e) => {
                     setSelectedCardType(e.target.value);
@@ -944,6 +1150,7 @@ export function CardMakingScreen() {
                 >
                   <option value={"basic"}>Basic</option>
                   <option value={"cloze"}>Cloze</option>
+                  <option value={"occlusion"}>Image Occlusion</option>
                 </Select>
               </ToolbarGroup>
             </ToolbarGroup>
@@ -990,19 +1197,11 @@ export function CardMakingScreen() {
             <Button
               size={"xs"}
               variant={"secondary"}
-              isDisabled={
-                cards.length <= 0 || audioInFlight > 0 || makeCardsLoading
-              }
-              title={
-                audioInFlight > 0
-                  ? "Waiting for audio generation to finish"
-                  : makeCardsLoading
-                    ? "Waiting for card generation to finish"
-                    : undefined
-              }
+              isDisabled={cards.length <= 0 || !!addBlockedReason}
+              title={addBlockedReason}
               onClick={handleAddCardsToAnki}
             >
-              {audioInFlight > 0 || makeCardsLoading ? (
+              {audioInFlight > 0 || makeCardsLoading || occlusionInFlight > 0 ? (
                 <>
                   <Spinner size={"xs"} me={1.5} />
                   Working…
@@ -1063,6 +1262,11 @@ export function CardMakingScreen() {
                       Images panel, so you can insert images into cards before
                       adding them to Anki.
                     </Text>
+                    <Text fontSize={12} color={"gray"}>
+                      With the Image Occlusion type, Make Cards… turns image
+                      files (or the images inside a document) into
+                      image-occlusion cards and proposes the masks with AI.
+                    </Text>
                     {automaticallyAddCards && (
                       <Text fontSize={12} color={"gray"}>
                         Every 100 cards will automatically be added to Anki
@@ -1110,6 +1314,25 @@ export function CardMakingScreen() {
                 );
                 terminateMakingCardsFromDoc.current = true;
               }}
+            >
+              <DeleteIcon me={1.5} boxSize={3} />
+              Stop
+            </Button>
+          </Flex>
+        )}
+
+        {/* Mask generation row — individual cards can be cancelled below */}
+        {occlusionInFlight > 0 && (
+          <Flex align={"center"} gap={3} mt={2}>
+            <Spinner size={"sm"} color={"accent"} />
+            <Text fontSize={12} color={"gray"} whiteSpace={"nowrap"}>
+              Generating masks for {occlusionInFlight} image
+              {occlusionInFlight === 1 ? "" : "s"}…
+            </Text>
+            <Button
+              size={"xs"}
+              colorScheme={"red"}
+              onClick={cancelAllOcclusionGeneration}
             >
               <DeleteIcon me={1.5} boxSize={3} />
               Stop
@@ -1261,11 +1484,12 @@ export function CardMakingScreen() {
               imagesById={imagesById}
               modifyCard={modifyCard}
               onDelete={(index) => {
-                // Deleting a card cancels its queued audio so a phantom job
-                // never keeps the Add-to-Anki gate down.
+                // Deleting a card cancels its queued audio / mask generation
+                // so a phantom job never keeps the Add-to-Anki gate down.
                 const uid = cards[index] && cards[index].uid;
                 if (uid) {
                   cancelCardAudio(uid);
+                  cancelOcclusionGeneration(uid);
                 }
                 store.dispatch(deleteCardAtIndex(index));
               }}

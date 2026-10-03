@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSelector } from "react-redux";
 import {
   Box,
   Button,
@@ -122,6 +123,11 @@ export function OcclusionEditorModal(props) {
   const { isOpen, onClose, image, initialCard = null, onSave } = props;
   const { colorMode } = useColorMode();
   const toast = useToast();
+
+  // The vision call shares the ChatAI subprocess with card generation; the
+  // pipe matches one response per request, so don't allow a manual Suggest
+  // while a card-generation batch is in flight.
+  const cardGenLoading = useSelector((s) => s.makeCardsText.loading);
 
   const containerRef = useRef(null);
   const dragRef = useRef(null);
@@ -475,7 +481,12 @@ export function OcclusionEditorModal(props) {
               size={"sm"}
               variant={"outline"}
               onClick={handleSuggest}
-              isDisabled={!hasImage || aiLoading}
+              isDisabled={!hasImage || aiLoading || cardGenLoading}
+              title={
+                cardGenLoading
+                  ? "Waiting for card generation to finish"
+                  : undefined
+              }
             >
               {aiLoading ? (
                 <>

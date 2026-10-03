@@ -35,6 +35,7 @@ import { customPrompts } from "./slices/customPrompts";
 import { imagesRegistry } from "./slices/imagesRegistry";
 import { audioRegistry } from "./slices/audioRegistry";
 import { cardAudioSlice } from "./slices/cardAudio";
+import { occlusionGenerationSlice } from "./slices/occlusionGeneration";
 import { documentContextSlice } from "./slices/documentContext";
 
 const showLoginModalSlice = createSlice({
@@ -115,6 +116,7 @@ export const store = configureStore({
     makeCardsSettings: makeCardsSettings.reducer,
     makeCardsText: makeCardsText.reducer,
     messages: messagesSlice.reducer,
+    occlusionGeneration: occlusionGenerationSlice.reducer,
     pyCommandLock: pyCommandLock.reducer,
     requestedTopic: requestedTopicSlice.reducer,
     showBootReminderDialog: showBootReminderDialog.reducer,

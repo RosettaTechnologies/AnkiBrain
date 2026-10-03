@@ -12,6 +12,7 @@ from KokoroTTSAdapter import TTSNotInstalledError, TTSUnsupportedError
 from cards import add_basic_card, add_cloze_card, add_image_occlusion_card
 from media_images import (
     MEDIA_TMP_DIR,
+    import_image_file,
     resolve_audio_entry,
     resolve_card_audio,
     resolve_card_image_paths,
@@ -223,7 +224,10 @@ class ReactBridge:
                 self.send_cmd(IC.DID_DELETE_ALL_DOCUMENTS, commandId=commandId)
 
             elif cmd == IC.OPEN_DOCUMENT_BROWSER:
-                mw.ankiBrain.guiThreadSignaler.openFileBrowserSignal.emit(commandId)
+                # allowImages: the Make Cards picker accepts documents and
+                # image files; the Import screen's document browser does not.
+                allow_images = bool(data.get('allowImages'))
+                mw.ankiBrain.guiThreadSignaler.openFileBrowserSignal.emit(commandId, allow_images)
 
             elif cmd == IC.DID_CLOSE_DOCUMENT_BROWSER_NO_SELECTIONS:
                 self.send_cmd(IC.DID_CLOSE_DOCUMENT_BROWSER_NO_SELECTIONS, commandId=commandId)
@@ -289,7 +293,18 @@ class ReactBridge:
                 # The file/clipboard pickers must run on the UI thread; the
                 # signal handlers answer DID_IMPORT_IMAGES with this commandId.
                 source = data.get('source') or 'files'
-                if source == 'clipboard':
+                if source == 'paths':
+                    # Make Cards flow: the webview already holds absolute
+                    # paths from the combined document/image browser, so
+                    # import them directly (no second picker).
+                    images = []
+                    for file_path in (data.get('paths') or []):
+                        entry = import_image_file(file_path)
+                        if entry is not None:
+                            images.append(entry)
+                    self.send_cmd(IC.DID_IMPORT_IMAGES, {'images': images},
+                                  commandId=commandId)
+                elif source == 'clipboard':
                     mw.ankiBrain.guiThreadSignaler.importClipboardImageSignal.emit(commandId)
                 else:
                     mw.ankiBrain.guiThreadSignaler.importImagesSignal.emit(commandId)

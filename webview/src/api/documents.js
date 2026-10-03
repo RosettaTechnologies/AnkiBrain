@@ -21,28 +21,56 @@ import { asendPythonCommand } from "./PythonBridge";
 import { InterprocessCommand } from "./PythonBridge/InterprocessCommand";
 import { pyEditSetting } from "./PythonBridge/senders/pyEditSetting";
 
-export async function splitDocument(dispatch = store.dispatch) {
+// Extensions the Make Cards picker treats as standalone images (they become
+// image-occlusion cards, never text documents).
+const IMAGE_EXTENSIONS = new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".bmp",
+]);
+
+export function isImageFileDescriptor(file) {
+  return IMAGE_EXTENSIONS.has(((file && file.extension) || "").toLowerCase());
+}
+
+/*
+ * Make Cards file picker: one dialog for documents AND images. Returns
+ * {documents, images} (raw file descriptors from the native picker) or null
+ * when the user cancelled. Nothing is processed yet — the caller shows the
+ * document warning first, then calls splitSelectedDocument / importImagePaths.
+ */
+export async function pickCardsSource() {
+  const res = await pyOpenDocumentBrowser({ allowImages: true });
+  const files = (res && res.documents) || [];
+  if (files.length === 0) {
+    return null;
+  }
+  return {
+    documents: files.filter((file) => !isImageFileDescriptor(file)),
+    images: files.filter((file) => isImageFileDescriptor(file)),
+  };
+}
+
+/*
+ * Split one already-picked document into chunks (and extract its images in
+ * the card-generation split). Local mode runs the ChatAI subprocess; server
+ * mode uploads to the split endpoint. Returns {chunks, images, doc} or null
+ * (toast already shown).
+ */
+export async function splitSelectedDocument(
+  document,
+  dispatch = store.dispatch
+) {
+  let doc = document;
+
   if (isLocalMode()) {
     try {
-      let res = await pyOpenDocumentBrowser();
-      let documents = res.documents;
-      if (!documents) {
-        return;
-      }
-
-      if (documents.length > 1) {
-        infoToast(
-          "Multiple Documents",
-          "You have selected multiple documents. Only the first one will be used. This will be changed in a future update!"
-        );
-      }
-
-      let document = documents[0];
-      let path = document.path;
-
-      if (document.size > 1024 * 1024 * 1024) {
+      if (doc.size > 1024 * 1024 * 1024) {
         infoToast("Document Too Large", "The maximum file size is 1 GB.");
-        return;
+        return null;
       }
 
       infoToast(
@@ -50,8 +78,8 @@ export async function splitDocument(dispatch = store.dispatch) {
         "Document processing has begun. This can take a while on files with a lot of text."
       );
 
-      res = await asendPythonCommand(InterprocessCommand.SPLIT_DOCUMENT, {
-        path,
+      let res = await asendPythonCommand(InterprocessCommand.SPLIT_DOCUMENT, {
+        path: doc.path,
       });
 
       // Local mode: python wrote extracted images into media_tmp itself and
@@ -66,48 +94,30 @@ export async function splitDocument(dispatch = store.dispatch) {
         images = JSON.parse(images);
       }
 
-      return { chunks, images, doc: document };
+      return { chunks, images, doc };
     } catch (err) {
       errorToast("Error", err.message);
     }
 
-    return;
+    return null;
   }
 
   if (!store.getState().user.value) {
     infoToast("Log in required", "Please log in first.");
-    return;
+    return null;
   }
 
-  let res = await pyOpenDocumentBrowser();
-  let docs = res.documents;
-  if (!docs) {
-    return;
-  }
-
-  if (docs.length < 1) {
-    return;
-  }
-
-  if (docs.length > 1) {
-    infoToast(
-      "Multiple documents",
-      "You have selected multiple documents; only the first will be imported." // todo fix
-    );
-  }
-
-  let doc = docs[0];
   if (doc.size > 1024 * 1024 * 100) {
     infoToast(
       "Document Too Large",
       "The maximum file size for AnkiBrain Server Mode is 100 MB."
     );
 
-    return;
+    return null;
   }
 
   try {
-    res = await uploadDocument(
+    let res = await uploadDocument(
       doc.path,
       getAPIEndpoints().DOCUMENT_SPLIT,
       store.getState().user.value.accessToken
@@ -115,10 +125,10 @@ export async function splitDocument(dispatch = store.dispatch) {
 
     if (res.status === "fail") {
       infoToast("Request failed", res.message);
-      return Promise.reject(new Error(res.message));
+      return null;
     } else if (res.status === "error") {
       errorToast("Request error", res.message);
-      return Promise.reject(new Error(res.message));
+      return null;
     }
 
     let user = res.data.user;
@@ -140,6 +150,7 @@ export async function splitDocument(dispatch = store.dispatch) {
     return { chunks, images, doc };
   } catch (err) {
     errorToast("Error attempting request", err);
+    return null;
   }
 }
 

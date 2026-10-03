@@ -1,7 +1,7 @@
-import { store, updateUser } from "./redux";
+import { store } from "./redux";
 import { addImages } from "./redux/slices/imagesRegistry";
 import { pyImportImages } from "./PythonBridge/senders/pyImportImages";
-import { pyGenerateOcclusionShapes } from "./PythonBridge/senders/pyGenerateOcclusionShapes";
+import { suggestOcclusionsQueued } from "./occlusionGeneration";
 import { errorToast, infoToast, successToast } from "./toast";
 
 /*
@@ -14,6 +14,9 @@ import { errorToast, infoToast, successToast } from "./toast";
  * coordinates as fractions (0..1) of the image; shapes sharing an ordinal
  * land on the same Anki card. cards.py turns this into Anki's cloze-style
  * occlusion field and calls the native add_image_occlusion_note API.
+ *
+ * AI mask generation (batch + manual "Suggest with AI") lives in
+ * api/occlusionGeneration.js; this module owns imports and card counts.
  */
 
 // How many Anki cards one occlusion card produces (distinct ordinals).
@@ -39,13 +42,20 @@ export function countAnkiCards(cards) {
   return { notes, cards: ankiCards };
 }
 
+function registerImages(images) {
+  if (images.length > 0) {
+    store.dispatch(addImages(images));
+  }
+  return images;
+}
+
 function applyImportedImages(res, emptyMessage) {
   const images = (res && res.images) || [];
   if (images.length === 0) {
     infoToast("No Images Imported", emptyMessage);
     return [];
   }
-  store.dispatch(addImages(images));
+  registerImages(images);
   successToast(
     "Images Imported",
     `${images.length} image${images.length === 1 ? "" : "s"} added to the Images panel.`
@@ -77,21 +87,28 @@ export async function importImageFromClipboard() {
 }
 
 /*
+ * Import already-picked absolute image paths (the Make Cards document/image
+ * browser). No toast here — the caller reports the batch outcome. Returns
+ * the registry descriptors that were stored (failed files are skipped).
+ */
+export async function importImagePaths(paths) {
+  if (!paths || paths.length === 0) {
+    return [];
+  }
+  try {
+    const res = await pyImportImages("paths", paths);
+    return registerImages((res && res.images) || []);
+  } catch (err) {
+    errorToast("Import Failed", String((err && err.message) || err));
+    return [];
+  }
+}
+
+/*
  * AI occlusion suggestions for one image. Always lands in the editor for
  * review — vision coordinates are approximate and must never go straight
- * into the deck.
+ * into the deck. Runs on the shared serial lane (see occlusionGeneration.js).
  */
 export async function suggestOcclusions(imageId) {
-  const language = store.getState().language.value;
-  const res = await pyGenerateOcclusionShapes({ imageId, language });
-
-  if (res && res.user) {
-    store.dispatch(updateUser(res.user));
-  }
-
-  return {
-    shapes: (res && res.shapes) || [],
-    header: (res && res.header) || "",
-    backExtra: (res && res.backExtra) || "",
-  };
+  return suggestOcclusionsQueued(imageId);
 }
