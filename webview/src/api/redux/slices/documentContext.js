@@ -1,7 +1,8 @@
 import { createSlice } from "@reduxjs/toolkit";
 
 /*
- * Describes the most recently processed document on the From Documents tab.
+ * Describes the most recently processed document on the
+ * From Documents/Images tab.
  * The extracted image descriptors themselves live in imagesRegistry keyed by
  * id; ids are "<run-id>/<filename>", so runId lets the UI isolate "images
  * from the document I just processed" from leftovers of earlier runs.

@@ -1,4 +1,5 @@
 import json
+import os
 from os import path
 from typing import Any, Optional
 
@@ -33,14 +34,13 @@ def get_ankibrain_version():
 """
 default_settings = {
     "aiLanguage": 'English',
-    'automaticallyAddCards': True,
     'customPromptChat': '',
     'customPromptMakeCards': '',
     'customPromptTopicExplanation': '',
     'deleteCardsAfterAdding': True,
     "colorMode": "dark",
     "currentVersion": get_ankibrain_version(),
-    "documents_saved": [],  # local mode only, server mode uses user.documentsSaved
+    "documents_saved": [],  # local mode only; server mode keeps documents on the account
     "lifetime_total_cost": 0,
     "user_mode": None,
     "llmModel": 'gpt-5.6-luna',
@@ -117,8 +117,13 @@ class SettingsManager:
                 self.settings = json.load(f)
 
     def save(self):
-        with open(self.pth, 'w') as f:
+        # Write to a sibling temp file and swap it in: a crash mid-write can
+        # never leave a corrupt settings.json (which would lose every setting,
+        # including the pending tempCards).
+        tmp = self.pth + '.tmp'
+        with open(tmp, 'w', encoding='utf-8') as f:
             rewrite_json_file(self.settings, f)
+        os.replace(tmp, self.pth)
 
     def edit(self, k: str, v: Any, save=True):
         self.settings[k] = v

@@ -229,7 +229,8 @@ export function TopicExplanationScreen(props) {
           mb={3}
           onClick={() => {
             dispatch(setMakeCardsText(topicExplanation));
-            navigate(PATHS.MAKE_CARDS);
+            // Land on the From Text segment so the sent text is visible.
+            navigate(PATHS.MAKE_CARDS, { state: { view: "text" } });
           }}
           isDisabled={topicExplanation === ""}
         >

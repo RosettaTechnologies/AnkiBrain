@@ -18,8 +18,9 @@ from PostUpdateDialog import PostUpdateDialog
 from SidePanel import SidePanel
 from UserModeDialog import show_user_mode_dialog
 from card_injection import handle_card_will_show
+from card_backup import read_pending_backup
 from changelog import ChangelogDialog
-from media_images import cleanup_media_tmp
+from media_images import cleanup_media_tmp, import_image_file, store_imported_image_bytes
 from project_paths import dotenv_path, is_dev_checkout
 from util import run_win_install, run_macos_install, run_linux_install, UserMode
 
@@ -30,7 +31,11 @@ class GUIThreadSignaler(QObject):
     Required class for calling UI updates from the non-UI thread.
     """
     resetUISignal = pyqtSignal()
-    openFileBrowserSignal = pyqtSignal(int)  # takes commandId so we can resolve the request
+    # (commandId, allow_images): allow_images widens the picker filter so
+    # Make Cards can accept documents AND images in one selection.
+    openFileBrowserSignal = pyqtSignal(int, bool)
+    importImagesSignal = pyqtSignal(int)  # image-occlusion: pick image file(s)
+    importClipboardImageSignal = pyqtSignal(int)  # image-occlusion: paste image
     showNoAPIKeyDialogSignal = pyqtSignal()
     sendToJSFromAsyncThreadSignal = pyqtSignal(dict)
 
@@ -38,6 +43,8 @@ class GUIThreadSignaler(QObject):
         super().__init__()
         self.resetUISignal.connect(self.reset_ui)
         self.openFileBrowserSignal.connect(self.open_file_browser)
+        self.importImagesSignal.connect(self.import_images)
+        self.importClipboardImageSignal.connect(self.import_clipboard_image)
         self.showNoAPIKeyDialogSignal.connect(self.show_no_API_key_dialog)
         self.sendToJSFromAsyncThreadSignal.connect(self.send_to_js_from_async_thread)
 
@@ -50,10 +57,24 @@ class GUIThreadSignaler(QObject):
     def reset_ui(self):
         mw.reset()
 
-    def open_file_browser(self, commandId):
+    def open_file_browser(self, commandId, allow_images=False):
         print(f'Opening file browser with commandId {commandId}')
         dialog = QFileDialog()
-        full_paths, _ = dialog.getOpenFileNames()
+        if allow_images:
+            # Make Cards picker: documents and image files in one selection.
+            # The Import screen's document browser keeps the unfiltered
+            # dialog (it must never accept an image as a document).
+            name_filter = (
+                'Documents and images (*.pdf *.docx *.pptx *.txt *.html '
+                '*.png *.jpg *.jpeg *.gif *.webp *.bmp);;'
+                'Documents (*.pdf *.docx *.pptx *.txt *.html);;'
+                'Images (*.png *.jpg *.jpeg *.gif *.webp *.bmp);;'
+                'All files (*)'
+            )
+            full_paths, _ = dialog.getOpenFileNames(
+                None, 'Select document(s) or image(s)', '', name_filter)
+        else:
+            full_paths, _ = dialog.getOpenFileNames()
 
         # No files selected (empty array).
         if not full_paths:
@@ -84,6 +105,50 @@ class GUIThreadSignaler(QObject):
 
         # elif user_mode == UserMode.LOCAL:
         #     mw.ankiBrain.reactBridge.trigger(IC.ADD_DOCUMENTS, documents=documents)
+
+    def import_images(self, commandId):
+        """
+        Image-occlusion import: pick arbitrary image file(s) and copy them
+        into media_tmp. Answers DID_IMPORT_IMAGES with registry descriptors
+        (ids/urls), or an empty list when nothing was selected.
+        """
+        dialog = QFileDialog()
+        full_paths, _ = dialog.getOpenFileNames(
+            None,
+            'Select image(s)',
+            '',
+            'Images (*.png *.jpg *.jpeg *.gif *.webp *.bmp)',
+        )
+
+        images = []
+        for path in full_paths or []:
+            entry = import_image_file(path)
+            if entry is not None:
+                images.append(entry)
+
+        mw.ankiBrain.reactBridge.send_cmd(IC.DID_IMPORT_IMAGES, {'images': images},
+                                          commandId=commandId)
+
+    def import_clipboard_image(self, commandId):
+        """
+        Image-occlusion import: copy the clipboard image (if any) into
+        media_tmp. Answers DID_IMPORT_IMAGES with the descriptor list (empty
+        when the clipboard holds no image).
+        """
+        images = []
+        clipboard = QGuiApplication.clipboard()
+        image = clipboard.image() if clipboard is not None else None
+        if image is not None and not image.isNull():
+            buffer = QBuffer()
+            buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+            if image.save(buffer, 'PNG'):
+                entry = store_imported_image_bytes(bytes(buffer.data()), 'clipboard.png')
+                if entry is not None:
+                    images.append(entry)
+            buffer.close()
+
+        mw.ankiBrain.reactBridge.send_cmd(IC.DID_IMPORT_IMAGES, {'images': images},
+                                          commandId=commandId)
 
 #The "AnkiBrain" class is the main class. It is responsible for initializing the application, UI setup, file browser interactions,
 #webview load handling. 
@@ -178,6 +243,7 @@ class AnkiBrain:
         settings = {
             **mw.settingsManager.settings,
             'canToggleDevMode': is_dev_checkout(),
+            'recoveredCards': read_pending_backup(),
         }
         print('Sending DID_LOAD_USER_FILES')
         self.reactBridge.send_cmd(IC.DID_LOAD_SETTINGS, settings)

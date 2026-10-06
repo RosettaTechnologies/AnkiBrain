@@ -6,7 +6,6 @@ import { setMakeCardsLoading } from "./redux/slices/makeCardsText";
 import { generateCardsRequest } from "./server-api/cards";
 import { errorToast, infoToast, successToast } from "./toast";
 import { addFailedCards } from "./redux/slices/failedCards";
-import { pyEditSetting } from "./PythonBridge/senders/pyEditSetting";
 import { assignImagesToCard } from "./batching";
 
 function convertAsterisksToCloze(text) {
@@ -56,9 +55,6 @@ async function handleCardsRawString(
 
     dispatch(addCards(cards));
 
-    // TODO: needs to be removed, this only adds the currently made cards to temp cards rather than the entire deck in
-    //  the redux store.
-    await pyEditSetting("tempCards", cards);
     successToast(
       "Made Flashcards",
       `Successfully made ${cards.length} cards.`,

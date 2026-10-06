@@ -87,6 +87,10 @@ class ChatAIModuleAdapter:
         output = await self.call(IC.GENERATE_CARDS, text=text, custom_prompt=custom_prompt, type=card_type, language=language)
         return output['data']
 
+    async def generate_occlusion_shapes(self, path: str, context: str, language: str) -> dict:
+        output = await self.call(IC.GENERATE_OCCLUSION_SHAPES, path=path, context=context, language=language)
+        return output['data']
+
     async def ask_dummy(self, query: str):
         import time
         time.sleep(5)

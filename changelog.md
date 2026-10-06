@@ -4,10 +4,12 @@
 - FEATURE: Generate cards from documents now include images: figures and diagrams found in
   PDFs and DOCX files are extracted and attached to the flashcards generated from
   their surrounding text.
+- FEATURE: automatic image occlusion cards
 - FEATURE: AnkiBrain Voice now available for free in all modes, powered by Kokoro for high-quality text-to-speech (TTS) integration
 - FIX: Regular (server) mode: use a login/signup gate to reduce confusion as app is not usable
   in server mode without an account
 - FIX: Local mode: fix Ubuntu/Debian auto-install script
+- FIX: generated cards list now uses pagination for performance even with very large number of cards
 - UI: Migrate from old Chakra/Bootstrap to Ionic v9
 
 # 1.0.1

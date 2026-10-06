@@ -39,10 +39,10 @@ import React from "react";
 import { setLanguage } from "../redux/slices/language";
 import { setCards } from "../redux/slices/cards";
 import { setShowCardBottomHint } from "../redux/slices/showCardBottomHint";
-import { setAutomaticallyAddCards } from "../redux/slices/automaticallyAddCards";
 import { setDeleteCardsAfterAdding } from "../redux/slices/deleteCardsAfterAdding";
 import { setShowBootReminderDialog } from "../redux/slices/showBootReminderDialog";
 import { pyEditSetting } from "./senders/pyEditSetting";
+import { pyClearCardsBackup } from "./senders/pyCardBackup";
 import { setAppDidBoot } from "../redux/slices/appDidBoot";
 import { setCheckedAuth } from "../redux/slices/checkedAuth";
 import {
@@ -158,7 +158,6 @@ export async function handlePythonDataReceived(
       // Hydrate the store with the data from python layer's settings.json.
       let {
         aiLanguage,
-        automaticallyAddCards,
         deleteCardsAfterAdding,
         currentVersion,
         customPromptChat,
@@ -172,6 +171,7 @@ export async function handlePythonDataReceived(
         user,
         devMode,
         tempCards,
+        recoveredCards,
         showBootReminderDialog,
         showCardBottomHint,
         canToggleDevMode,
@@ -184,12 +184,6 @@ export async function handlePythonDataReceived(
 
       if (aiLanguage) {
         dispatch(setLanguage(aiLanguage));
-      }
-      if (
-        automaticallyAddCards !== undefined ||
-        automaticallyAddCards !== null
-      ) {
-        dispatch(setAutomaticallyAddCards(automaticallyAddCards));
       }
       if (
         deleteCardsAfterAdding !== undefined ||
@@ -234,6 +228,30 @@ export async function handlePythonDataReceived(
           tempCards = JSON.parse(tempCards);
         }
         dispatch(setCards(tempCards));
+      }
+
+      // A pending backup means the previous Add-to-Anki never finished
+      // cleanly. Restore only when the in-memory list is empty; otherwise the
+      // user's list already holds the cards, so nothing was lost. Always
+      // consume the backup so it can never be replayed against a later,
+      // deliberate clear.
+      if (
+        recoveredCards &&
+        Array.isArray(recoveredCards.cards) &&
+        recoveredCards.cards.length > 0
+      ) {
+        if (store.getState().cards.value.length === 0) {
+          dispatch(setCards(recoveredCards.cards));
+          await pyEditSetting("tempCards", recoveredCards.cards);
+          infoToast(
+            "Cards Recovered",
+            `${recoveredCards.cards.length} card${
+              recoveredCards.cards.length === 1 ? "" : "s"
+            } from an interrupted Add-to-Anki were restored. Review them before adding again.`,
+            10000
+          );
+        }
+        await pyClearCardsBackup();
       }
       if (
         showBootReminderDialog !== null ||

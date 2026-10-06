@@ -64,8 +64,8 @@ def store_image_bytes(data: bytes, media_type: str, run_id: str = None) -> dict:
 
 def store_server_split_images(images: list) -> list:
     """
-    Convert the ankibrain-server /document/split image payload (base64) into
-    on-disk entries for the webview. The base64 never reaches the JS layer.
+    Convert the server's /document/split image payload (base64) into on-disk
+    entries for the webview. The base64 never reaches the JS layer.
     """
     run_id = uuid.uuid4().hex[:8]
     out = []
@@ -95,6 +95,73 @@ def store_server_split_images(images: list) -> list:
         })
 
     return out
+
+
+EXT_TO_MEDIA_TYPE = {
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+    'bmp': 'image/bmp',
+}
+
+
+def detect_media_type(data: bytes, source_name: str = '') -> str:
+    """
+    Media type from magic bytes, falling back to the source file extension.
+    Mirrors ChatAI/document_images.py's detect_media_type so imported images
+    and document-extracted images land in media_tmp with the same naming.
+    """
+    if data[:8] == b'\x89PNG\r\n\x1a\n':
+        return 'image/png'
+    if data[:3] == b'\xff\xd8\xff':
+        return 'image/jpeg'
+    if data[:6] in (b'GIF87a', b'GIF89a'):
+        return 'image/gif'
+    if data[:4] == b'RIFF' and data[8:12] == b'WEBP':
+        return 'image/webp'
+    if data[:2] == b'BM':
+        return 'image/bmp'
+
+    ext = path.splitext(source_name or '')[1].lower().lstrip('.')
+    return EXT_TO_MEDIA_TYPE.get(ext, 'image/png')
+
+
+def store_imported_image_bytes(data: bytes, source_name: str = ''):
+    """
+    Store arbitrary image bytes (file picker / clipboard) in media_tmp and
+    return the imagesRegistry descriptor {'id', 'url', 'mediaType'}, or None
+    when there is nothing to store.
+    """
+    if not data:
+        return None
+
+    media_type = detect_media_type(data, source_name)
+    try:
+        entry = store_image_bytes(data, media_type)
+    except OSError as e:
+        print(f'(media_images) Could not store imported image: {e}')
+        return None
+
+    return {'id': entry['id'], 'url': entry['url'], 'mediaType': media_type}
+
+
+def import_image_file(file_path: str):
+    """
+    Read an image file into media_tmp. Returns the imagesRegistry descriptor
+    or None when the file could not be read. Used by the image-occlusion
+    "import images" flow, which accepts arbitrary images (not just ones
+    extracted from documents).
+    """
+    try:
+        with open(file_path, 'rb') as f:
+            data = f.read()
+    except OSError as e:
+        print(f'(media_images) Could not read imported image {file_path}: {e}')
+        return None
+
+    return store_imported_image_bytes(data, file_path)
 
 
 def _resolve_within_media_tmp(rel_id):

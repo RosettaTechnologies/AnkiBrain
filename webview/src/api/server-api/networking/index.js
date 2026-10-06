@@ -23,6 +23,7 @@ export function getAPIEndpoints() {
     CHAT: API_BASE_URL + "/chat",
     DOCUMENT: API_BASE_URL + "/document",
     DOCUMENT_SPLIT: API_BASE_URL + "/document/split",
+    OCCLUSION: API_BASE_URL + "/occlusion",
     USER: API_BASE_URL + "/user",
     USER_LOGIN: API_BASE_URL + "/user/login",
     USER_VERIFY_EMAIL: API_BASE_URL + "/user/verifyEmail",

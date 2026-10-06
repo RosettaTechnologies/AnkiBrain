@@ -65,8 +65,8 @@ export function ImagePickerModal(props) {
         <ModalBody>
           {images.length === 0 ? (
             <Text color={"gray"} fontSize={13}>
-              No images found yet. Process a document on the "From Documents"
-              tab and AnkiBrain will collect the images inside it.
+              No images found yet. Process a document or import images on the
+              "From Documents/Images" tab and AnkiBrain will collect them.
             </Text>
           ) : (
             <SimpleGrid columns={{ base: 2, md: 3, lg: 4 }} spacing={3}>

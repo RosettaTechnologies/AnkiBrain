@@ -158,6 +158,21 @@ def handle_module_input(data: dict[str, Any]):
             'images': json.dumps(images),
         })
 
+    elif cmd == IC.GENERATE_OCCLUSION_SHAPES:
+        # Image-occlusion vision pass. The addon resolved the media_tmp id to
+        # an absolute path; this subprocess owns the OpenAI call (same venv,
+        # same key as card generation).
+        model_name = 'gpt-5.6-luna'
+        with open(settings_path, 'r') as f:
+            model_name = json.load(f).get('llmModel', model_name)
+        out = withoutDocumentsSingleQuery.generate_occlusion_shapes(
+            data['path'],
+            context=data.get('context', ''),
+            language=data.get('language', 'English'),
+            model=data.get('model') or model_name,
+        )
+        module_return(IC.DID_GENERATE_OCCLUSION_SHAPES, out)
+
 
 if __name__ == '__main__':
     try:

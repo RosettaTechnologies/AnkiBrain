@@ -7,7 +7,7 @@ kokoro venv (user_files/voice/venv — Python 3.11 via uv, NOT the 3.9 ChatAI
 venv; kokoro requires >=3.10,<3.13 so the two stacks cannot share).
 
 Works identically in LOCAL and SERVER user modes: nothing here depends on
-the ChatAI subprocess or the ankibrain-server; the engine spawns lazily on
+the ChatAI subprocess or the AnkiBrain server; the engine spawns lazily on
 the first synthesis request and unloads after an idle timeout so users who
 never press a speaker icon (or who press it once and review for hours) pay
 neither startup time nor ~500 MB of resident RAM forever.

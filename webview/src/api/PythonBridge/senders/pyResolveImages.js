@@ -34,6 +34,10 @@ export function collectCardImageIds(cards) {
     for (const imageId of card.images || []) {
       ids.push(imageId);
     }
+    // Occlusion cards reference their image through the singular `image` id.
+    if (card.type === "occlusion" && card.image) {
+      ids.push(card.image);
+    }
   }
   return ids;
 }

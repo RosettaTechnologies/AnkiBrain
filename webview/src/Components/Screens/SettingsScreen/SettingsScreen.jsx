@@ -42,7 +42,6 @@ import { BsLayoutTextWindowReverse, BsPaletteFill } from "react-icons/bs";
 import { RiLockPasswordFill } from "react-icons/ri";
 import { setLanguage } from "../../../api/redux/slices/language";
 import { store } from "../../../api/redux";
-import { setAutomaticallyAddCards } from "../../../api/redux/slices/automaticallyAddCards";
 import { setDeleteCardsAfterAdding } from "../../../api/redux/slices/deleteCardsAfterAdding";
 import { setShowBootReminderDialog } from "../../../api/redux/slices/showBootReminderDialog";
 import { Slider, SliderTrack, SliderFilledTrack, SliderThumb } from "@chakra-ui/react";
@@ -426,9 +425,6 @@ export const SettingsScreen = (props) => {
   const showCardBottomHint = useSelector(
     (state) => state.showCardBottomHint.value
   );
-  const automaticallyAddCards = useSelector(
-    (state) => state.automaticallyAddCards.value
-  );
   const deleteCardsAfterAdding = useSelector(
     (state) => state.deleteCardsAfterAdding.value
   );
@@ -448,11 +444,6 @@ export const SettingsScreen = (props) => {
   const setShowCardBottomHint = async (value) => {
     dispatch(setStoreShowCardBottomHint(value));
     await pyEditSetting("showCardBottomHint", value);
-  };
-
-  const handleChangeAutoAddCards = async (value) => {
-    dispatch(setAutomaticallyAddCards(value));
-    await pyEditSetting("automaticallyAddCards", value);
   };
 
   const handleChangeDeleteCardsAfterAdding = async (value) => {
@@ -639,32 +630,6 @@ export const SettingsScreen = (props) => {
                     <ModalHeader>User Interface Settings</ModalHeader>
                     <ModalCloseButton />
                     <ModalBody>
-                      <Flex direction={"row"} justifyContent={"space-between"}>
-                        <Flex direction={"column"}>
-                          <Text>
-                            Automatically add every 100 cards to Anki with
-                            auto-clearing (recommended)
-                          </Text>
-                          <Text fontSize={12} color={"gray"}>
-                            If this option is enabled, AnkiBrain will
-                            automatically add every 100 cards to any selected
-                            deck. This will also clear your AnkiBrain cards
-                            after they are added to Anki, in order to prevent
-                            duplicates in your deck. This option is recommended,
-                            because large numbers of cards (in the thousands)
-                            can cause the program to lag/freeze and you may lose
-                            your progress.
-                          </Text>
-                        </Flex>
-                        <Switch
-                          isChecked={automaticallyAddCards}
-                          onChange={async () => {
-                            await handleChangeAutoAddCards(
-                              !automaticallyAddCards
-                            );
-                          }}
-                        />
-                      </Flex>
                       <Flex direction={"row"} justifyContent={"space-between"}>
                         <Flex direction={"column"}>
                           <Text>

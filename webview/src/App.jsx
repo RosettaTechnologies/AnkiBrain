@@ -159,6 +159,13 @@ function App() {
             bg: "secondary",
             color: "customBlack",
           },
+          // Active navigation pill (e.g. Make Cards segments). A distinct
+          // solid purple so it never reads as the pink primary action.
+          pillActive: {
+            bg: "customPurple.500",
+            color: "white",
+            _hover: { bg: "customPurple.400", opacity: 1 },
+          },
         },
       },
       Input: {

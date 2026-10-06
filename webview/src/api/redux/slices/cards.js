@@ -63,6 +63,23 @@ export const cardsSlice = createSlice({
         card.audio = { ...(card.audio || {}), [field]: id };
       }
     },
+    applyCardOcclusions: (state, action) => {
+      // AI mask result for an occlusion card, addressed by uid. Header/back
+      // extra only overwrite when the model returned something — a retry
+      // that finds no text must not wipe an existing header.
+      const { uid, occlusions, header, backExtra } = action.payload;
+      const card = state.value.find((c) => c.uid === uid);
+      if (!card) {
+        return;
+      }
+      card.occlusions = occlusions || [];
+      if (header) {
+        card.header = header;
+      }
+      if (backExtra) {
+        card.backExtra = backExtra;
+      }
+    },
     clearCardAudio: (state, action) => {
       const { uid, field } = action.payload;
       const card = state.value.find((c) => c.uid === uid);
@@ -97,6 +114,7 @@ export const {
   resetCards,
   deleteCardAtIndex,
   applyCardAudio,
+  applyCardOcclusions,
   clearCardAudio,
   pruneCardAudio,
 } = cardsSlice.actions;
