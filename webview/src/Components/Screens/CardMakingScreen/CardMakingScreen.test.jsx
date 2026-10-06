@@ -1,5 +1,5 @@
 import { ChakraProvider } from "@chakra-ui/react";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";
@@ -28,8 +28,18 @@ vi.mock("../../../api/occlusion", async (importOriginal) => {
   };
 });
 
+vi.mock("../../../api/documents", () => ({
+  pickCardsSource: vi.fn(),
+  splitSelectedDocument: vi.fn(),
+}));
+
 import { generateCards } from "../../../api/cards";
-import { importImageFromClipboard } from "../../../api/occlusion";
+import {
+  importImageFromClipboard,
+  importImagePaths,
+} from "../../../api/occlusion";
+import { pickCardsSource, splitSelectedDocument } from "../../../api/documents";
+import { clearStagedDocument } from "../../../api/redux/slices/stagedDocument";
 
 // Chakra's useBreakpointValue probes window.matchMedia; jsdom has none.
 if (!window.matchMedia) {
@@ -75,8 +85,12 @@ beforeEach(() => {
   store.dispatch(setMakeCardsText(""));
   store.dispatch(clearStagedImages());
   store.dispatch(clearImages());
+  store.dispatch(clearStagedDocument());
   importImageFromClipboard.mockReset();
+  importImagePaths.mockReset();
   generateCards.mockReset();
+  pickCardsSource.mockReset();
+  splitSelectedDocument.mockReset();
 });
 
 test("mounts only one page of a large list", () => {
@@ -203,4 +217,40 @@ test("a text paste is not intercepted", () => {
 
   expect(importImageFromClipboard).not.toHaveBeenCalled();
   expect(screen.queryByText(STAGED_CAPTION)).not.toBeInTheDocument();
+});
+
+test("loading a document stages its pages without generating", async () => {
+  pickCardsSource.mockResolvedValue({
+    documents: [
+      { path: "/tmp/lecture.pdf", size: 1000, file_name_with_extension: "lecture.pdf" },
+    ],
+    images: [],
+  });
+  splitSelectedDocument.mockResolvedValue({
+    chunks: ["alpha", "beta", "gamma"],
+    chunkPages: [1, 2, 2],
+    images: [],
+    doc: { file_name_with_extension: "lecture.pdf" },
+  });
+  importImagePaths.mockResolvedValue([]);
+
+  renderScreen();
+  fireEvent.click(screen.getByText("Load Document..."));
+
+  expect(await screen.findByText("Make Cards (2)")).toBeInTheDocument();
+  expect(screen.getByText("Page 1")).toBeInTheDocument();
+  expect(screen.getByText("Page 2")).toBeInTheDocument();
+  expect(generateCards).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByLabelText("Include Page 1"));
+  expect(screen.getByText("Make Cards (1)")).toBeInTheDocument();
+
+  await act(async () => {
+    fireEvent.click(screen.getByText("Make Cards (1)"));
+  });
+
+  await waitFor(() => expect(generateCards).toHaveBeenCalledTimes(1));
+  const generatedText = generateCards.mock.calls[0][0];
+  expect(generatedText).toContain("beta");
+  expect(generatedText).not.toContain("alpha");
 });

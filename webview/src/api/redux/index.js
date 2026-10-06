@@ -36,6 +36,7 @@ import { audioRegistry } from "./slices/audioRegistry";
 import { cardAudioSlice } from "./slices/cardAudio";
 import { occlusionGenerationSlice } from "./slices/occlusionGeneration";
 import { documentContextSlice } from "./slices/documentContext";
+import { stagedDocumentSlice } from "./slices/stagedDocument";
 
 const showLoginModalSlice = createSlice({
   name: "showLoginModal",
@@ -118,6 +119,7 @@ export const store = configureStore({
     pyCommandLock: pyCommandLock.reducer,
     requestedTopic: requestedTopicSlice.reducer,
     showBootReminderDialog: showBootReminderDialog.reducer,
+    stagedDocument: stagedDocumentSlice.reducer,
     showCardBottomHint: showCardBottomHint.reducer,
     showLoginModal: showLoginModalSlice.reducer,
     topicExplanation: topicExplanationSlice.reducer,

@@ -7,6 +7,7 @@
 - FEATURE: images are pastable alongside text into the Make Cards > From Text box, works similar to above
 - FEATURE: automatic image occlusion cards
 - FEATURE: AnkiBrain Voice now available for free in all modes, powered by Kokoro for high-quality text-to-speech (TTS) integration
+- FEATURE: importing a document allows editing of pages and removal of pages prior to generating cards
 - FIX: Regular (server) mode: use a login/signup gate to reduce confusion as app is not usable
   in server mode without an account
 - FIX: Local mode: fix Ubuntu/Debian auto-install script

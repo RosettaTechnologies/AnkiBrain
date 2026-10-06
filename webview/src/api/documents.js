@@ -57,8 +57,10 @@ export async function pickCardsSource() {
 /*
  * Split one already-picked document into chunks (and extract its images in
  * the card-generation split). Local mode runs the ChatAI subprocess; server
- * mode uploads to the split endpoint. Returns {chunks, images, doc} or null
- * (toast already shown).
+ * mode uploads to the split endpoint. Returns {chunks, chunkPages, images,
+ * doc} or null (toast already shown). chunkPages is one 1-based page number
+ * (or null) per chunk, or null for the whole document when the format/source
+ * carries no page numbers.
  */
 export async function splitSelectedDocument(
   document,
@@ -89,12 +91,17 @@ export async function splitSelectedDocument(
         chunks = JSON.parse(chunks);
       }
 
+      let chunkPages = res.chunk_pages ?? null;
+      if (typeof chunkPages === "string") {
+        chunkPages = JSON.parse(chunkPages);
+      }
+
       let images = res.images || [];
       if (typeof images === "string") {
         images = JSON.parse(images);
       }
 
-      return { chunks, images, doc };
+      return { chunks, chunkPages, images, doc };
     } catch (err) {
       errorToast("Error", err.message);
     }
@@ -139,7 +146,17 @@ export async function splitSelectedDocument(
       chunks = JSON.parse(chunks);
     }
 
+    // Server chunks are LangChain JS Document objects: metadata.loc.pageNumber
+    // is the 1-based page (metadata.pageNumber on older versions). Plain
+    // strings or page-less formats leave chunkPages null -> "Section N" rows.
+    let chunkPages = null;
     if (chunks.length > 0 && typeof chunks[0] === "object") {
+      chunkPages = chunks.map(
+        (chunk) =>
+          chunk.metadata?.loc?.pageNumber ??
+          chunk.metadata?.pageNumber ??
+          null
+      );
       chunks = chunks.map((chunk) => chunk.pageContent);
     }
 
@@ -147,7 +164,7 @@ export async function splitSelectedDocument(
     // media_tmp; what remains here are {id, url, mediaType, anchorChunk}.
     let images = res.data.images || [];
 
-    return { chunks, images, doc };
+    return { chunks, chunkPages, images, doc };
   } catch (err) {
     errorToast("Error attempting request", err);
     return null;

@@ -194,7 +194,9 @@ class ChatAIWithDocuments(ChatInterface):
         Card-generation split: like split_document but also extracts document
         images (PDF embedded images, DOCX inline images) and reports each
         image's anchor chunk so the webview can attach images to cards
-        positionally. Returns (chunk_texts, images) where images items are
+        positionally. Returns (chunk_texts, chunk_pages, images) where
+        chunk_pages holds each chunk's 1-based source page number (None when
+        the format has no pages) and images items are
         {'id', 'url', 'mediaType', 'anchorChunk'} files already written to
         user_files/media_tmp.
         """
@@ -206,6 +208,13 @@ class ChatAIWithDocuments(ChatInterface):
             loader = PyPDFLoader(docpath)
             documents = splitter.split_documents(loader.load())
             chunk_texts = [doc.page_content for doc in documents]
+            # PyPDFLoader stores the 0-based page under metadata['page']; emit
+            # 1-based so both modes (server sends loc.pageNumber) agree.
+            chunk_pages = [
+                doc.metadata.get('page') + 1
+                if doc.metadata.get('page') is not None else None
+                for doc in documents
+            ]
 
             def anchor_for_page(page_index):
                 for i, doc in enumerate(documents):
@@ -225,16 +234,18 @@ class ChatAIWithDocuments(ChatInterface):
         elif ext == '.docx':
             text, raw_images = extract_docx_text_and_images(docpath)
             chunk_texts, anchors = split_text_with_markers(text, splitter)
+            chunk_pages = [None] * len(chunk_texts)
             for i, image in enumerate(raw_images):
                 image['anchorChunk'] = anchors.get(i, len(chunk_texts))
         else:
             # txt/pptx/html and anything else: same behavior as before, no images.
             documents = self.split_document(docpath, chunk_size=chunk_size)
             chunk_texts = [doc.page_content for doc in documents]
+            chunk_pages = [None] * len(chunk_texts)
             raw_images = []
 
         images = store_extracted_images(raw_images, new_run_id())
-        return chunk_texts, images
+        return chunk_texts, chunk_pages, images
 
     def clear_documents(self):
         self.vectorstore.delete_collection()

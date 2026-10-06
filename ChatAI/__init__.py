@@ -147,12 +147,15 @@ def handle_module_input(data: dict[str, Any]):
         model_name = 'gpt-5.6-luna'
         with open(settings_path, 'r') as f:
             model_name = json.load(f).get('llmModel', model_name)
-        chunk_texts, images = withDocumentsAI.split_document_for_cards(
+        chunk_texts, chunk_pages, images = withDocumentsAI.split_document_for_cards(
             data['path'],
             chunk_size=get_card_gen_chunk_size(model_name)
         )
         module_return(IC.DID_SPLIT_DOCUMENT, {
             'chunks': json.dumps(chunk_texts),
+            # Each chunk's 1-based source page number (None for page-less
+            # formats), so the webview can group chunks into reviewable pages.
+            'chunk_pages': json.dumps(chunk_pages),
             # Images are already written to user_files/media_tmp/<run-id>/;
             # each entry is {'id', 'url', 'mediaType', 'anchorChunk'}.
             'images': json.dumps(images),

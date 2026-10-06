@@ -6,7 +6,6 @@ import { cloneDeep, debounce } from "lodash";
 import {
   AlertDialog,
   AlertDialogBody,
-  AlertDialogCloseButton,
   AlertDialogContent,
   AlertDialogFooter,
   AlertDialogHeader,
@@ -89,6 +88,15 @@ import {
 } from "../../../api/redux/slices/makeCardsText";
 import { errorToast, infoToast, successToast } from "../../../api/toast";
 import { pickCardsSource, splitSelectedDocument } from "../../../api/documents";
+import {
+  buildGenerationInput,
+  buildStagedDocument,
+} from "../../../api/documentStaging";
+import {
+  clearStagedDocument,
+  setStagedDocument,
+} from "../../../api/redux/slices/stagedDocument";
+import { DocumentStagingPanel } from "./DocumentStagingPanel";
 import {
   importImageFromClipboard,
   importImagePaths,
@@ -220,11 +228,6 @@ export function CardMakingScreen() {
   const [tag, setTag] = useState("");
   const [showClearCardsAlert, setShowClearCardsAlert] = useState(false);
   const [showClearImagesAlert, setShowClearImagesAlert] = useState(false);
-  // Make Cards file selection awaiting the document warning: {documents,
-  // images} from the combined picker, or null. Images-only selections skip
-  // the warning and process immediately.
-  const [pendingCardsSource, setPendingCardsSource] = useState(null);
-  const cancelRef = useRef();
   const [selectedCardType, setSelectedCardType] = useState("basic");
   const customPromptMakeCards = useSelector(
     (state) => state.customPrompts.value.makeCards
@@ -717,12 +720,11 @@ export function CardMakingScreen() {
   };
 
   /*
-   * Make Cards…: one picker for documents and images.
+   * Load Document…: one picker for documents and images.
    *   - Image files always become image-occlusion cards (AI masks generated
-   *     in the background, cancellable per card).
-   *   - Documents keep the historical text-card flow, except with the Image
-   *     Occlusion type, where the document's images become occlusion cards
-   *     and no text cards are generated.
+   *     in the background, cancellable per card) and are processed right away.
+   *   - A document is split and staged for review (DocumentStagingPanel);
+   *     generation only starts when the user clicks Make Cards there.
    */
   const handleMakeCardsClick = async () => {
     if (makeCardsLoading || occlusionInFlight > 0) {
@@ -747,95 +749,172 @@ export function CardMakingScreen() {
       );
     }
 
-    // The warning exists so users strip junk pages before the whole
-    // document is read — only relevant when a document is in the selection.
     if (source.documents.length > 0) {
-      setPendingCardsSource(source);
+      await stageCardsSource(source);
     } else {
-      await processCardsSource(source);
+      await processImageOnlySource(source);
     }
   };
 
-  const processCardsSource = async (source) => {
-    setPendingCardsSource(null);
+  /*
+   * Split the picked document, extract its images, and stage everything for
+   * review. No cards are generated here; the staging panel's Make Cards button
+   * does that from whatever pages the user keeps.
+   */
+  const stageCardsSource = async (source) => {
+    const imageFiles = source.images || [];
+    const documentDescriptor = (source.documents || [])[0] || null;
+    if (!documentDescriptor) {
+      return;
+    }
+
+    try {
+      dispatch(setMakeCardsLoading(true));
+
+      // Image files picked alongside the document: imported now so their
+      // thumbnails show in the Images panel; they are not anchored to a page.
+      const looseImageIds = (await importImagePaths(
+        imageFiles.map((file) => file.path)
+      )).map((image) => image.id);
+
+      const splitResult = await splitSelectedDocument(
+        documentDescriptor,
+        dispatch
+      );
+      if (!splitResult) {
+        return;
+      }
+
+      const docImages = splitResult.images || [];
+      if (docImages.length > 0) {
+        // Keep extracted images available for previews and for ADD_CARDS,
+        // which resolves ids to files in media_tmp.
+        dispatch(addImages(docImages));
+      }
+
+      dispatch(
+        setStagedDocument(
+          buildStagedDocument({
+            chunks: splitResult.chunks,
+            chunkPages: splitResult.chunkPages,
+            images: docImages,
+            doc: splitResult.doc,
+            looseImageIds,
+          })
+        )
+      );
+
+      dispatch(
+        setDocumentContext({
+          docName: splitResult.doc
+            ? splitResult.doc.file_name_with_extension ||
+              splitResult.doc.file_name ||
+              ""
+            : "",
+          runId: docImages.length > 0 ? docImages[0].id.split("/")[0] : "",
+          chunksCount: splitResult.chunks.length,
+          imagesCount: docImages.length,
+        })
+      );
+
+      successToast(
+        "Document Loaded",
+        "Review the pages, exclude any you don't want cards from, then click Make Cards."
+      );
+    } catch (err) {
+      errorToast("Error", err.message);
+    } finally {
+      dispatch(setMakeCardsLoading(false));
+    }
+  };
+
+  // Images-only pick: import and turn straight into image-occlusion cards.
+  const processImageOnlySource = async (source) => {
     if (!source) {
       return;
     }
 
     const imageFiles = source.images || [];
-    const documentDescriptor = (source.documents || [])[0] || null;
-
     try {
       dispatch(setMakeCardsLoading(true));
 
-      // Import selected image files first so their occlusion cards appear
-      // alongside whatever the document produces.
       const importedImages = await importImagePaths(
         imageFiles.map((file) => file.path)
       );
 
-      let splitResult = null;
-      if (documentDescriptor) {
-        splitResult = await splitSelectedDocument(documentDescriptor, dispatch);
-        if (!splitResult) {
+      if (importedImages.length > 0) {
+        const created = createOcclusionCards(importedImages, {});
+        successToast(
+          "Making Occlusion Cards",
+          `${created.length} image${created.length === 1 ? "" : "s"} queued — masks are generated automatically. Review them below.`
+        );
+      } else {
+        infoToast(
+          "No Images Found",
+          "No images could be imported."
+        );
+      }
+    } catch (err) {
+      errorToast("Error", err.message);
+    } finally {
+      dispatch(setMakeCardsLoading(false));
+    }
+  };
+
+  /*
+   * Make Cards from the staged document: generate from the included pages
+   * only. Standalone image files picked with the document and document images
+   * on included pages become occlusion cards (in every card type); Basic/Cloze
+   * additionally turn the included text into cards.
+   */
+  const handleGenerateFromStaged = async () => {
+    const staged = store.getState().stagedDocument.value;
+    const { chunks, images } = buildGenerationInput(staged);
+    const looseImages = (staged.looseImageIds || [])
+      .map((id) => imagesById[id])
+      .filter(Boolean);
+    const occlusionMode = selectedCardType === "occlusion";
+
+    if (
+      chunks.length === 0 &&
+      !(occlusionMode && images.length + looseImages.length > 0)
+    ) {
+      infoToast(
+        "Nothing To Make Cards From",
+        "Include at least one page, or switch Type to Image Occlusion to use the document's images."
+      );
+      return;
+    }
+
+    try {
+      dispatch(setMakeCardsLoading(true));
+
+      if (occlusionMode) {
+        const imagesToOcclude = [...images, ...looseImages];
+        if (imagesToOcclude.length === 0) {
+          infoToast(
+            "No Images Found",
+            "No images were found in the included pages — nothing to turn into occlusion cards. Include more pages, or use the Basic/Cloze type to make text cards."
+          );
           return;
         }
-      }
-
-      const docImages = (splitResult && splitResult.images) || [];
-      if (splitResult) {
-        // Keep extracted images available for previews and for ADD_CARDS,
-        // which resolves ids to files in media_tmp.
-        dispatch(addImages(docImages));
-
-        // Record what this run found so the tab can show a status line and
-        // so the library/picker can sort "images from this document" first.
-        dispatch(
-          setDocumentContext({
-            docName: splitResult.doc
-              ? splitResult.doc.file_name_with_extension ||
-                splitResult.doc.file_name ||
-                ""
-              : "",
-            runId: docImages.length > 0 ? docImages[0].id.split("/")[0] : "",
-            chunksCount: splitResult.chunks.length,
-            imagesCount: docImages.length,
-          })
-        );
-      }
-
-      const occlusionMode = selectedCardType === "occlusion";
-      const imagesToOcclude = occlusionMode
-        ? [...docImages, ...importedImages]
-        : importedImages;
-
-      if (imagesToOcclude.length > 0) {
-        const contexts = buildImageContexts(
-          docImages,
-          splitResult ? splitResult.chunks : []
-        );
+        const contexts = buildImageContexts(images, chunks);
         const created = createOcclusionCards(imagesToOcclude, contexts);
         successToast(
           "Making Occlusion Cards",
           `${created.length} image${created.length === 1 ? "" : "s"} queued — masks are generated automatically. Review them below.`
         );
-        if (!occlusionMode) {
+      } else {
+        if (looseImages.length > 0) {
+          const created = createOcclusionCards(looseImages, {});
           infoToast(
             "Images Added as Occlusion Cards",
-            "Image files always become image-occlusion cards. Images found inside a document are attached to the cards made from its text."
+            `Image files always become image-occlusion cards (${created.length} queued). Images found inside the document are attached to the cards made from its text.`
           );
         }
-      } else if (occlusionMode) {
-        infoToast(
-          "No Images Found",
-          documentDescriptor
-            ? "No images were found in this document — nothing to turn into occlusion cards."
-            : "No images could be imported."
-        );
-      }
-
-      if (!occlusionMode && splitResult) {
-        await generateTextCardsFromDocument(splitResult);
+        if (chunks.length > 0) {
+          await generateTextCardsFromDocument({ chunks, images });
+        }
       }
     } catch (err) {
       errorToast("Error", err.message);
@@ -864,14 +943,12 @@ export function CardMakingScreen() {
     return contexts;
   };
 
-  // Text-card generation for a split document (Basic/Cloze types). Same
-  // batching/ETA behavior as before, now decoupled from the picker.
-  const generateTextCardsFromDocument = async (splitResult) => {
+  // Text-card generation for the included pages of a staged document
+  // (Basic/Cloze types). chunks/images are the dense generation input from
+  // buildGenerationInput, so batching/image anchoring are unchanged.
+  const generateTextCardsFromDocument = async ({ chunks, images = [] }) => {
     try {
       dispatch(setMakeCardsLoading(true));
-
-      const chunks = splitResult.chunks;
-      const images = splitResult.images || [];
 
       const model = store.getState().appSettings.ai.llmModel;
       const maxCharsPerBatch = getCardGenChunkSize(model);
@@ -1103,62 +1180,6 @@ export function CardMakingScreen() {
         }}
       />
 
-      <AlertDialog
-        leastDestructiveRef={cancelRef}
-        isOpen={pendingCardsSource !== null}
-        onClose={() => {
-          setPendingCardsSource(null);
-        }}
-      >
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <Text>Make Cards</Text>
-              <AlertDialogCloseButton />
-            </AlertDialogHeader>
-            <AlertDialogBody>
-              <Text>
-                AnkiBrain can make cards out of an entire document up to{" "}
-                {isLocalMode() ? "1 GB" : "100 MB"} in size, and turn image
-                files into image-occlusion cards.
-              </Text>
-              <Text>
-                AnkiBrain will read <b>every single word</b> in your document,
-                including author names, table of contents, indices, etc.
-              </Text>
-              <Text fontSize={24}>
-                To reduce junk cards, <b>you must remove irrelevant pages</b>{" "}
-                from your document!
-              </Text>
-              <Text fontSize={12} color={"gray"}>
-                Images found in the document are turned into image-occlusion
-                cards when the Image Occlusion type is selected; otherwise
-                they are attached to the cards made from the text.
-              </Text>
-            </AlertDialogBody>
-            <AlertDialogFooter>
-              <Button
-                me={5}
-                ref={cancelRef}
-                onClick={() => {
-                  setPendingCardsSource(null);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant={"accent"}
-                onClick={async () => {
-                  await processCardsSource(pendingCardsSource);
-                }}
-              >
-                I understand, proceed
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
-
       <CustomPromptMakeCardsModal
         isOpen={showCustomPromptModal}
         onClose={() => {
@@ -1211,12 +1232,12 @@ export function CardMakingScreen() {
                     {makeCardsLoading || occlusionInFlight > 0 ? (
                       <>
                         <Spinner size={"sm"} me={2} />
-                        Generating…
+                        Working…
                       </>
                     ) : (
                       <>
                         <AddIcon me={2} />
-                        Make Cards...
+                        Load Document...
                       </>
                     )}
                   </Button>
@@ -1227,7 +1248,7 @@ export function CardMakingScreen() {
                       whiteSpace={"nowrap"}
                       mt={0.5}
                     >
-                      Select documents or images.
+                      Select documents or images to load.
                     </Text>
                   )}
                 </Flex>
@@ -1618,12 +1639,14 @@ export function CardMakingScreen() {
             </Flex>
           )}
 
-          {view === "documents" && documentContext.docName && (
-            <Text fontSize={12} color={"gray"} mb={2}>
-              Last processed: <b>{documentContext.docName}</b> ·{" "}
-              {documentContext.chunksCount} text sections ·{" "}
-              {documentContext.imagesCount} images found
-            </Text>
+          {view === "documents" && (
+            <DocumentStagingPanel
+              busy={makeCardsLoading || occlusionInFlight > 0}
+              cardType={selectedCardType}
+              imagesById={imagesById}
+              onGenerate={handleGenerateFromStaged}
+              onClear={() => dispatch(clearStagedDocument())}
+            />
           )}
 
           {/* Card-audio section: the dropdown is the standing policy (new

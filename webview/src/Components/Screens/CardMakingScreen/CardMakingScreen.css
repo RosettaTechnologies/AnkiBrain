@@ -64,3 +64,16 @@
     transform: translateY(-50%) scale(1.04) !important;
     background-color: var(--chakra-colors-accent);
 }
+
+/*
+ * Make Cards > From Documents: pre-generation page/section review list. The
+ * panel itself is Chakra-styled; these classes handle the list separators and
+ * thin scrollbar only.
+ */
+.staged-document-panel {
+    scrollbar-width: thin;
+}
+
+.staged-entry {
+    border-top: 1px solid rgba(128, 128, 128, 0.25);
+}
