@@ -83,10 +83,16 @@ import {
 import {
   setMakeCardsLoading,
   setMakeCardsText,
+  addStagedImageId,
+  removeStagedImageId,
+  clearStagedImages,
 } from "../../../api/redux/slices/makeCardsText";
 import { errorToast, infoToast, successToast } from "../../../api/toast";
 import { pickCardsSource, splitSelectedDocument } from "../../../api/documents";
-import { importImagePaths } from "../../../api/occlusion";
+import {
+  importImageFromClipboard,
+  importImagePaths,
+} from "../../../api/occlusion";
 import {
   cancelAllOcclusionGeneration,
   cancelOcclusionGeneration,
@@ -286,6 +292,15 @@ export function CardMakingScreen() {
   );
   const devMode = useSelector((state) => state.devMode.value);
   const imagesById = useSelector((state) => state.imagesRegistry.value);
+  const stagedImageIds = useSelector(
+    (state) => state.makeCardsText.stagedImageIds
+  );
+  // Resolve staged ids against the registry and drop any whose media_tmp file
+  // was purged, so a dangling id can never be attached to a card.
+  const stagedImages = useMemo(
+    () => stagedImageIds.map((id) => imagesById[id]).filter(Boolean),
+    [stagedImageIds, imagesById]
+  );
   const documentContext = useSelector((state) => state.documentContext.value);
 
   // AnkiBrain Voice (card audio): the review-screen mode drives auto-enqueue
@@ -522,6 +537,54 @@ export function CardMakingScreen() {
     });
   };
 
+  // Import the clipboard image (Qt reads the OS clipboard) and stage it for the
+  // next Make Cards From Text run; the thumbnail row under the box is its UI.
+  // silentEmpty: a paste that turns out to hold no image (e.g. an html-only
+  // rich-text clipboard) must not raise the "no image" toast.
+  const handlePasteImage = async () => {
+    const imported = await importImageFromClipboard({ silentEmpty: true });
+    for (const image of imported) {
+      dispatch(addStagedImageId(image.id));
+    }
+    return imported;
+  };
+
+  // QtWebEngine never exposes a bare image/png clipboard entry to the DOM paste
+  // event — only Qt's own image format (application/x-qt-image / "Files") shows
+  // up as a file item. A screenshot or "Copy image" therefore arrives with no
+  // text/plain at all, while every plain-text paste carries text/plain. So:
+  // keep the browser's native paste for text, and treat everything else as a
+  // clipboard image (Python's QClipboard.image() reads image/png fine).
+  const handleTextAreaPaste = (event) => {
+    const clipboardData = event.clipboardData;
+    if (!clipboardData) {
+      return;
+    }
+    const items = Array.from(clipboardData.items || []);
+    const hasImageItem = items.some(
+      (item) => item.kind === "file" && item.type.startsWith("image/")
+    );
+    const text = clipboardData.getData("text/plain");
+    if (!hasImageItem && text) {
+      return;
+    }
+    event.preventDefault();
+    handlePasteImage().then((imported) => {
+      if (imported.length > 0) {
+        return;
+      }
+      // No image on the clipboard: fall back to pasting html-only rich text as
+      // plain text so those pastes aren't swallowed.
+      const html = clipboardData.getData("text/html");
+      if (!html) {
+        return;
+      }
+      const holder = document.createElement("div");
+      holder.innerHTML = html;
+      document.execCommand("insertText", false, holder.textContent || "");
+    });
+  };
+
   // Occlusion editor: opened from the Images panel (new card) or from a
   // pending occlusion card (edit its masks/fields). The modal owns its draft
   // state; this only routes the save.
@@ -593,6 +656,7 @@ export function CardMakingScreen() {
   // needs no extra call here.
   const handleClearAllImages = () => {
     dispatch(clearImages());
+    dispatch(clearStagedImages());
     dispatch(
       setCards(
         cards.map((c) => (c.images && c.images.length ? { ...c, images: [] } : c))
@@ -639,14 +703,16 @@ export function CardMakingScreen() {
   const handleMakeCards = async (
     text,
     customPrompt = "",
-    cardType = "basic"
+    cardType = "basic",
+    imageAssignment = null
   ) => {
     await generateCards(
       text,
       customPromptMakeCards,
       cardType,
       language,
-      dispatch
+      dispatch,
+      imageAssignment
     );
   };
 
@@ -944,7 +1010,24 @@ export function CardMakingScreen() {
       return;
     }
     if (makeCardsText.trim().split(/\s+/).length <= 750) {
-      await handleMakeCards(makeCardsText, customPromptMakeCards, selectedCardType);
+      const imageAssignment =
+        stagedImages.length > 0
+          ? {
+              images: stagedImages.map((image) => ({
+                id: image.id,
+                anchorChunk: 0,
+              })),
+            }
+          : null;
+      await handleMakeCards(
+        makeCardsText,
+        customPromptMakeCards,
+        selectedCardType,
+        imageAssignment
+      );
+      if (imageAssignment) {
+        dispatch(clearStagedImages());
+      }
     } else {
       errorToast("Too many tokens");
     }
@@ -1443,6 +1526,7 @@ export function CardMakingScreen() {
                 bg={colorMode === "light" ? "white" : "customPurple.800"}
                 focusBorderColor={"accent"}
                 style={{ minHeight: 200 }}
+                onPaste={handleTextAreaPaste}
                 onChange={(event) => {
                   const text = event.target.value;
                   const currentWordCount = text.trim().split(/\s+/).length;
@@ -1459,6 +1543,70 @@ export function CardMakingScreen() {
               <Text alignSelf={"end"} fontSize={12} color={"gray"} p={0} m={0}>
                 {makeCardsText.trim().split(/\s+/).length}/750
               </Text>
+              {stagedImages.length > 0 && (
+                <Flex mt={2} direction={"column"} gap={1}>
+                  <Text fontSize={11} color={"gray"}>
+                    Image{stagedImages.length === 1 ? "" : "s"} pasted — will be
+                    added to the cards made from this text.
+                  </Text>
+                  <Flex gap={2} wrap={"wrap"}>
+                    {stagedImages.map((image) => (
+                      <Box
+                        key={image.id}
+                        position={"relative"}
+                        borderWidth={"1px"}
+                        borderRadius={"md"}
+                        borderColor={
+                          colorMode === "light"
+                            ? "rgba(0,0,0,0.1)"
+                            : "customPurple.700"
+                        }
+                        bg={colorMode === "light" ? "white" : "customPurple.700"}
+                        p={1}
+                      >
+                        <img
+                          src={image.url}
+                          alt={image.id}
+                          style={{
+                            height: 56,
+                            maxWidth: 96,
+                            objectFit: "contain",
+                            display: "block",
+                          }}
+                        />
+                        <Box
+                          as={"button"}
+                          type={"button"}
+                          position={"absolute"}
+                          top={"-8px"}
+                          right={"-8px"}
+                          aria-label={"Remove image"}
+                          title={"Remove image"}
+                          borderRadius={"full"}
+                          bg={
+                            colorMode === "light"
+                              ? "white"
+                              : "customPurple.600"
+                          }
+                          borderWidth={"1px"}
+                          borderColor={
+                            colorMode === "light"
+                              ? "rgba(0,0,0,0.15)"
+                              : "customPurple.700"
+                          }
+                          lineHeight={"1"}
+                          p={"3px"}
+                          onClick={() =>
+                            dispatch(removeStagedImageId(image.id))
+                          }
+                        >
+                          <CloseIcon boxSize={2.5} />
+                        </Box>
+                      </Box>
+                    ))}
+                  </Flex>
+                </Flex>
+              )}
             </Flex>
           )}
 

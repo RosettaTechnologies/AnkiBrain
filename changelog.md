@@ -4,6 +4,7 @@
 - FEATURE: Generate cards from documents now include images: figures and diagrams found in
   PDFs and DOCX files are extracted and attached to the flashcards generated from
   their surrounding text.
+- FEATURE: images are pastable alongside text into the Make Cards > From Text box, works similar to above
 - FEATURE: automatic image occlusion cards
 - FEATURE: AnkiBrain Voice now available for free in all modes, powered by Kokoro for high-quality text-to-speech (TTS) integration
 - FIX: Regular (server) mode: use a login/signup gate to reduce confusion as app is not usable

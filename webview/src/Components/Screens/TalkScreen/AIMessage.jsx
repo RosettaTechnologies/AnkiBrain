@@ -21,7 +21,10 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PATHS } from "../../../api/constants";
 import { useDispatch } from "react-redux";
-import { setMakeCardsText } from "../../../api/redux/slices/makeCardsText";
+import {
+  setMakeCardsText,
+  clearStagedImages,
+} from "../../../api/redux/slices/makeCardsText";
 import { speak } from "../../../api/tts";
 
 export const AIMessage = (props) => {
@@ -155,6 +158,7 @@ export const AIMessage = (props) => {
               onClick={() => {
                 setShowPopover(false);
                 dispatch(setMakeCardsText(props.messageData.text));
+                dispatch(clearStagedImages());
                 // Land on the From Text segment so the sent text is visible.
                 navigate(PATHS.MAKE_CARDS, { state: { view: "text" } });
               }}

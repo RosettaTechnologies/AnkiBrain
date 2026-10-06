@@ -49,10 +49,12 @@ function registerImages(images) {
   return images;
 }
 
-function applyImportedImages(res, emptyMessage) {
+function applyImportedImages(res, emptyMessage, silentEmpty = false) {
   const images = (res && res.images) || [];
   if (images.length === 0) {
-    infoToast("No Images Imported", emptyMessage);
+    if (!silentEmpty) {
+      infoToast("No Images Imported", emptyMessage);
+    }
     return [];
   }
   registerImages(images);
@@ -73,12 +75,13 @@ export async function importImagesFromFiles() {
   }
 }
 
-export async function importImageFromClipboard() {
+export async function importImageFromClipboard({ silentEmpty = false } = {}) {
   try {
     const res = await pyImportImages("clipboard");
     return applyImportedImages(
       res,
-      "The clipboard does not contain an image. Copy an image first, then try again."
+      "The clipboard does not contain an image. Copy an image first, then try again.",
+      silentEmpty
     );
   } catch (err) {
     errorToast("Import Failed", String((err && err.message) || err));

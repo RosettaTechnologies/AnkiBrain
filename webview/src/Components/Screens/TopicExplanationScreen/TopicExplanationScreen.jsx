@@ -24,7 +24,10 @@ import {
   setLevelOfExpertise,
 } from "../../../api/redux/slices/makeCardsSettings";
 import { setUseDocuments } from "../../../api/documents";
-import { setMakeCardsText } from "../../../api/redux/slices/makeCardsText";
+import {
+  setMakeCardsText,
+  clearStagedImages,
+} from "../../../api/redux/slices/makeCardsText";
 import { useEffect, useState } from "react";
 import { errorToast } from "../../../api/toast";
 import { isLocalMode } from "../../../api/user";
@@ -229,6 +232,7 @@ export function TopicExplanationScreen(props) {
           mb={3}
           onClick={() => {
             dispatch(setMakeCardsText(topicExplanation));
+            dispatch(clearStagedImages());
             // Land on the From Text segment so the sent text is visible.
             navigate(PATHS.MAKE_CARDS, { state: { view: "text" } });
           }}
