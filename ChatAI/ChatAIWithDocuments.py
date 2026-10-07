@@ -1,15 +1,17 @@
 """
 RAG-enabled ChatAI (document Q&A) for LOCAL mode.
 
-Migrated to the langchain-classic/community/openai 1.x stack: embeddings are
-OpenAI text-embedding-3-small, stored in the `ankibrain` Chroma collection.
-Documents indexed by the pre-migration build (768-dim mpnet in the default
-`langchain` collection) are NOT migrated — re-import the files to re-index
-them; the old collection is simply left unused on disk.
+LOCAL mode embeds with the engine's local ONNX MiniLM model
+(`local_embeddings.LocalMiniLMEmbeddings`, 384 dims) into the
+`ankibrain-minilm` Chroma collection. Documents indexed by any earlier build
+(768-dim mpnet, then 1536-dim OpenAI text-embedding-3-small) are unreachable —
+re-import the files to re-index them; the legacy collections are deleted on the
+next engine start.
 """
 
 import json
 import os
+import sys
 from os import path
 from typing import Optional, Tuple, List
 
@@ -22,11 +24,12 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.document_loaders import TextLoader
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from ChatInterface import ChatInterface
 from llm_config import get_openai_base_url, get_openai_headers
+from local_embeddings import LocalMiniLMEmbeddings
 from document_images import (
     extract_pdf_images_and_pages,
     extract_docx_text_and_images,
@@ -99,18 +102,24 @@ class ChatAIWithDocuments(ChatInterface):
         self.llm = ChatOpenAI(temperature=temperature, model_name=model_name,
                               base_url=get_openai_base_url(), default_headers=get_openai_headers(),
                               timeout=120, max_retries=1)
-        # Explicit PersistentClient (rather than langchain's legacy
-        # Settings(is_persistent=True) path) and a collection name that
-        # deliberately differs from langchain's default 'langchain': the
-        # legacy 768-dim mpnet collection left in chroma-persist is then never
-        # touched, and cannot clash with text-embedding-3-small's 1536 dims.
+        client = chromadb.PersistentClient(path=persist_directory)
+        # Collections from earlier builds embed with a different function (768-dim
+        # mpnet, then 1536-dim OpenAI), so they can never be queried again and are
+        # dropped instead of left to grow on disk.
+        for legacy in ('ankibrain', 'langchain'):
+            try:
+                if any(c.name == legacy for c in client.list_collections()):
+                    client.delete_collection(legacy)
+                    print(f'<ChatAI> deleted legacy document collection {legacy}', file=sys.stderr)
+            except Exception as e:
+                print(f'<ChatAI> could not delete legacy collection {legacy}: {e}', file=sys.stderr)
+        # 'ankibrain-minilm' is fixed to LocalMiniLMEmbeddings' 384 dims; a
+        # differently-sized collection under this name would make add_documents
+        # fail with a dimension mismatch, so it is never reused for another model.
         self.vectorstore = Chroma(
-            collection_name='ankibrain',
-            embedding_function=OpenAIEmbeddings(model='text-embedding-3-small',
-                                                base_url=get_openai_base_url(),
-                                                default_headers=get_openai_headers(),
-                                                timeout=120),
-            client=chromadb.PersistentClient(path=persist_directory),
+            collection_name='ankibrain-minilm',
+            embedding_function=LocalMiniLMEmbeddings(),
+            client=client,
         )
         self.memory = ConversationBufferMemory(memory_key="chat_history", output_key='answer',
                                                return_messages=True)

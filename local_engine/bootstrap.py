@@ -147,7 +147,9 @@ def _sync_packages(runner):
 
 # Runs inside the engine venv. Proves the real ChatAI import graph loads and
 # that the vector store actually round-trips a document — offline, with no
-# settings.json and no API key, so it can never pass on a half-broken env.
+# settings.json and no API key, so it can never pass on a half-broken env. The
+# round trip embeds with the real local ONNX MiniLM model, so a first install
+# downloads it (~80 MB) here instead of stalling the user's first import.
 _VERIFY_SCRIPT = '''\
 import shutil
 import sys
@@ -161,6 +163,7 @@ import ChatAIWithoutDocuments  # noqa: F401
 import ChatInterface  # noqa: F401
 import document_images  # noqa: F401
 import pptx_loader  # noqa: F401
+from local_embeddings import LocalMiniLMEmbeddings
 
 import bs4  # noqa: F401
 import chromadb
@@ -171,24 +174,12 @@ import pypdf  # noqa: F401
 from langchain_community.callbacks import get_openai_callback  # noqa: F401
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
-from langchain_core.embeddings import Embeddings
-
-
-class _FakeEmbeddings(Embeddings):
-    """Deterministic local embeddings: the round trip must not need a key."""
-
-    def embed_documents(self, texts):
-        return [[float(len(t) %% 7)] * 8 for t in texts]
-
-    def embed_query(self, text):
-        return [float(len(text) %% 7)] * 8
-
 
 tmp = tempfile.mkdtemp()
 try:
     store = Chroma(
         collection_name='ankibrain-verify',
-        embedding_function=_FakeEmbeddings(),
+        embedding_function=LocalMiniLMEmbeddings(),
         client=chromadb.PersistentClient(path=tmp),
     )
     store.add_documents([Document(page_content='hello engine')])
@@ -209,7 +200,7 @@ def _verify(runner):
     engine genuinely works, not merely that files landed on disk.
     """
     paths = runner.paths
-    runner.emit('verify', 'start', 'Verifying the engine')
+    runner.emit('verify', 'start', 'Verifying the engine (fetching the local embedding model)')
     script = path.join(paths.logs_dir, 'verify-script.py')
     with open(script, 'w', encoding='utf-8') as f:
         f.write(_VERIFY_SCRIPT % {'chatai': estate.CHATAI_DIR, 'root': estate.ADDON_ROOT})

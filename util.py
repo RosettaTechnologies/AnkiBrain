@@ -30,3 +30,20 @@ def is_macos():
 
 def is_linux():
     return platform.system() == 'Linux'
+
+
+def sanitize_error_text(text, limit: int = 600) -> str:
+    """
+    Engine and provider error text is shown verbatim in the Error dialog, so a
+    gateway that answers with a web page (opencode Zen/Go return their HTML 404
+    for an unknown route) would paste a whole document there. Keep the leading
+    status line, say what happened, and cap everything else.
+    """
+    text = str(text)
+    lowered = text.lower()
+    if '<!doctype' in lowered or '<html' in lowered:
+        head = text.split('<', 1)[0].strip()
+        tail = 'The endpoint returned an HTML page instead of an API response.'
+        return f'{head} {tail}' if head else tail
+    collapsed = ' '.join(text.split())
+    return collapsed if len(collapsed) <= limit else collapsed[:limit] + '…'

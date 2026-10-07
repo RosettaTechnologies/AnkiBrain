@@ -33,6 +33,9 @@ def get_ankibrain_version():
     Because of this -- BEFORE the default settings keys are merged -- the SettingsManager will check 
     if currentVersion doesn't exist, then flag that AnkiBrain must have updated.
 """
+
+LOCAL_EMBEDDING_BACKEND = 'onnx-minilm-l6-v2'
+
 default_settings = {
     "aiLanguage": 'English',
     'customPromptChat': '',
@@ -42,6 +45,9 @@ default_settings = {
     "colorMode": "dark",
     "currentVersion": get_ankibrain_version(),
     "documents_saved": [],  # local mode only; server mode keeps documents on the account
+    # Which embedding backend the LOCAL-mode document index was built with.
+    # '' means a build that embedded through the OpenAI-compatible endpoint.
+    "localEmbeddingBackend": '',
     "lifetime_total_cost": 0,
     "user_mode": None,
     "llmModel": 'gpt-5.6-luna',
@@ -131,6 +137,13 @@ class SettingsManager:
             create_settings_file(self.pth)
             with open(self.pth, 'r') as f:
                 self.settings = json.load(f)
+
+        # LOCAL-mode documents are embedded by the engine's local ONNX model now;
+        # vectors written by the API-embedding build are unreachable, so the list
+        # is cleared once and the UI stops listing documents that cannot answer.
+        if self.settings.get('localEmbeddingBackend') != LOCAL_EMBEDDING_BACKEND:
+            self.settings['documents_saved'] = []
+            self.edit('localEmbeddingBackend', LOCAL_EMBEDDING_BACKEND)
 
     def save(self):
         # Write to a sibling temp file and swap it in: a crash mid-write can

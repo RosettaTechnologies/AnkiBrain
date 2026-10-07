@@ -7,6 +7,7 @@ from collections import deque
 from os import path
 
 from InterprocessCommand import InterprocessCommand
+from util import sanitize_error_text
 
 
 class ExternalScriptManager:
@@ -203,7 +204,7 @@ class ExternalScriptManager:
 
             # Handle module error.
             if output_data['cmd'] == InterprocessCommand.SUBMODULE_ERROR.value:
-                error_msg = output_data['data']['error']
+                error_msg = sanitize_error_text(output_data['data']['error'])
                 raise Exception(error_msg)
 
             return output_data
