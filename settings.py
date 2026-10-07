@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 from os import path
 from typing import Any, Optional
 
@@ -45,6 +46,21 @@ default_settings = {
     "user_mode": None,
     "llmModel": 'gpt-5.6-luna',
     'temperature': 0,
+    # ── OpenAI / OpenAI-compatible endpoint (LOCAL mode) ─────────────────────
+    # The API key itself lives in user_files/.env as OPENAI_API_KEY; only the
+    # base URL, the extra request headers and the last-fetched model list live
+    # here. An empty base URL means OpenAI's own default endpoint. The headers
+    # are merged over AnkiBrain's own User-Agent, so a gateway that routes on
+    # custom headers (e.g. opencode Go's x-opencode-session) works.
+    'openaiBaseUrl': '',
+    'openaiExtraHeaders': {},
+    # Stable per-install session id. Every request carries it as
+    # x-opencode-session (opencode Go refuses to route without it; other
+    # gateways ignore unknown headers). Generated once here, because the merge
+    # below only writes keys that are missing.
+    'openaiSessionId': str(uuid.uuid4()),
+    'openaiModels': [],
+
     'user': None,
     'devMode': False,
     'showBootReminderDialog': True,
@@ -107,10 +123,10 @@ class SettingsManager:
             # Now we store the actual current version in the settings.json file.
             self.set_new_version(get_ankibrain_version(), save=True)
         else:
-            # No settings file, this is either a first time install or update from version where there
-            # was no settings file (or user deleted it). In the second case there might be bugs
-            # if the update adds dependencies to requirements.txt and the user does not update the
-            # dependencies. 
+            # No settings file: a first-time install, or an update from a version
+            # that had none (or the user deleted it). Nothing to migrate either
+            # way — engine dependencies are provisioned from local_engine/uv.lock
+            # by the setup modal, not from the settings file.
             self.b_ankibrain_updated = False
             create_settings_file(self.pth)
             with open(self.pth, 'r') as f:

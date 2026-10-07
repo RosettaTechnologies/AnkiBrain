@@ -110,8 +110,48 @@ class InterprocessCommand(Enum):
     CANCEL_CARD_AUDIO = 'CANCEL_CARD_AUDIO'
     DID_CANCEL_CARD_AUDIO = 'DID_CANCEL_CARD_AUDIO'
 
-    SET_OPENAI_API_KEY = 'SET_OPENAI_API_KEY'
-    DID_SET_OPENAI_API_KEY = 'DID_SET_OPENAI_API_KEY'
+    # ── LOCAL-mode engine runtime (uv-provisioned ChatAI venv) ────────────
+    # LOCAL_ENGINE_STATUS -> DID_LOCAL_ENGINE_STATUS (promise-style) with the
+    # same vocabulary as the Voice engine: status ∈ supported-and-installed |
+    # supported-and-needs-sync | supported-but-absent | unsupported, plus
+    # last_error (a recorded start/runtime failure the UI offers Repair for).
+    # LOCAL_ENGINE_INSTALL kicks off the pinned bootstrap (install or repair);
+    # progress arrives via pushed LOCAL_ENGINE_INSTALL_PROGRESS events and a
+    # final LOCAL_ENGINE_INSTALL_DONE (no commandId — installs outlive any
+    # single request). LOCAL_ENGINE_CANCEL_INSTALL cancels + joins the worker,
+    # then deletes the partial tree.
+    LOCAL_ENGINE_STATUS = 'LOCAL_ENGINE_STATUS'
+    DID_LOCAL_ENGINE_STATUS = 'DID_LOCAL_ENGINE_STATUS'
+
+    LOCAL_ENGINE_INSTALL = 'LOCAL_ENGINE_INSTALL'
+    DID_LOCAL_ENGINE_INSTALL = 'DID_LOCAL_ENGINE_INSTALL'            # {started: bool} ack
+    LOCAL_ENGINE_INSTALL_PROGRESS = 'LOCAL_ENGINE_INSTALL_PROGRESS'  # push: bootstrap stage event
+    LOCAL_ENGINE_INSTALL_DONE = 'LOCAL_ENGINE_INSTALL_DONE'          # push: {ok, error?}
+    LOCAL_ENGINE_CANCEL_INSTALL = 'LOCAL_ENGINE_CANCEL_INSTALL'      # promise {ok, error?}
+    DID_LOCAL_ENGINE_CANCEL_INSTALL = 'DID_LOCAL_ENGINE_CANCEL_INSTALL'  # {cancelled: true, ok, error?}
+
+    # LOCAL_ENGINE_UNINSTALL deletes the engine runtime only; user data
+    # (documents, vector store, temp media, saved key) is a separate action
+    # via LOCAL_ENGINE_RESET_DATA. Both stop the subprocess first and do the
+    # deletion on a worker thread.
+    LOCAL_ENGINE_UNINSTALL = 'LOCAL_ENGINE_UNINSTALL'
+    DID_LOCAL_ENGINE_UNINSTALL = 'DID_LOCAL_ENGINE_UNINSTALL'        # {ok, error?}
+    LOCAL_ENGINE_RESET_DATA = 'LOCAL_ENGINE_RESET_DATA'
+    DID_LOCAL_ENGINE_RESET_DATA = 'DID_LOCAL_ENGINE_RESET_DATA'      # {ok, error?}
+
+    # OpenAI / OpenAI-compatible endpoint config (LOCAL mode).
+    # TEST_OPENAI_CONNECTION {apiKey?, baseUrl?} -> DID_TEST_OPENAI_CONNECTION
+    #   {ok, status, url_message, models, key{status,message}}: one GET on the
+    #   endpoint's /models route, reported as two verdicts (URL reachable? key
+    #   accepted?). A blank apiKey means "use the saved key"; a blank baseUrl
+    #   means the OpenAI default.
+    # SET_OPENAI_CONFIG {apiKey?, baseUrl} -> DID_SET_OPENAI_CONFIG {ok}:
+    #   persists the key to user_files/.env and the URL to settings.json, then
+    #   restarts the engine when it is installed and in sync.
+    TEST_OPENAI_CONNECTION = 'TEST_OPENAI_CONNECTION'
+    DID_TEST_OPENAI_CONNECTION = 'DID_TEST_OPENAI_CONNECTION'
+    SET_OPENAI_CONFIG = 'SET_OPENAI_CONFIG'
+    DID_SET_OPENAI_CONFIG = 'DID_SET_OPENAI_CONFIG'
 
     EDIT_SETTING = 'EDIT_SETTING'
     DID_EDIT_SETTING = 'DID_EDIT_SETTING'

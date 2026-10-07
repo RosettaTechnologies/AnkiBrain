@@ -1,0 +1,60 @@
+{
+  "_comment": [
+    "AnkiBrain LOCAL-mode engine runtime manifest. THIS FILE IS THE PIN OF",
+    "TRUTH: every version + hash the bootstrap downloads appears here (uv",
+    "itself, the managed CPython build). The dependency pins live in",
+    "local_engine/uv.lock (generated from local_engine/pyproject.toml);",
+    "bump both together, because state.json records both hashes and a",
+    "mismatch triggers the self-heal re-sync."
+  ],
+  "schema": 1,
+  "manifest_name": "ankibrain-local-engine",
+
+  "uv": {
+    "version": "0.12.3",
+    "releases_base": "https://github.com/astral-sh/uv/releases/download/0.12.3/",
+    "platforms": {
+      "linux-x86_64": {
+        "asset": "uv-x86_64-unknown-linux-gnu.tar.gz",
+        "sha256": "600cf9a742aca00d292673b16b5acffaa7b8c269a364ad0c2e79498dcb1fe101",
+        "binary": "uv-x86_64-unknown-linux-gnu/uv"
+      },
+      "linux-aarch64": {
+        "asset": "uv-aarch64-unknown-linux-gnu.tar.gz",
+        "sha256": "bb66cb52e7b1823aed1183630d8d8e5c958840d584a4c55ec10a4cfc168dcca2",
+        "binary": "uv-aarch64-unknown-linux-gnu/uv"
+      },
+      "darwin-aarch64": {
+        "asset": "uv-aarch64-apple-darwin.tar.gz",
+        "sha256": "546f7f8a6c70ff13a3a9d2bc958db3427298cebf3e0cb756f9177133b7068843",
+        "binary": "uv-aarch64-apple-darwin/uv"
+      },
+      "windows-amd64": {
+        "asset": "uv-x86_64-pc-windows-msvc.zip",
+        "sha256": "b23350c79e8ad0192b8124af13a0f17e8d4e4549524785e1aef389ae5a06990e",
+        "binary": "uv-x86_64-pc-windows-msvc/uv.exe"
+      },
+      "windows-arm64": {
+        "asset": "uv-aarch64-pc-windows-msvc.zip",
+        "sha256": "4343217d668727b8a8eb5cad92389a1d2eeead93c89940d1b955ba1bb15462eb",
+        "binary": "uv-aarch64-pc-windows-msvc/uv.exe"
+      }
+    },
+    "unsupported_platforms": {
+      "darwin-x86_64": "Intel Macs are not supported for Local mode: a required dependency publishes no macOS x86_64 wheels. An Apple Silicon Mac (M1 or newer) is required."
+    }
+  },
+
+  "python": {
+    "version": "3.11.15",
+    "_comment": "uv python install (python-build-standalone); UV_PYTHON_INSTALL_DIR keeps it under user_files/local_engine/."
+  },
+
+  "platforms_extra_unsupported": {},
+
+  "size_estimates_mb": {
+    "_comment": "Rounded upper estimates for the setup modal copy only.",
+    "download": { "linux-x86_64": 380, "linux-aarch64": 380, "darwin-aarch64": 380, "windows-amd64": 400, "windows-arm64": 400 },
+    "disk":     { "linux-x86_64": 1100, "linux-aarch64": 1100, "darwin-aarch64": 1100, "windows-amd64": 1200, "windows-arm64": 1200 }
+  }
+}

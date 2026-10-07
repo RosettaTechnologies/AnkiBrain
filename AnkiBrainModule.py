@@ -1,19 +1,17 @@
 import asyncio
 import json
-import platform
 import signal
 import threading
 
 from aqt import mw, gui_hooks
 from aqt.qt import *
 from aqt.utils import showInfo
-from dotenv import set_key, load_dotenv
+from dotenv import load_dotenv, dotenv_values
 
 from ChatAIModuleAdapter import ChatAIModuleAdapter
 from ExplainTalkButtons import ExplainTalkButtons
 from InterprocessCommand import InterprocessCommand as IC
 from KokoroTTSAdapter import KokoroTTSAdapter
-from OpenAIAPIKeyDialog import OpenAIAPIKeyDialog
 from PostUpdateDialog import PostUpdateDialog
 from SidePanel import SidePanel
 from UserModeDialog import show_user_mode_dialog
@@ -22,7 +20,7 @@ from card_backup import read_pending_backup
 from changelog import ChangelogDialog
 from media_images import cleanup_media_tmp, import_image_file, store_imported_image_bytes
 from project_paths import dotenv_path, is_dev_checkout
-from util import run_win_install, run_macos_install, run_linux_install, UserMode
+from util import UserMode
 
 #The "GUIThreadSignaler" class allows the non-UI thread to modify/update the UI thread. Some uses include
 #resetting the UI, opening a file browser, showing dialogs for missing API keys
@@ -52,7 +50,7 @@ class GUIThreadSignaler(QObject):
         mw.ankiBrain.sidePanel.webview.send_to_js(json_dict)
 
     def show_no_API_key_dialog(self):
-        showInfo('AnkiBrain has loaded. There is no API key detected, please set one before using the app.')
+        showInfo('AnkiBrain has loaded. No OpenAI API key is set. Open AnkiBrain Settings → Basic → OpenAI / OpenAI-compatible API, enter your key, and click Save.')
 
     def reset_ui(self):
         mw.reset()
@@ -177,9 +175,6 @@ class AnkiBrain:
         # who never use TTS pay nothing.
         self.tts = KokoroTTSAdapter()
 
-        self.openai_api_key_dialog = OpenAIAPIKeyDialog()
-        self.openai_api_key_dialog.hide()
-
         # Should go last because this object takes self and can call items.
         # Therefore, risk of things not completing setup.
         from ReactBridge import ReactBridge
@@ -196,9 +191,6 @@ class AnkiBrain:
     def setup_ui(self):
         mw.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.sidePanel)
         self.sidePanel.resize(500, mw.height())
-
-        # Set up api key dialog.
-        self.openai_api_key_dialog.on_key_save(self.handle_openai_api_key_save)
 
         # Hook for injecting custom javascript into Anki cards.
         # Anki 25 removed the legacy `prepareQA` hook. Its replacement is the
@@ -219,14 +211,13 @@ class AnkiBrain:
 
         if self.user_mode == UserMode.LOCAL:
             add_ankibrain_menu_item('Restart AI...', self.restart_async_members_from_sync)
-            add_ankibrain_menu_item('Set OpenAI API Key...', self.show_openai_api_key_dialog)
-            add_ankibrain_menu_item('Reinstall...', reinstall)
+            add_ankibrain_menu_item('Local AI Engine: Install/Repair...', self.install_local_engine)
+            add_ankibrain_menu_item('Uninstall Local AI Engine...', self.uninstall_local_engine)
 
         # Check if AnkiBrain has been updated.
         has_updated = mw.settingsManager.has_ankibrain_updated()
         if has_updated:
-            # If updated, need to have the user reinstall python dependencies.
-            # Show PostUpdateDialog.
+            # Just the changelog: dependency setup is the panel's job now.
             mw.updateDialog = PostUpdateDialog(mw)
             mw.updateDialog.show()
 
@@ -244,6 +235,13 @@ class AnkiBrain:
             **mw.settingsManager.settings,
             'canToggleDevMode': is_dev_checkout(),
             'recoveredCards': read_pending_backup(),
+            # Read straight from .env: load_dotenv runs after this call, and the
+            # webview only ever needs to know WHETHER a key exists.
+            'hasOpenaiApiKey': bool((dotenv_values(dotenv_path).get('OPENAI_API_KEY') or '').strip()),
+            # Custom request headers (e.g. opencode Go's x-opencode-session).
+            'openaiExtraHeaders': mw.settingsManager.settings.get('openaiExtraHeaders') or {},
+            # Sent automatically on every request; shown read-only in Settings.
+            'openaiSessionId': mw.settingsManager.settings.get('openaiSessionId') or '',
         }
         print('Sending DID_LOAD_USER_FILES')
         self.reactBridge.send_cmd(IC.DID_LOAD_SETTINGS, settings)
@@ -253,30 +251,54 @@ class AnkiBrain:
         Start up all async members here.
         :return:
         """
-        # Make sure webview is loaded.
-        while not self.webview_loaded:
-            print('Webview is not loaded yet, sleeping async...')
-            await asyncio.sleep(0.1)
+        # DID_FINISH_STARTUP is the only thing that clears the webview's global
+        # loading state, so it is sent from a finally: a broken or missing local
+        # engine must never strand the panel on "Starting AI Engine...".
+        try:
+            # Make sure webview is loaded.
+            while not self.webview_loaded:
+                print('Webview is not loaded yet, sleeping async...')
+                await asyncio.sleep(0.1)
 
-        if self.user_mode == UserMode.LOCAL:
-            self.reactBridge.send_cmd(IC.SET_WEBAPP_LOADING_TEXT, {'text': 'Starting AI Engine...'})
-            print('Starting AnkiBrain...')
-            await self.chatAI.start()
-            self.chatReady = True
-            print('AnkiBrain ChatAI loaded. App is ready.')
+            if self.user_mode == UserMode.LOCAL:
+                self.reactBridge.send_cmd(IC.SET_WEBAPP_LOADING_TEXT, {'text': 'Starting AI Engine...'})
+                print('Starting AnkiBrain...')
+                status = self.chatAI.status()
+                if status['status'] == 'supported-and-installed':
+                    try:
+                        await self.chatAI.start()
+                        self.chatReady = True
+                        print('AnkiBrain ChatAI loaded. App is ready.')
+                    except Exception as e:
+                        # chatAI.start() already recorded the failure in
+                        # state.json; surface it in the panel (banner + Repair)
+                        # and fall through to the settings/startup part.
+                        self.chatReady = False
+                        print(f'(AnkiBrain) local engine start failed: {e}')
+                        self.reactBridge.send_to_js(
+                            {'cmd': 'localEngineStartFailed', 'error': str(e)[:600]})
+                else:
+                    # absent -> prompt the user; drift -> self-heal silently
+                    # (a cache-warm re-sync is seconds and needs no decision).
+                    self.reactBridge.send_to_js({
+                        'cmd': 'localEngineSetupRequired',
+                        'autoStart': status['status'] == 'supported-and-needs-sync',
+                        'status': status,
+                    })
 
-        self.reactBridge.send_cmd(IC.SET_WEBAPP_LOADING_TEXT, {'text': 'Loading your settings...'})
-        await self.load_user_settings()
-        self.reactBridge.send_cmd(IC.DID_FINISH_STARTUP)
+            self.reactBridge.send_cmd(IC.SET_WEBAPP_LOADING_TEXT, {'text': 'Loading your settings...'})
+            await self.load_user_settings()
 
-        # Check for key in .env file in user_files
-        if self.user_mode == UserMode.LOCAL:
-            load_dotenv(dotenv_path, override=True)
-            if os.getenv('OPENAI_API_KEY') is None or os.getenv('OPENAI_API_KEY') == '':
-                print('No API key detected')
-                self.guiThreadSignaler.showNoAPIKeyDialogSignal.emit()
-            else:
-                print(f'Detected API Key: {os.getenv("OPENAI_API_KEY")}')
+            # Check for key in .env file in user_files
+            if self.user_mode == UserMode.LOCAL:
+                load_dotenv(dotenv_path, override=True)
+                if os.getenv('OPENAI_API_KEY') is None or os.getenv('OPENAI_API_KEY') == '':
+                    print('No API key detected')
+                    self.guiThreadSignaler.showNoAPIKeyDialogSignal.emit()
+                else:
+                    print(f'Detected API Key: {os.getenv("OPENAI_API_KEY")}')
+        finally:
+            self.reactBridge.send_cmd(IC.DID_FINISH_STARTUP)
 
     async def _stop_async_members(self):
         """
@@ -313,17 +335,12 @@ class AnkiBrain:
         This is a synchronous function but is a non-blocking operation.
         :return:
         """
-        asyncio.run_coroutine_threadsafe(self.restart_async_members(), mw.ankiBrain.loop)
+        future = asyncio.run_coroutine_threadsafe(self.restart_async_members(), mw.ankiBrain.loop)
+        _report_future_failure(future)
 
     async def ask_dummy(self, query: str):
         output = await self.chatAI.ask_dummy(query)
         return output
-
-    def handle_openai_api_key_save(self, key):
-        self.openai_api_key_dialog.hide()
-        set_key(dotenv_path, 'OPENAI_API_KEY', key)
-        os.environ['OPENAI_API_KEY'] = key
-        self.restart_async_members_from_sync()
 
     def _handle_process_signal(self, signal, frame):
         try:
@@ -359,7 +376,8 @@ class AnkiBrain:
         t.daemon = True
         t.start()
         try:
-            asyncio.run_coroutine_threadsafe(self._start_async_members(), loop)
+            future = asyncio.run_coroutine_threadsafe(self._start_async_members(), loop)
+            _report_future_failure(future)
         except Exception as e:
             print(e)
 
@@ -380,9 +398,6 @@ class AnkiBrain:
         else:
             self.sidePanel.show()
             mw.settingsManager.edit('showSidePanel', True)
-
-    def show_openai_api_key_dialog(self):
-        self.openai_api_key_dialog.show()
 
     def handle_anki_card_webview_pycmd(self, handled, cmd, context):
         try:
@@ -503,27 +518,41 @@ class AnkiBrain:
         mw.ankiBrain.sidePanel.show()
         mw.ankiBrain.reactBridge.send_to_js({'cmd': 'ttsSetupRequired'})
 
+    def install_local_engine(self):
+        """Menu action: open the webview's Local AI Engine modal, which shows
+        the size estimate and drives the pinned bootstrap (progress, cancel,
+        repair and retry all live in the React app, not in a Qt dialog)."""
+        mw.ankiBrain.sidePanel.show()
+        mw.ankiBrain.reactBridge.send_to_js(
+            {'cmd': 'localEngineSetupRequired', 'autoStart': False})
 
-def reinstall():
-    system = platform.system()
-    launched = True
-    if system == 'Windows':
-        run_win_install()
-    elif system == 'Darwin':
-        run_macos_install()
-    elif system == 'Linux':
-        from InstallDialog import linux_manual_install_text
-        launched = run_linux_install()
-        if not launched:
-            QMessageBox.warning(None, 'Could not open a terminal', linux_manual_install_text())
-
-    if launched:
-        showInfo('Terminal updater has been launched. Restart Anki after install is completed.')
+    def uninstall_local_engine(self):
+        """Menu action: open the modal's uninstall confirmation screen; the
+        actual teardown is driven by the webview (LOCAL_ENGINE_UNINSTALL)."""
+        mw.ankiBrain.sidePanel.show()
+        mw.ankiBrain.reactBridge.send_to_js({'cmd': 'localEngineUninstallPrompt'})
 
 
 def show_changelog():
     mw.changelog = ChangelogDialog(mw)
     mw.changelog.show()
+
+
+def _report_future_failure(future):
+    """
+    Log an exception raised by a fire-and-forget startup/restart task.
+
+    Without this, any failure before DID_FINISH_STARTUP vanished inside the
+    concurrent future and the panel silently stayed on the loading screen.
+    """
+    def _cb(f):
+        if f.cancelled():
+            return
+        exc = f.exception()
+        if exc is not None:
+            print(f'(AnkiBrain) startup task failed: {exc!r}')
+
+    future.add_done_callback(_cb)
 
 
 def add_ankibrain_menu_item(name: str, fn):

@@ -1,0 +1,126 @@
+import { ChakraProvider } from "@chakra-ui/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { Provider } from "react-redux";
+import { store } from "../../api/redux";
+import {
+  setLocalEngineInstallActive,
+  setLocalEngineStartError,
+  setLocalEngineStatus,
+  setSetupModalMode,
+  setSetupModalOpen,
+} from "../../api/redux/slices/localEngine";
+import { handlePythonDataReceived } from "../../api/PythonBridge";
+import { LocalEngineSetupModal } from "./LocalEngineSetupModal";
+import {
+  pyLocalEngineCancelInstall,
+  pyLocalEngineInstall,
+  pyLocalEngineResetData,
+  pyLocalEngineUninstall,
+} from "../../api/PythonBridge/senders/pyLocalEngine";
+
+// The component's python senders are fire-and-forget; mock them so tests can
+// assert exactly which call a click issues without a live bridge.
+vi.mock("../../api/PythonBridge/senders/pyLocalEngine", () => ({
+  pyLocalEngineStatus: vi.fn(),
+  pyLocalEngineInstall: vi.fn(),
+  pyLocalEngineCancelInstall: vi.fn(),
+  pyLocalEngineUninstall: vi.fn(),
+  pyLocalEngineResetData: vi.fn(),
+}));
+
+// The store is a singleton; reset the localEngine substate exactly like a
+// fresh session (same convention as the slice tests).
+beforeEach(() => {
+  vi.clearAllMocks();
+  store.dispatch(setLocalEngineInstallActive(true)); // clears event/stages/done
+  store.dispatch(setLocalEngineInstallActive(false));
+  store.dispatch(setSetupModalOpen(false));
+  store.dispatch(setSetupModalMode("default"));
+  store.dispatch(setLocalEngineStatus(null));
+  store.dispatch(setLocalEngineStartError(null));
+});
+
+function renderModal() {
+  return render(
+    <Provider store={store}>
+      <ChakraProvider>
+        <LocalEngineSetupModal />
+      </ChakraProvider>
+    </Provider>
+  );
+}
+
+test("absent status offers Install engine, which starts the bootstrap", () => {
+  store.dispatch(
+    setLocalEngineStatus({
+      status: "supported-but-absent",
+      estimate: { download_mb: 380, disk_mb: 1100 },
+    })
+  );
+  store.dispatch(setSetupModalOpen(true));
+  renderModal();
+
+  fireEvent.click(screen.getByText("Install engine"));
+
+  expect(pyLocalEngineInstall).toHaveBeenCalled();
+});
+
+test("installed status cancel closes the modal without any python call", () => {
+  store.dispatch(setLocalEngineStatus({ status: "supported-and-installed" }));
+  store.dispatch(setSetupModalOpen(true));
+  renderModal();
+
+  fireEvent.click(screen.getByText("Cancel"));
+
+  expect(store.getState().localEngine.setupModalOpen).toBe(false);
+  expect(pyLocalEngineInstall).not.toHaveBeenCalled();
+  expect(pyLocalEngineCancelInstall).not.toHaveBeenCalled();
+  expect(pyLocalEngineUninstall).not.toHaveBeenCalled();
+  expect(pyLocalEngineResetData).not.toHaveBeenCalled();
+});
+
+test("opening from an autoStart setup-required push starts the install", async () => {
+  renderModal();
+
+  await handlePythonDataReceived(
+    { cmd: "localEngineSetupRequired", autoStart: true },
+    store.dispatch,
+    () => {}
+  );
+
+  expect(store.getState().localEngine.setupModalOpen).toBe(true);
+  expect(pyLocalEngineInstall).toHaveBeenCalled();
+});
+
+test("unsupported status renders the platform reason", () => {
+  store.dispatch(
+    setLocalEngineStatus({
+      status: "unsupported",
+      reason: "Intel Macs are not supported for Local mode.",
+    })
+  );
+  store.dispatch(setSetupModalOpen(true));
+  renderModal();
+
+  expect(
+    screen.getByText("Intel Macs are not supported for Local mode.")
+  ).toBeInTheDocument();
+});
+
+test("installed status with last_error shows the banner and Repair engine", () => {
+  store.dispatch(
+    setLocalEngineStatus({
+      status: "supported-and-installed",
+      last_error: {
+        code: "start",
+        message: "chromadb import failed",
+        hint: "Press Repair engine.",
+      },
+    })
+  );
+  store.dispatch(setSetupModalOpen(true));
+  renderModal();
+
+  expect(screen.getByText("chromadb import failed")).toBeInTheDocument();
+  expect(screen.getByText("Repair engine")).toBeInTheDocument();
+});

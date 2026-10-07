@@ -5,7 +5,9 @@ import json
 import os
 import re
 
-from langchain.schema import Document
+from langchain_core.documents import Document
+
+from llm_config import get_openai_base_url, get_openai_headers
 
 
 def extract_json_array(s):
@@ -236,7 +238,7 @@ class ChatInterface(ABC):
         clamped/validated here so malformed model output can never produce a
         broken note.
         """
-        import openai
+        from openai import OpenAI
 
         if not image_path or not os.path.isfile(image_path):
             raise Exception('The image for this occlusion card is no longer available.')
@@ -271,7 +273,9 @@ class ChatInterface(ABC):
             ],
         }]
 
-        openai.api_key = os.getenv('OPENAI_API_KEY')
+        client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'),
+                        base_url=get_openai_base_url(), default_headers=get_openai_headers(),
+                        timeout=120)
         kwargs = {'model': model, 'messages': messages}
         if model.startswith('gpt-5.6'):
             # The GPT-5.6 family rejects temperature/max_tokens.
@@ -280,8 +284,8 @@ class ChatInterface(ABC):
             kwargs['temperature'] = 0
             kwargs['max_tokens'] = 1500
 
-        response = openai.ChatCompletion.create(**kwargs)
-        text = (response['choices'][0]['message']['content'] or '').strip()
+        response = client.chat.completions.create(**kwargs)
+        text = (response.choices[0].message.content or '').strip()
         return self._parse_occlusion_response(text)
 
     @staticmethod

@@ -5,12 +5,19 @@ import { addAIMessageToStore } from "../chat";
 import { InterprocessCommand as IC } from "./InterprocessCommand";
 import { playTtsUrl } from "../tts/player";
 import { openSetupModal, refreshTtsStatus } from "../tts";
+import { openLocalEngineModal, refreshLocalEngineStatus } from "../localEngine";
+import { pyLocalEngineInstall } from "./senders/pyLocalEngine";
 import { handleCardAudioResult } from "../cardAudio";
 import {
   setTtsInstallDone,
   setTtsInstallEvent,
   setTtsSettings,
 } from "../redux/slices/tts";
+import {
+  setLocalEngineInstallDone,
+  setLocalEngineInstallEvent,
+  setLocalEngineStartError,
+} from "../redux/slices/localEngine";
 import { setDocuments } from "../redux/slices/documentsSlice";
 import { store } from "../redux";
 import { setBoolGlobalLoadingIndicator } from "../redux/slices/bGlobalLoadingIndicator";
@@ -22,7 +29,15 @@ import { setPyCommandLock } from "../redux/slices/pyCommandLock";
 import { stopAllLoaders } from "../redux/stopAllLoaders";
 import { setCurrentVersion } from "../redux/slices/currentVersion";
 import { setLifetimeCost, setSessionCost } from "../redux/slices/cost";
-import { setLLMModel, setTemperature } from "../redux/slices/appSettings";
+import {
+  setHasOpenaiApiKey,
+  setLLMModel,
+  setOpenAIBaseUrl,
+  setOpenAIExtraHeaders,
+  setOpenAISessionId,
+  setOpenAIModels,
+  setTemperature,
+} from "../redux/slices/appSettings";
 import { setLoadingText } from "../redux/slices/loadingText";
 import { setUserMode } from "../redux/slices/userMode";
 import { getUser } from "../server-api/networking/user";
@@ -69,9 +84,28 @@ export async function handlePythonDataReceived(
                                                                                                                                                                                                     );
                                                                                                                                                                                                      */
 
-  let sourceDocuments, model, temperature;
   const cmd = pyResponseObject.cmd;
   const data = pyResponseObject.data;
+
+  // Python settles a failed command with its DID_ plus a top-level `error`.
+  // A fire-and-forget command (no commandId) has no promise and no sender-side
+  // catch, so nothing else would ever clear the chat/global spinners or show
+  // the message: clear them here and surface it.
+  // Promise-tracked commands (commandId present) are deliberately left alone:
+  // initPythonBridge rejects their promise and their sender maps the error —
+  // the TTS flows reject with sentinels (TTS_NOT_INSTALLED, TTS_PACK_MISSING,
+  // TTS_UNSUPPORTED) that open the setup modal, and must not get a generic
+  // toast on top. The `DID_` scope also keeps the localEngineStartFailed /
+  // ttsError pushes (which carry a top-level `error` too) out of this branch.
+  if (
+    pyResponseObject.error &&
+    String(cmd).startsWith("DID_") &&
+    !pyResponseObject.commandId
+  ) {
+    stopAllLoaders(dispatch);
+    errorToast("Error", String(pyResponseObject.error).slice(0, 300));
+    return;
+  }
 
   switch (cmd) {
     case "explainSelectedText":
@@ -91,6 +125,27 @@ export async function handlePythonDataReceived(
     case "ttsError":
       errorToast("Voice Error", String(pyResponseObject.message || "").slice(0, 300));
       break;
+    case "localEngineSetupRequired":
+      openLocalEngineModal("default");
+      if (pyResponseObject.autoStart) {
+        // Drift self-heals on boot: the modal opens and the (cache-warm)
+        // repair starts immediately. An absent engine waits for a click.
+        pyLocalEngineInstall();
+      }
+      break;
+    case "localEngineUninstallPrompt":
+      openLocalEngineModal("uninstall");
+      break;
+    case "localEngineStartFailed":
+      store.dispatch(setLocalEngineStartError(pyResponseObject.error));
+      errorToast(
+        "Local Engine Error",
+        String(pyResponseObject.error || "").slice(0, 300)
+      );
+      // Settings banner + Repair button is the recovery path: no generic
+      // ERROR toast and no navigation.
+      refreshLocalEngineStatus();
+      break;
     case IC.TTS_INSTALL_PROGRESS:
       store.dispatch(setTtsInstallEvent(data));
       break;
@@ -101,6 +156,17 @@ export async function handlePythonDataReceived(
         // The action that opened the modal is deliberately NOT replayed —
         // the user re-clicks speak / generate audio themselves.
         refreshTtsStatus();
+      }
+      break;
+    case IC.LOCAL_ENGINE_INSTALL_PROGRESS:
+      store.dispatch(setLocalEngineInstallEvent(data));
+      break;
+    case IC.LOCAL_ENGINE_INSTALL_DONE:
+      store.dispatch(setLocalEngineInstallDone(data));
+      if (data && data.ok) {
+        // The python handler restarts the engine after a successful install;
+        // refreshing status lets the Settings UI leave the install state.
+        refreshLocalEngineStatus();
       }
       break;
     case IC.CARD_AUDIO_RESULT:
@@ -116,20 +182,25 @@ export async function handlePythonDataReceived(
     case IC.DID_ADD_CARDS:
       //successToast("Cards Added", "Your cards have been added to Anki.");
       break;
-    case IC.DID_ASK_CONVERSATION_NO_DOCUMENTS:
-      model = store.getState().appSettings.ai.llmModel;
-      temperature = store.getState().appSettings.ai.temperature;
+    case IC.DID_ASK_CONVERSATION_NO_DOCUMENTS: {
+      // Locals per case, never assignments to a name some sibling case
+      // declares with `let`: those resolve to that sibling's binding, and
+      // touching it throws before that case ever ran. That TDZ is exactly how
+      // a talk reply used to throw here and leave the chat spinner spinning.
+      const model = store.getState().appSettings.ai.llmModel;
+      const temperature = store.getState().appSettings.ai.temperature;
       addAIMessageToStore(data.response, [], model, temperature, dispatch);
       dispatch(setChatLoading(false));
       break;
-    case IC.DID_ASK_CONVERSATION_DOCUMENTS:
-      let sourceDocuments = JSON.parse(data.source_documents);
-      let sourceSnippets = [];
-      for (let doc of sourceDocuments) {
+    }
+    case IC.DID_ASK_CONVERSATION_DOCUMENTS: {
+      const sourceDocuments = JSON.parse(data.source_documents);
+      const sourceSnippets = [];
+      for (const doc of sourceDocuments) {
         sourceSnippets.push(doc.page_content);
       }
-      model = store.getState().appSettings.ai.llmModel;
-      temperature = store.getState().appSettings.ai.temperature;
+      const model = store.getState().appSettings.ai.llmModel;
+      const temperature = store.getState().appSettings.ai.temperature;
       addAIMessageToStore(
         data.response,
         sourceSnippets,
@@ -139,6 +210,7 @@ export async function handlePythonDataReceived(
       );
       dispatch(setChatLoading(false));
       break;
+    }
     case IC.DID_ADD_DOCUMENTS:
       // const documentsAdded = data.documents_added;
       // dispatch(addDocumentsToStore(documentsAdded));
@@ -175,6 +247,11 @@ export async function handlePythonDataReceived(
         showBootReminderDialog,
         showCardBottomHint,
         canToggleDevMode,
+        openaiBaseUrl,
+        openaiExtraHeaders,
+        openaiSessionId,
+        openaiModels,
+        hasOpenaiApiKey,
       } = data;
 
       // Python only sets canToggleDevMode in dev checkouts; packaged
@@ -212,6 +289,22 @@ export async function handlePythonDataReceived(
       if (temperature) {
         dispatch(setTemperature(temperature));
       }
+
+      // OpenAI / OpenAI-compatible endpoint (LOCAL mode). Python only ever
+      // sends whether a key exists, never the secret itself.
+      if (openaiBaseUrl !== undefined) {
+        dispatch(setOpenAIBaseUrl(openaiBaseUrl));
+      }
+      if (openaiExtraHeaders && typeof openaiExtraHeaders === "object") {
+        dispatch(setOpenAIExtraHeaders(openaiExtraHeaders));
+      }
+      if (typeof openaiSessionId === "string") {
+        dispatch(setOpenAISessionId(openaiSessionId));
+      }
+      if (Array.isArray(openaiModels)) {
+        dispatch(setOpenAIModels(openaiModels));
+      }
+      dispatch(setHasOpenaiApiKey(hasOpenaiApiKey === true));
 
       if (user_mode) {
         dispatch(setUserMode(user_mode));
@@ -345,7 +438,14 @@ export async function handlePythonDataReceived(
 
 export function initPythonBridge(window, dispatch, navigate) {
   window.receiveFromPython = (pyResponseObject) => {
-    handlePythonDataReceived(pyResponseObject, dispatch, navigate);
+    // The switchboard is async and is not awaited here, so anything it throws
+    // would be an unhandled rejection that leaves the spinners it set on screen
+    // forever (the talk send spinner hung exactly that way). Settle it instead:
+    // clear the loaders and say what broke.
+    handlePythonDataReceived(pyResponseObject, dispatch, navigate).catch((e) => {
+      stopAllLoaders(dispatch);
+      errorToast("Error", String(e && e.message ? e.message : e).slice(0, 300));
+    });
 
     // We got a response to an action, remove lock.
     if (pyResponseObject.cmd.startsWith("DID_")) {
@@ -384,6 +484,12 @@ export function initPythonBridge(window, dispatch, navigate) {
 }
 
 function _sendToPython(data) {
+  // This console.log IS the wire, not a debug trace: WebEnginePage's
+  // javaScriptConsoleMessage intercepts the DATA_FROM_REACT prefix and emits
+  // the rest of the message to ReactBridge. Never mask or transform a field
+  // here - the payload has to arrive verbatim (replacing apiKey with a
+  // redaction token once made python save that literal text as the API key).
+  // Anki-side stdout is redacted in ReactBridge instead.
   console.log(`DATA_FROM_REACT: ${JSON.stringify(data)}`);
 }
 

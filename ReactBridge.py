@@ -7,6 +7,7 @@ from aqt import mw
 
 from AnkiBrainModule import AnkiBrain
 from AnkiBrainDocument import AnkiBrainDocument
+from ChatAIModuleAdapter import LocalEngineError, LocalEngineNotInstalledError
 from InterprocessCommand import InterprocessCommand as IC
 from KokoroTTSAdapter import TTSNotInstalledError, TTSUnsupportedError
 from cards import add_basic_card, add_cloze_card, add_image_occlusion_card
@@ -21,7 +22,9 @@ from media_images import (
     resolve_image_path,
     store_server_split_images,
 )
-from networking import fetch, postDocument, postOcclusionImage
+from dotenv import set_key
+from networking import check_openai_endpoint, fetch, postDocument, postOcclusionImage
+from project_paths import dotenv_path
 from util import UserMode
 
 
@@ -74,6 +77,28 @@ class ReactBridge:
         print(f'(ReactBridge) Sending cmd to react app: {json.dumps(consolidated)}')
         self.send_to_js(consolidated)
 
+    def settle_failed_command(self, cmd: IC, commandId, message: str, generic: bool = False):
+        """
+        A command that dies in python must always end in the webview, or its
+        spinner and the global python command lock leak forever. A paired
+        command is settled with its own DID_ plus a top-level `error`: a
+        promise-style caller rejects, and a fire-and-forget caller is caught by
+        the webview's DID_+error early-out (spinners cleared, message shown).
+        Commands without a DID_ twin fall back to IC.ERROR, which clears every
+        spinner and releases the lock.
+        """
+        name = getattr(cmd, 'name', None)
+        did = None
+        if name:
+            try:
+                did = IC['DID_' + name]
+            except KeyError:
+                did = None
+        if did is not None:
+            self.send_cmd(did, {'error': message}, commandId=commandId, error=message)
+        if did is None or generic:
+            self.send_cmd(IC.ERROR, {'message': message})
+
     def set_webapp_loading(self, value: bool):
         self.send_cmd(IC.SET_WEBAPP_LOADING, {'value': value})
 
@@ -96,8 +121,14 @@ class ReactBridge:
         self.handle_react_data_received(json.dumps(data))
 
     async def a_handle_react_data_received(self, data: dict):
+        # Pre-seeded so the failure handlers below can always settle the
+        # command, even when the payload dies before it is parsed.
+        commandId = ''
         try:
-            print(f'<ReactBridge> Received cmd {json.dumps(data)}')
+            log_data = {**data, 'apiKey': '***'} if data.get('apiKey') else data
+            if isinstance(log_data.get('extraHeaders'), dict):
+                log_data = {**log_data, 'extraHeaders': {k: '***' for k in log_data['extraHeaders']}}
+            print(f'<ReactBridge> Received cmd {json.dumps(log_data)}')
             cmd = data['cmd']
             commandId = data['commandId'] if 'commandId' in data else ''
 
@@ -497,6 +528,102 @@ class ReactBridge:
                     self._card_audio_cancel_keys.add(str(key))
                 self.send_cmd(IC.DID_CANCEL_CARD_AUDIO, {'queued': True}, commandId=commandId)
 
+            # ── LOCAL-mode engine runtime ─────────────────────────────────
+            elif cmd == IC.LOCAL_ENGINE_STATUS:
+                try:
+                    self.send_cmd(IC.DID_LOCAL_ENGINE_STATUS, self.app.chatAI.status(),
+                                  commandId=commandId)
+                except Exception as e:
+                    self.send_cmd(IC.DID_LOCAL_ENGINE_STATUS, error=str(e), commandId=commandId)
+
+            elif cmd == IC.LOCAL_ENGINE_INSTALL:
+                # Fire-and-forget like TTS_INSTALL: the ack only says "started";
+                # progress and the final result arrive as pushed events (an
+                # install outlives any single request promise). A successful
+                # install restarts the async members so the ChatAI subprocess
+                # actually comes up and the panel leaves the loading state.
+                def _progress(ev):
+                    self.send_cmd(IC.LOCAL_ENGINE_INSTALL_PROGRESS, ev)
+
+                def _done(res):
+                    self.send_cmd(IC.LOCAL_ENGINE_INSTALL_DONE, res)
+                    if res.get('ok'):
+                        asyncio.run_coroutine_threadsafe(
+                            self.app.restart_async_members(), self.app.loop)
+
+                started = self.app.chatAI.start_install(on_event=_progress, on_done=_done)
+                self.send_cmd(IC.DID_LOCAL_ENGINE_INSTALL, {'started': bool(started)},
+                              commandId=commandId)
+
+            elif cmd == IC.LOCAL_ENGINE_CANCEL_INSTALL:
+                # The setup modal's one way out of a running install: cancel
+                # the bootstrap, wait for its worker to exit, stop the
+                # subprocess (it locks the venv on Windows), then delete the
+                # partial tree on a worker thread. The ack resolves only once
+                # cleanup finished; a still-stopping bootstrap or locked files
+                # come back as {ok: False, error} and the modal offers Cancel
+                # again.
+                chat_ai = self.app.chatAI
+                still_running = await asyncio.to_thread(chat_ai.cancel_install_and_wait, 60)
+                if still_running:
+                    res = {'ok': False,
+                           'error': 'The install is still stopping. Try Cancel again in a moment.'}
+                else:
+                    try:
+                        await chat_ai.stop()
+                    except Exception:
+                        pass
+                    try:
+                        await asyncio.to_thread(chat_ai.uninstall_data)
+                        self.app.chatReady = False
+                        res = {'ok': True}
+                    except Exception as e:
+                        print(f'(ReactBridge) local engine cancel cleanup failed: {e}')
+                        res = {'ok': False, 'error': str(e)[:300]}
+                self.send_cmd(IC.DID_LOCAL_ENGINE_CANCEL_INSTALL,
+                              {'cancelled': True, **res}, commandId=commandId)
+
+            elif cmd == IC.LOCAL_ENGINE_UNINSTALL:
+                # Engine runtime only: documents/DB/temp/key survive (that is
+                # LOCAL_ENGINE_RESET_DATA). Stop the subprocess first (it locks
+                # the venv on Windows), then delete off the UI thread.
+                if self.app.chatAI.install_in_progress():
+                    self.send_cmd(IC.DID_LOCAL_ENGINE_UNINSTALL,
+                                  {'ok': False,
+                                   'error': 'An engine install is already running.'},
+                                  commandId=commandId)
+                else:
+                    try:
+                        await self.app.chatAI.stop()
+                        await asyncio.to_thread(self.app.chatAI.uninstall_data)
+                        self.app.chatReady = False
+                        self.send_cmd(IC.DID_LOCAL_ENGINE_UNINSTALL, {'ok': True},
+                                      commandId=commandId)
+                    except Exception as e:
+                        print(f'(ReactBridge) local engine uninstall failed: {e}')
+                        self.send_cmd(IC.DID_LOCAL_ENGINE_UNINSTALL,
+                                      {'ok': False, 'error': str(e)[:300]},
+                                      commandId=commandId)
+
+            elif cmd == IC.LOCAL_ENGINE_RESET_DATA:
+                # User data only: imported documents, the vector store, temp
+                # media and the saved OpenAI key. settings.json, card backups
+                # and the engine tree are untouched. Restart afterwards so the
+                # engine comes back with an empty store and no key.
+                try:
+                    await self.app.chatAI.stop()
+                    await asyncio.to_thread(self.app.chatAI.reset_user_data)
+                    mw.settingsManager.edit('documents_saved', [])
+                    self.send_cmd(IC.DID_LOCAL_ENGINE_RESET_DATA, {'ok': True},
+                                  commandId=commandId)
+                    asyncio.run_coroutine_threadsafe(self.app.restart_async_members(),
+                                                     self.app.loop)
+                except Exception as e:
+                    print(f'(ReactBridge) local engine data reset failed: {e}')
+                    self.send_cmd(IC.DID_LOCAL_ENGINE_RESET_DATA,
+                                  {'ok': False, 'error': str(e)[:300]},
+                                  commandId=commandId)
+
             elif cmd == IC.NETWORK_REQUEST:
                 url = data['url']
                 verb = data['verb']
@@ -508,12 +635,37 @@ class ReactBridge:
                 except Exception as e:
                     self.send_cmd(IC.DID_NETWORK_REQUEST, error=str(e), commandId=commandId)
 
-            elif cmd == IC.SET_OPENAI_API_KEY:
-                key = data['key']
+            elif cmd == IC.TEST_OPENAI_CONNECTION:
+                # A blank apiKey means "use the saved key", so the user can
+                # list models without re-typing a stored secret.
+                api_key = data.get('apiKey') or os.getenv('OPENAI_API_KEY')
+                base_url = data.get('baseUrl') or mw.settingsManager.settings.get('openaiBaseUrl')
+                extra_headers = data.get('extraHeaders')
+                if not isinstance(extra_headers, dict):
+                    extra_headers = mw.settingsManager.settings.get('openaiExtraHeaders')
+                result = await check_openai_endpoint(api_key, base_url, extra_headers)
+                self.send_cmd(IC.DID_TEST_OPENAI_CONNECTION, result, commandId=commandId)
 
-                await self.app.chatAI.set_openai_api_key(key)
-                os.environ['OPENAI_API_KEY'] = key
-                self.send_cmd(IC.DID_SET_OPENAI_API_KEY, commandId=commandId)
+            elif cmd == IC.SET_OPENAI_CONFIG:
+                key = (data.get('apiKey') or '').strip()
+                base_url = (data.get('baseUrl') or '').strip()
+                extra_headers = data.get('extraHeaders')
+                if key:
+                    set_key(dotenv_path, 'OPENAI_API_KEY', key)
+                    os.environ['OPENAI_API_KEY'] = key
+                mw.settingsManager.edit('openaiBaseUrl', base_url)
+                if isinstance(extra_headers, dict):
+                    # str() both sides: a non-string value would otherwise be
+                    # rejected by the SDK's header mapping at request time.
+                    mw.settingsManager.edit('openaiExtraHeaders', {
+                        str(k): str(v) for k, v in extra_headers.items() if str(k).strip()})
+                self.send_cmd(IC.DID_SET_OPENAI_CONFIG, {'ok': True}, commandId=commandId)
+                # ChatAI builds its LLM clients once at subprocess start, so a
+                # changed URL/key needs an engine restart. Only when the engine
+                # is installed and in sync: restarting an absent engine would
+                # pop the setup modal.
+                if self.app.chatAI.availability()[0] == 'ready':
+                    self.app.restart_async_members_from_sync()
 
             elif cmd == IC.EDIT_SETTING:
                 key = data['key']
@@ -526,16 +678,17 @@ class ReactBridge:
 
             elif cmd == IC.PRINT_FROM_JS:
                 print(data['text'])
+        except LocalEngineNotInstalledError as e:
+            # The webview must offer the install flow; the settle below still
+            # runs so a fire-and-forget command cannot leak its spinner/lock.
+            self.send_to_js({'cmd': 'localEngineSetupRequired'})
+            self.settle_failed_command(cmd, commandId, str(e)[:600])
+        except LocalEngineError as e:
+            # The panel's banner + Repair button is the recovery path.
+            self.send_to_js({'cmd': 'localEngineStartFailed', 'error': str(e)[:600]})
+            self.settle_failed_command(cmd, commandId, str(e)[:600])
         except Exception as e:
-            self.send_cmd(IC.ERROR, {
-                'message':
-                    f'''
-                    AnkiBrain AI Engine encountered an error. 
-                    Details of the error:\n\n{str(e)}
-                    
-                    If you still need help, go to https://www.reddit.com/r/ankibrain/.
-                    '''
-            })
+            self.settle_failed_command(cmd, commandId, str(e)[:600], generic=True)
 
     async def _a_generate_card_audio(self, data: dict, commandId):
         """

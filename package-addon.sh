@@ -12,10 +12,10 @@
 #   - meta.json                 -> Anki-local state (disable flags etc.)
 #   - user_files/venv/, .env    -> per-user runtime data
 #   - user_files/voice/         -> Kokoro runtime (uv/python/venv/hf_cache, ~2GB)
+#   - user_files/local_engine/  -> ChatAI runtime (uv/python/venv/cache, ~1GB)
 #   - user_files/media_tmp/     -> per-user image + TTS audio temp store
-#   - install scripts / requirements stay IN: util.py invokes them at runtime.
-#   - voice/ (manifest, lock, bootstrap, engine scripts) stay IN: ~300KB, the
-#     pinned source the runtime is rebuilt from.
+#   - voice/ and local_engine/ (manifest, lock, bootstrap, engine scripts) stay
+#     IN: ~400KB, the pinned source both runtimes are rebuilt from.
 # Anki's installer preserves existing user_files/ across add-on updates.
 set -euo pipefail
 
@@ -58,6 +58,7 @@ rsync -a \
   --exclude 'webview/' \
   --exclude 'user_files/settings.json' --exclude 'user_files/.env' \
   --exclude 'user_files/venv/' --exclude 'user_files/voice/' \
+  --exclude 'user_files/local_engine/' \
   --exclude 'user_files/media_tmp/' \
   --exclude 'meta.json' --exclude '.ankibrain-version' \
   "$SRC_DIR/" "$STAGE_DIR/"
@@ -88,7 +89,7 @@ rm -f "$OUT"
 # 6. Verify nothing junky or personal slipped through
 #    (capture listing first: grep -q early-exit + pipefail would SIGPIPE unzip)
 LISTING="$(unzip -l "$OUT")"
-if printf '%s\n' "$LISTING" | grep -Eq '__pycache__|\.pyc|node_modules|settings\.json|meta\.json|user_files/(voice|media_tmp|venv)/|webview/(src|public|\.yarn|node_modules)'; then
+if printf '%s\n' "$LISTING" | grep -Eq '__pycache__|\.pyc|node_modules|settings\.json|meta\.json|user_files/(voice|media_tmp|venv|local_engine)/|webview/(src|public|\.yarn|node_modules)'; then
   die "junk detected in archive: $OUT"
 fi
 printf '%s\n' "$LISTING" | grep -Eq ' __init__.py$' || die "__init__.py missing from archive root: $OUT"

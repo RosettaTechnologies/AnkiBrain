@@ -31,6 +31,7 @@ import {
 } from "@chakra-ui/react";
 import { BootReminderModal } from "./Components/modals/BootReminderModal";
 import { VoiceSetupModal } from "./Components/modals/VoiceSetupModal";
+import { LocalEngineSetupModal } from "./Components/modals/LocalEngineSetupModal";
 
 function App() {
   const appDidBoot = useSelector((state) => state.appDidBoot.value);
@@ -212,6 +213,7 @@ function App() {
               />
               <EmailVerificationModal />
               <VoiceSetupModal />
+              <LocalEngineSetupModal />
             </>
           )}
 

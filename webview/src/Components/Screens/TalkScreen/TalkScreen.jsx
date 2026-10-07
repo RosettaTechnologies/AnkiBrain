@@ -36,6 +36,10 @@ export function TalkScreen() {
 
   const handleUserSubmit = async () => {
     if (messageInput === "") return;
+    // One request at a time: the engine answers on a single stdin/stdout pipe,
+    // so a second ask queued behind the first would cross responses. The send
+    // button is replaced by a spinner while loading; the Enter key is not.
+    if (chatLoading) return;
 
     // Does all the heavy lifting.
     await sendUserMessage(messageInput, useDocuments, dispatch);

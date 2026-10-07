@@ -8,9 +8,13 @@
 - FEATURE: automatic image occlusion cards
 - FEATURE: AnkiBrain Voice now available for free in all modes, powered by Kokoro for high-quality text-to-speech (TTS) integration
 - FEATURE: importing a document allows editing of pages and removal of pages prior to generating cards
+- FEATURE: Local mode: Settings → Basic now has an OpenAI / OpenAI-compatible API section.
+  Set AnkiBrain to use any OpenAI-compatible endpoint (OpenAI, OpenRouter, Groq, Ollama, …),
+  store the key there, press Test connection to list the endpoint's models, and pick the
+  model from that list.
 - FIX: Regular (server) mode: use a login/signup gate to reduce confusion as app is not usable
   in server mode without an account
-- FIX: Local mode: fix Ubuntu/Debian auto-install script
+- FIX: Local mode: the AI engine now installs itself in one click. Added install/repair/uninstall functionality.
 - FIX: generated cards list now uses pagination for performance even with very large number of cards
 - UI: Migrate from old Chakra/Bootstrap to Ionic v9
 

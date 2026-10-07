@@ -1,19 +1,32 @@
+"""
+RAG-enabled ChatAI (document Q&A) for LOCAL mode.
+
+Migrated to the langchain-classic/community/openai 1.x stack: embeddings are
+OpenAI text-embedding-3-small, stored in the `ankibrain` Chroma collection.
+Documents indexed by the pre-migration build (768-dim mpnet in the default
+`langchain` collection) are NOT migrated — re-import the files to re-index
+them; the old collection is simply left unused on disk.
+"""
+
 import json
 import os
 from os import path
 from typing import Optional, Tuple, List
 
-from langchain.chains import ConversationalRetrievalChain
-from langchain.chat_models import ChatOpenAI
-from langchain.document_loaders import TextLoader, PyPDFLoader, Docx2txtLoader, UnstructuredPowerPointLoader, \
-    UnstructuredHTMLLoader
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.memory import ConversationBufferMemory
-from langchain.schema import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import Chroma
+import chromadb
+from langchain_classic.chains import ConversationalRetrievalChain
+from langchain_classic.memory import ConversationBufferMemory
+from langchain_community.document_loaders import BSHTMLLoader
+from langchain_community.document_loaders import Docx2txtLoader
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import TextLoader
+from langchain_community.vectorstores import Chroma
+from langchain_core.documents import Document
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from ChatInterface import ChatInterface
+from llm_config import get_openai_base_url, get_openai_headers
 from document_images import (
     extract_pdf_images_and_pages,
     extract_docx_text_and_images,
@@ -21,6 +34,7 @@ from document_images import (
     store_extracted_images,
     new_run_id,
 )
+from pptx_loader import load_pptx_text
 
 
 def get_file_extension(file_name: str) -> str:
@@ -79,8 +93,25 @@ class ChatAIWithDocuments(ChatInterface):
             temperature = data['temperature']
             model_name = data['llmModel']
 
-        self.llm = ChatOpenAI(temperature=temperature, model_name=model_name)
-        self.vectorstore = Chroma(embedding_function=HuggingFaceEmbeddings(), persist_directory=persist_directory)
+        # A stalled request blocks the engine's single stdin/stdout pipe, so
+        # every client gets an explicit bounded timeout instead of the SDK's
+        # 600 s default.
+        self.llm = ChatOpenAI(temperature=temperature, model_name=model_name,
+                              base_url=get_openai_base_url(), default_headers=get_openai_headers(),
+                              timeout=120, max_retries=1)
+        # Explicit PersistentClient (rather than langchain's legacy
+        # Settings(is_persistent=True) path) and a collection name that
+        # deliberately differs from langchain's default 'langchain': the
+        # legacy 768-dim mpnet collection left in chroma-persist is then never
+        # touched, and cannot clash with text-embedding-3-small's 1536 dims.
+        self.vectorstore = Chroma(
+            collection_name='ankibrain',
+            embedding_function=OpenAIEmbeddings(model='text-embedding-3-small',
+                                                base_url=get_openai_base_url(),
+                                                default_headers=get_openai_headers(),
+                                                timeout=120),
+            client=chromadb.PersistentClient(path=persist_directory),
+        )
         self.memory = ConversationBufferMemory(memory_key="chat_history", output_key='answer',
                                                return_messages=True)
 
@@ -137,8 +168,9 @@ class ChatAIWithDocuments(ChatInterface):
         self.add_documents([document])
 
     def add_documents(self, documents: List[Document]):
+        # chromadb >= 0.4 persists on write; langchain's Chroma.persist() would
+        # raise on a client we constructed ourselves.
         self.vectorstore.add_documents(documents)
-        self.vectorstore.persist()
 
     def split_document(self, docpath: str, chunk_size: Optional[int] = None):
         # Set up the loader based on file type.
@@ -163,11 +195,13 @@ class ChatAIWithDocuments(ChatInterface):
             documents = loader.load()
             documents = text_splitter.split_documents(documents)
         elif ext == '.pptx':
-            loader = UnstructuredPowerPointLoader(docpath)
-            documents = loader.load()
-            documents = text_splitter.split_documents(documents)
+            # python-pptx instead of unstructured's pptx partition: keeps
+            # spaCy/numba/nltk out of the engine venv entirely.
+            documents = text_splitter.split_documents([
+                Document(page_content=load_pptx_text(docpath), metadata={'source': docpath})
+            ])
         elif ext == '.html':
-            loader = UnstructuredHTMLLoader(docpath)
+            loader = BSHTMLLoader(docpath)
             documents = loader.load()
             documents = text_splitter.split_documents(documents)
         else:
@@ -249,7 +283,6 @@ class ChatAIWithDocuments(ChatInterface):
 
     def clear_documents(self):
         self.vectorstore.delete_collection()
-        self.vectorstore.persist()
 
     def human_message(self, query: str) -> Tuple[str, list[dict[str, str]]]:
         result = self.qa({'question': query})

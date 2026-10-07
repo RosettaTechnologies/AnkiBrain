@@ -67,3 +67,4 @@ yarn-error.log*
 /user_files/card_backups/
 /user_files/venv/
 /user_files/voice/
+/user_files/local_engine/

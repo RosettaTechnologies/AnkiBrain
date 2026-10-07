@@ -30,6 +30,7 @@ import { showBootReminderDialog } from "./slices/showBootReminderDialog";
 import { appDidBoot } from "./slices/appDidBoot";
 import { checkedAuth } from "./slices/checkedAuth";
 import { ttsSlice } from "./slices/tts";
+import { localEngineSlice } from "./slices/localEngine";
 import { customPrompts } from "./slices/customPrompts";
 import { imagesRegistry } from "./slices/imagesRegistry";
 import { audioRegistry } from "./slices/audioRegistry";
@@ -111,6 +112,7 @@ export const store = configureStore({
     cardAudio: cardAudioSlice.reducer,
     language: languageSlice.reducer,
     loadingText: loadingText.reducer,
+    localEngine: localEngineSlice.reducer,
     lockCheckoutSession: lockCheckoutSession.reducer,
     makeCardsSettings: makeCardsSettings.reducer,
     makeCardsText: makeCardsText.reducer,

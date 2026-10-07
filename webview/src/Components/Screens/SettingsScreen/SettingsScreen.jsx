@@ -12,10 +12,16 @@ import {
   ModalFooter,
   ModalHeader,
   ModalOverlay,
+  Popover,
+  PopoverAnchor,
+  PopoverBody,
+  PopoverContent,
+  Portal,
   Select,
   Switch,
   Tab,
   TabList,
+  Textarea,
   TabPanel,
   TabPanels,
   Tabs,
@@ -49,6 +55,29 @@ import { useEffect } from "react";
 import { openSetupModal, refreshTtsStatus, speak } from "../../../api/tts";
 import { pyTtsUninstall } from "../../../api/PythonBridge/senders/pyTtsUninstall";
 import { editTtsSettingLocal } from "../../../api/redux/slices/tts";
+import {
+  openLocalEngineModal,
+  refreshLocalEngineStatus,
+} from "../../../api/localEngine";
+import {
+  pyLocalEngineResetData,
+  pyLocalEngineUninstall,
+} from "../../../api/PythonBridge/senders/pyLocalEngine";
+import {
+  pySetOpenAIConfig,
+  pyTestOpenAIConnection,
+} from "../../../api/PythonBridge/senders/pyOpenAIConfig";
+import {
+  OPENAI_BASE_URL_PRESET_GROUPS,
+  headersToText,
+  parseHeadersText,
+} from "../../../api/openai";
+import {
+  setHasOpenaiApiKey,
+  setOpenAIBaseUrl,
+  setOpenAIExtraHeaders,
+  setOpenAIModels,
+} from "../../../api/redux/slices/appSettings";
 
 const VoiceSettings = (props) => {
   const dispatch = useDispatch();
@@ -300,6 +329,693 @@ const VoiceSettings = (props) => {
   );
 };
 
+const LocalEngineSettings = (props) => {
+  const localEngine = useSelector((state) => state.localEngine);
+  const status = localEngine.status;
+  const startError = localEngine.startError;
+
+  useEffect(() => {
+    refreshLocalEngineStatus();
+  }, []);
+
+  const installed = status && status.status === "supported-and-installed";
+  const needsSync = status && status.status === "supported-and-needs-sync";
+  const unsupported = status && status.status === "unsupported";
+  const lastError = status && status.last_error;
+  const bannerMessage = (lastError && lastError.message) || startError;
+  const bannerHint = lastError && lastError.hint;
+
+  // Uninstall and reset are destructive and run on a python worker thread:
+  // confirm first, spinner while it runs, then re-fetch status so the
+  // buttons flip back.
+  const [confirmUninstall, setConfirmUninstall] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [working, setWorking] = useState(false);
+
+  const diskMb = (status && status.estimate && status.estimate.disk_mb) || 1200;
+
+  const doUninstall = async () => {
+    setWorking(true);
+    try {
+      const res = await pyLocalEngineUninstall();
+      if (res && res.ok) {
+        successToast(
+          "Local AI Engine Removed",
+          "The local AI engine has been uninstalled. You can reinstall it any time from this screen."
+        );
+      } else {
+        errorToast(
+          "Uninstall Failed",
+          String((res && res.error) || "Could not remove the local AI engine.").slice(0, 300)
+        );
+      }
+    } catch (e) {
+      errorToast("Uninstall Failed", String(e && e.message ? e.message : e).slice(0, 300));
+    } finally {
+      await refreshLocalEngineStatus();
+      setWorking(false);
+      setConfirmUninstall(false);
+    }
+  };
+
+  const doReset = async () => {
+    setWorking(true);
+    try {
+      const res = await pyLocalEngineResetData();
+      if (res && res.ok) {
+        // The reset deletes user_files/.env, so the key badge must not stay
+        // stale.
+        store.dispatch(setHasOpenaiApiKey(false));
+        successToast(
+          "Documents & Data Reset",
+          "Local-mode documents and data were cleared. Re-import your files to use chat with documents."
+        );
+      } else {
+        errorToast(
+          "Reset Failed",
+          String((res && res.error) || "Could not reset local data.").slice(0, 300)
+        );
+      }
+    } catch (e) {
+      errorToast("Reset Failed", String(e && e.message ? e.message : e).slice(0, 300));
+    } finally {
+      await refreshLocalEngineStatus();
+      setWorking(false);
+      setConfirmReset(false);
+    }
+  };
+
+  return (
+    <Flex direction={"column"} mt={5} width={325}>
+      <Divider />
+      <Flex direction={"row"} alignItems={"center"} mt={3} mb={2}>
+        <i className={"bi bi-cpu-fill"} style={{ fontSize: 22, marginRight: 10 }} />
+        <Text fontWeight={"bold"}>Local AI Engine</Text>
+      </Flex>
+
+      {bannerMessage && (
+        <Box
+          bg={"red.50"}
+          borderWidth={1}
+          borderColor={"red.300"}
+          borderRadius={"md"}
+          p={3}
+          mb={3}
+        >
+          <Text fontWeight={"semibold"} color={"red.500"} fontSize={13} mb={1}>
+            Engine error
+          </Text>
+          <Text fontSize={12} color={"red.500"} mb={bannerHint ? 1 : 2}>
+            {String(bannerMessage).slice(0, 400)}
+          </Text>
+          {bannerHint && (
+            <Text fontSize={11} color={"gray.600"} mb={2}>
+              {bannerHint}
+            </Text>
+          )}
+          <Button
+            size={"sm"}
+            colorScheme={"red"}
+            onClick={() => openLocalEngineModal("default")}
+          >
+            Repair engine
+          </Button>
+        </Box>
+      )}
+
+      {!unsupported && (
+        <Text fontSize={12} color={"gray.500"} mb={2}>
+          {installed
+            ? "Local AI engine installed."
+            : needsSync
+              ? "Engine needs a small update after an AnkiBrain upgrade."
+              : "Not installed yet — one click below (~" +
+                ((status && status.estimate && status.estimate.download_mb) || 400) +
+                " MB)."}
+        </Text>
+      )}
+      {unsupported && (
+        <Text fontSize={12} color={"gray.500"} mb={2}>
+          {status.reason}
+        </Text>
+      )}
+
+      {!unsupported && (
+        <Button
+          mb={3}
+          variant={installed && !bannerMessage ? "outline" : undefined}
+          onClick={() => openLocalEngineModal("default")}
+        >
+          {bannerMessage || installed
+            ? "Repair engine"
+            : needsSync
+              ? "Update engine"
+              : "Install engine"}
+        </Button>
+      )}
+
+      {!unsupported && installed && (
+        <Button
+          mb={3}
+          variant={"outline"}
+          colorScheme={"red"}
+          onClick={() => setConfirmUninstall(true)}
+        >
+          Uninstall local AI engine
+        </Button>
+      )}
+
+      {!unsupported && (
+        <Button
+          mb={3}
+          variant={"ghost"}
+          colorScheme={"red"}
+          onClick={() => setConfirmReset(true)}
+        >
+          Reset documents &amp; data
+        </Button>
+      )}
+
+      <Modal
+        isOpen={confirmUninstall}
+        onClose={() => {
+          if (!working) setConfirmUninstall(false);
+        }}
+      >
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Uninstall local AI engine?</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Text fontSize={13} color={"gray.500"} mb={4}>
+              This removes the local AI engine runtime (~{diskMb} MB) from this
+              computer. Your conversations and imported documents are kept; you
+              can reinstall with one click any time.
+            </Text>
+            <Button
+              width={"100%"}
+              variant={"solid"}
+              colorScheme={"red"}
+              isLoading={working}
+              onClick={doUninstall}
+            >
+              Uninstall local AI engine
+            </Button>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+
+      <Modal
+        isOpen={confirmReset}
+        onClose={() => {
+          if (!working) setConfirmReset(false);
+        }}
+      >
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Reset documents &amp; data?</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Text fontSize={13} color={"gray.500"} mb={4}>
+              This deletes the local vector store, the imported document cache,
+              temporary files, and the saved OpenAI API key. Your card backups
+              are not affected. Re-import your files to use chat with documents
+              again.
+            </Text>
+            <Button
+              width={"100%"}
+              variant={"solid"}
+              colorScheme={"red"}
+              isLoading={working}
+              onClick={doReset}
+            >
+              Reset documents &amp; data
+            </Button>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+
+      <Divider mt={3} />
+    </Flex>
+  );
+};
+
+// Two rows per "Test connection": the API URL and the API key. Kept apart
+// because they fail for unrelated reasons - a URL with no /models route is not
+// a rejected key, and vice versa.
+const KEY_STAGE = {
+  accepted: { icon: "bi-check-circle-fill", color: "green", label: "accepted" },
+  rejected: { icon: "bi-x-circle-fill", color: "red", label: "rejected" },
+  unverified: {
+    icon: "bi-exclamation-triangle-fill",
+    color: "orange",
+    label: "not verified",
+  },
+  "not-attempted": {
+    icon: "bi-dash-circle",
+    color: "gray",
+    label: "not tested",
+  },
+};
+
+const ConnectionStatus = ({ result }) => {
+  const keyStatus = result.key || { status: "not-attempted", message: "" };
+  const stage = KEY_STAGE[keyStatus.status] || KEY_STAGE["not-attempted"];
+  return (
+    <Flex
+      direction={"column"}
+      gap={1}
+      mb={3}
+      p={2}
+      borderWidth={"1px"}
+      borderRadius={"md"}
+      fontSize={11}
+    >
+      <Flex gap={1} alignItems={"flex-start"}>
+        <i
+          className={`bi ${result.ok ? "bi-check-circle-fill" : "bi-x-circle-fill"}`}
+          style={{ color: result.ok ? "green" : "red", marginTop: 2 }}
+        />
+        <Text>
+          <b>API URL</b> {result.urlMessage}
+        </Text>
+      </Flex>
+      <Flex gap={1} alignItems={"flex-start"}>
+        <i
+          className={`bi ${stage.icon}`}
+          style={{ color: stage.color, marginTop: 2 }}
+        />
+        <Text>
+          <b>API key</b> {stage.label}
+          {keyStatus.message ? ` — ${keyStatus.message}` : ""}
+        </Text>
+      </Flex>
+    </Flex>
+  );
+};
+
+export const OpenAISettings = (props) => {
+  const llm = useSelector((state) => state.appSettings.ai.llmModel);
+  const baseUrl = useSelector((state) => state.appSettings.ai.openaiBaseUrl);
+  const models = useSelector((state) => state.appSettings.ai.openaiModels);
+  const hasKey = useSelector((state) => state.appSettings.ai.hasOpenaiApiKey);
+  const savedHeaders = useSelector(
+    (state) => state.appSettings.ai.openaiExtraHeaders
+  );
+  const sessionId = useSelector(
+    (state) => state.appSettings.ai.openaiSessionId
+  );
+
+  // The URL field is local state so typing is not fought by the store; the
+  // key is never hydrated from anywhere (the secret stays in python).
+  const [url, setUrl] = useState(baseUrl || "");
+  const [key, setKey] = useState("");
+  // Headers are edited as JSON text: it is the only shape that covers every
+  // provider's routing requirements without a per-provider form.
+  const [headersText, setHeadersText] = useState(
+    headersToText(savedHeaders)
+  );
+  const [testing, setTesting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  // Result of the last Test connection, reported as two verdicts: the API URL
+  // and the API key.
+  const [testResult, setTestResult] = useState(null);
+  // The model is free text: the endpoint's list is a real dropdown, and a
+  // provider without a /models route must still be configurable by typing.
+  const [modelText, setModelText] = useState(llm || "");
+  // The endpoint's model list is a real dropdown now: open/close and the
+  // keyboard-highlighted row are local state; the committed value stays redux.
+  // modelQuery is what the user typed *this time* - filtering by the field's
+  // committed value would hide the whole list every time it is reopened.
+  const [modelsOpen, setModelsOpen] = useState(false);
+  const [activeModelIndex, setActiveModelIndex] = useState(-1);
+  const [modelQuery, setModelQuery] = useState("");
+  const filteredModels = models.filter((m) =>
+    m.toLowerCase().includes(modelQuery.trim().toLowerCase())
+  );
+
+  useEffect(() => {
+    setUrl(baseUrl || "");
+  }, [baseUrl]);
+
+  useEffect(() => {
+    setModelText(llm || "");
+  }, [llm]);
+
+  useEffect(() => {
+    setHeadersText(headersToText(savedHeaders));
+  }, [savedHeaders]);
+
+  // Returns the parsed object, or null after showing why it could not be read.
+  const parsedHeaders = () => {
+    try {
+      return parseHeadersText(headersText);
+    } catch (e) {
+      errorToast("Extra Headers", String(e.message).slice(0, 300));
+      return null;
+    }
+  };
+
+  const doTest = async () => {
+    const extraHeaders = parsedHeaders();
+    if (extraHeaders === null) return;
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await pyTestOpenAIConnection({
+        apiKey: key.trim() || null,
+        baseUrl: url.trim() || null,
+        extraHeaders,
+      });
+      const keyStatus = (res && res.key) || {
+        status: "not-attempted",
+        message: "No API key entered.",
+      };
+      const list = Array.isArray(res && res.models) ? res.models : [];
+      // The list belongs to the URL that was just tested: refresh it when the
+      // endpoint answered, drop it when it did not.
+      store.dispatch(setOpenAIModels(res && res.ok ? list : []));
+      await pyEditSetting("openaiModels", res && res.ok ? list : []);
+      setTestResult({
+        ok: !!(res && res.ok),
+        urlMessage: String(
+          (res && res.url_message) || "No answer from the endpoint."
+        ).slice(0, 300),
+        key: keyStatus,
+      });
+    } catch (e) {
+      setTestResult({
+        ok: false,
+        urlMessage: String(e && e.message ? e.message : e).slice(0, 300),
+        key: { status: "not-attempted", message: "Not tested." },
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const commitModel = async () => {
+    const next = modelText.trim();
+    if (!next || next === llm) {
+      setModelText(llm || "");
+      return;
+    }
+    await setLLMModel(next);
+  };
+
+  // A click (or Enter on a highlighted row) in the endpoint's list is already
+  // a complete choice, so it commits without the free-text blur path.
+  const pickModel = async (modelName) => {
+    setModelText(modelName);
+    setModelsOpen(false);
+    setActiveModelIndex(-1);
+    setModelQuery("");
+    if (modelName !== llm) {
+      await setLLMModel(modelName);
+    }
+  };
+
+  const doSave = async () => {
+    const extraHeaders = parsedHeaders();
+    if (extraHeaders === null) return;
+    setSaving(true);
+    try {
+      const res = await pySetOpenAIConfig({
+        apiKey: key.trim() || null,
+        baseUrl: url.trim(),
+        extraHeaders,
+      });
+      if (res && res.ok) {
+        store.dispatch(setOpenAIBaseUrl(url.trim()));
+        store.dispatch(setOpenAIExtraHeaders(extraHeaders));
+        if (key.trim()) {
+          store.dispatch(setHasOpenaiApiKey(true));
+          setKey("");
+        }
+        successToast(
+          "API Settings Saved",
+          "The local AI engine is restarting with the new settings."
+        );
+      } else {
+        errorToast(
+          "Save Failed",
+          String(
+            (res && res.error) || "Could not save the API settings."
+          ).slice(0, 300)
+        );
+      }
+    } catch (e) {
+      errorToast(
+        "Save Failed",
+        String(e && e.message ? e.message : e).slice(0, 300)
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Flex direction={"column"} mt={5} width={325}>
+      <Divider />
+      <Flex direction={"row"} alignItems={"center"} mt={3} mb={2}>
+        <i className={"bi bi-key-fill"} style={{ fontSize: 22, marginRight: 10 }} />
+        <Text fontWeight={"bold"}>OpenAI / OpenAI-compatible API</Text>
+      </Flex>
+
+      <Text fontSize={13} mb={1}>
+        Provider preset
+      </Text>
+      <Select
+        mb={2}
+        size={"sm"}
+        placeholder={"Choose a common provider…"}
+        value={""}
+        onChange={(e) => {
+          // Only ever fills the URL field; the placeholder (empty value)
+          // leaves whatever the user typed alone.
+          if (e.target.value) setUrl(e.target.value);
+        }}
+      >
+        {OPENAI_BASE_URL_PRESET_GROUPS.map((group) => (
+          <optgroup key={group.label} label={group.label}>
+            {group.presets.map((preset) => (
+              <option key={preset.url} value={preset.url}>
+                {preset.label}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </Select>
+
+      <Text fontSize={13} mb={1}>
+        API base URL
+      </Text>
+      <Input
+        mb={2}
+        size={"sm"}
+        placeholder={"https://api.openai.com/v1"}
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+      />
+
+      <Text fontSize={13} mb={1}>
+        API key
+      </Text>
+      <Input
+        mb={1}
+        size={"sm"}
+        type={"password"}
+        value={key}
+        placeholder={hasKey ? "Saved — leave blank to keep" : "sk-..."}
+        onChange={(e) => setKey(e.target.value)}
+      />
+      <Text fontSize={11} color={"gray.500"} mb={2}>
+        Stored locally in user_files/.env. Leave blank to keep the saved key.
+      </Text>
+
+      <Text fontSize={13} mb={1}>
+        Extra headers
+      </Text>
+      <Textarea
+        mb={1}
+        size={"sm"}
+        rows={3}
+        fontFamily={"mono"}
+        fontSize={11}
+        placeholder={'{\n  "x-opencode-session": "abc123"\n}'}
+        value={headersText}
+        onChange={(e) => setHeadersText(e.target.value)}
+      />
+      <Text fontSize={11} color={"gray.500"} mb={1}>
+        Sent automatically on every request: AnkiBrain identifies itself and
+        sends a stable session header (x-opencode-session:{" "}
+        {sessionId || "assigned on restart"}).
+      </Text>
+      <Text fontSize={11} color={"gray.500"} mb={2}>
+        Use the field above only for anything else an endpoint requires (a JSON
+        object of header name to value; a header set there overrides the
+        automatic ones).
+      </Text>
+
+      <Flex direction={"row"} gap={2} mb={3}>
+        <Button
+          size={"sm"}
+          variant={"outline"}
+          flex={1}
+          isLoading={testing}
+          onClick={doTest}
+        >
+          Test connection
+        </Button>
+        <Button size={"sm"} flex={1} isLoading={saving} onClick={doSave}>
+          Save
+        </Button>
+      </Flex>
+
+      {testResult && <ConnectionStatus result={testResult} />}
+
+      <Text fontSize={13} mb={1}>
+        Model
+      </Text>
+      <Popover
+        isOpen={modelsOpen}
+        onClose={() => {
+          setModelsOpen(false);
+          setActiveModelIndex(-1);
+        }}
+        placement={"bottom-start"}
+        matchWidth
+        isLazy
+        // No PopoverTrigger: focus and the chevron button open the list, the
+        // input's own onBlur closes it. Chakra must not steal focus back to a
+        // (non-existent) trigger or focus the popover body on open - either
+        // would blur the input and immediately close the list.
+        autoFocus={false}
+        returnFocusOnClose={false}
+        closeOnBlur={false}
+      >
+        <PopoverAnchor>
+          <Flex mb={1} width={"100%"}>
+            <Input
+              flex={1}
+              size={"sm"}
+              borderRightRadius={0}
+              placeholder={"gpt-5.6-luna"}
+              value={modelText}
+              onChange={(e) => {
+                setModelText(e.target.value);
+                setModelQuery(e.target.value);
+                setActiveModelIndex(-1);
+                setModelsOpen(true);
+              }}
+              onFocus={() => {
+                setModelQuery("");
+                setModelsOpen(true);
+              }}
+              onClick={() => setModelsOpen(true)}
+              onBlur={() => {
+                setModelsOpen(false);
+                setActiveModelIndex(-1);
+                setModelQuery("");
+                commitModel();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setModelsOpen(true);
+                  setActiveModelIndex((i) =>
+                    Math.min(i + 1, filteredModels.length - 1)
+                  );
+                } else if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setActiveModelIndex((i) => Math.max(i - 1, 0));
+                } else if (e.key === "Enter") {
+                  if (
+                    modelsOpen &&
+                    activeModelIndex >= 0 &&
+                    filteredModels[activeModelIndex]
+                  ) {
+                    pickModel(filteredModels[activeModelIndex]);
+                  } else {
+                    commitModel();
+                  }
+                } else if (e.key === "Escape") {
+                  setModelsOpen(false);
+                  setActiveModelIndex(-1);
+                }
+              }}
+            />
+            <Button
+              size={"sm"}
+              borderLeftRadius={0}
+              aria-label={"Show models"}
+              onClick={() => {
+                setModelQuery("");
+                setModelsOpen((open) => !open);
+              }}
+            >
+              <i className={"bi bi-chevron-down"} />
+            </Button>
+          </Flex>
+        </PopoverAnchor>
+        <Portal>
+          <PopoverContent>
+            <PopoverBody
+              p={0}
+              maxH={"220px"}
+              overflowY={"auto"}
+              role={"listbox"}
+            >
+              {filteredModels.length === 0 ? (
+                <Text fontSize={11} color={"gray.500"} p={2}>
+                  {models.length === 0
+                    ? "No models listed yet. Press Test connection to load this endpoint's models."
+                    : "No model matches what you typed."}
+                </Text>
+              ) : (
+                filteredModels.map((model, i) => (
+                  <Box
+                    key={model}
+                    role={"option"}
+                    aria-selected={i === activeModelIndex}
+                    px={2}
+                    py={1.5}
+                    fontSize={12}
+                    cursor={"pointer"}
+                    bg={i === activeModelIndex ? "gray.100" : undefined}
+                    _hover={{ bg: "gray.100" }}
+                    // Keep focus in the input so its onBlur does not fire before
+                    // the click lands and unmounts this row.
+                    onMouseDown={(e) => e.preventDefault()}
+                    onMouseEnter={() => setActiveModelIndex(i)}
+                    onClick={() => pickModel(model)}
+                  >
+                    {model}
+                  </Box>
+                ))
+              )}
+            </PopoverBody>
+          </PopoverContent>
+        </Portal>
+      </Popover>
+      {models.length > 0 && !models.includes(llm) && (
+        <Text fontSize={11} color={"orange.500"} mb={1}>
+          {llm} is not in this endpoint's model list.
+        </Text>
+      )}
+      <Text fontSize={11} color={"gray.500"} mb={2}>
+        {models.length > 0
+          ? `${models.length} models listed by this endpoint. `
+          : ""}
+        Use the AnkiBrain menu → &quot;Restart AI…&quot; for a model change to take
+        effect.
+      </Text>
+
+      <Divider mt={3} />
+    </Flex>
+  );
+};
+
 const AdvancedSettings = (props) => {
   const temperature = useSelector((state) => state.appSettings.ai.temperature);
   const llm = useSelector((state) => state.appSettings.ai.llmModel);
@@ -321,24 +1037,31 @@ const AdvancedSettings = (props) => {
         </Flex>
 
         <Flex direction={"column"} width={500}>
-          <Select
-            value={llm}
-            onChange={async (e) => {
-              await setLLMModel(e.target.value);
-              if (isLocalMode()) {
-                successToast(
-                  "LLM Changed",
-                  "The AI Language Model has been changed. Please restart AnkiBrain for this change to take effect."
-                );
-              }
-            }}
-          >
-            <option value={"gpt-3.5-turbo"}>gpt-3.5-turbo (legacy - will stop working October 2026)</option>
-            <option value={"gpt-4"}>gpt-4 (expensive) (legacy - will stop working October 2026)</option>
-            <option value={"gpt-5.6-sol"}>GPT-5.6 Sol (very expensive)</option>
-            <option value={"gpt-5.6-terra"}>GPT-5.6 Terra (expensive)</option>
-            <option value={"gpt-5.6-luna"}>GPT-5.6 Luna (best value)</option>
-          </Select>
+          {!isLocalMode() && (
+            <Select
+              value={llm}
+              onChange={async (e) => {
+                await setLLMModel(e.target.value);
+                if (isLocalMode()) {
+                  successToast(
+                    "LLM Changed",
+                    "The AI Language Model has been changed. Please restart AnkiBrain for this change to take effect."
+                  );
+                }
+              }}
+            >
+              <option value={"gpt-3.5-turbo"}>gpt-3.5-turbo (legacy - will stop working October 2026)</option>
+              <option value={"gpt-4"}>gpt-4 (expensive) (legacy - will stop working October 2026)</option>
+              <option value={"gpt-5.6-sol"}>GPT-5.6 Sol (very expensive)</option>
+              <option value={"gpt-5.6-terra"}>GPT-5.6 Terra (expensive)</option>
+              <option value={"gpt-5.6-luna"}>GPT-5.6 Luna (best value)</option>
+            </Select>
+          )}
+          {isLocalMode() && (
+            <Text fontSize={12} color={"gray.500"}>
+              Set the model in Basic → OpenAI / OpenAI-compatible API.
+            </Text>
+          )}
           <Input
             value={temperature}
             onKeyDown={(e) => {
@@ -825,6 +1548,10 @@ export const SettingsScreen = (props) => {
                 </Modal>
 
                 <VoiceSettings />
+
+                {isLocalMode() && <LocalEngineSettings />}
+
+                {isLocalMode() && <OpenAISettings />}
 
                 <Button
                   width={325}

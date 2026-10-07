@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 from ChatAIWithDocuments import ChatAIWithDocuments, settings_path, get_card_gen_chunk_size
 from ChatAIWithoutDocuments import ChatAIWithoutDocuments
 from InterprocessCommand import InterprocessCommand as IC
-from langchain.callbacks import get_openai_callback
+from langchain_community.callbacks import get_openai_callback
 
 
 def _module_return(data: dict[str, str]):

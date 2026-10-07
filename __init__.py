@@ -9,10 +9,7 @@ sys.path.insert(1, addon_root_dir)
 
 from project_paths import \
     version_file_path, \
-    venv_site_packages_path, \
     bundled_deps_dor
-
-sys.path.insert(1, venv_site_packages_path)
 
 # Also insert bundled_dependencies folder for server mode (needs httpx lib).
 sys.path.insert(1, bundled_deps_dor)

@@ -9,9 +9,19 @@ effect on the next Anki restart, and there is no standalone Python dev server.
 - Root `*.py` runs inside Anki's process; imports are flat (the root is put on
   `sys.path`). Add new modules as top-level `foo.py` and `from foo import ...`.
 - `ChatAI/` is a **separate subprocess** (LOCAL mode only) running in
-  `user_files/venv` (Python 3.9, hardcoded in `project_paths.py`). It speaks
-  line-delimited JSON over stdin/stdout via `ExternalScriptManager`. Do not
-  import it from the addon process.
+  `user_files/local_engine/venv` (CPython 3.11, provisioned from
+  `local_engine/runtime-manifest.json` + `local_engine/uv.lock` by
+  `local_engine/bootstrap.py` — no pyenv, no system Python, no shell
+  installers). It speaks line-delimited JSON over stdin/stdout via
+  `ExternalScriptManager`. Do not import it from the addon process.
+- `local_engine/` is that runtime's lifecycle package, mirroring `voice/`:
+  `state.py` (paths, `state.json`, status verdict, uninstall), `bootstrap.py`
+  (uv → CPython → venv → `uv sync --frozen` → import/Chroma smoke test),
+  plus the pinned `runtime-manifest.json` / `pyproject.toml` / `uv.lock`.
+  Test CLI: `python3 -m local_engine.state --status` (JSON verdict) and
+  `--uninstall`. The Anki-side adapter is `ChatAIModuleAdapter.py`
+  (`status`/`start_install`/`cancel_install_and_wait`/`uninstall_data`/
+  `reset_user_data`); the UI is the webview's `LocalEngineSetupModal`.
 - `voice/` is the Kokoro TTS engine: stdlib-only bootstrap/state plus a synthesis
   subprocess in its own uv-managed Python 3.11 venv under `user_files/voice`
   (Kokoro needs >=3.10,<3.13, so it cannot share the ChatAI venv). Works in both
@@ -21,14 +31,14 @@ effect on the next Anki restart, and there is no standalone Python dev server.
   need `yarn build` and an Anki restart.
 - `user_files/` mixes **tracked** vendored libs (`bundled_dependencies/`, used by
   `networking.py` for server mode) with **gitignored** per-user state
-  (`settings.json`, `venv/`, `voice/`, `media_tmp/`, `db/chroma-persist/`).
-  Settings defaults live in `settings.py`, not in `settings.json`.
+  (`settings.json`, `venv/` (legacy), `voice/`, `local_engine/`, `media_tmp/`,
+  `db/chroma-persist/`). Settings defaults live in `settings.py`, not in
+  `settings.json`.
+- The add-on process puts **no** venv site-packages on `sys.path`: the engine
+  dependencies are only ever imported inside the `ChatAI/` subprocess. Root
+  modules import stdlib + `aqt`/`anki` + `bundled_dependencies/` only.
 - `build/` is packaging output and staging copies of old code; never edit or
   search it for source.
-- Installers: `linux-install.sh`, `macos-install.sh`, `win-*.{bat,ps1}` plus
-  `linux_requirements.txt` / `windows_requirements.txt`. There is **no** root
-  `requirements.txt` even though the README says so; `macos-install.sh` installs
-  `linux_requirements.txt`.
 
 ## Commands
 
@@ -67,25 +77,39 @@ only restarts the ChatAI/TTS subprocesses, not addon Python or the loaded UI.
   `asendPythonCommand` + `commandId` promises.
 - `ChatAI/` and the voice engine own stdout — protocol JSON only; debug output
   goes to stderr (drained to a log by `ExternalScriptManager`).
+- LOCAL-mode engine lifecycle is `LOCAL_ENGINE_STATUS` / `LOCAL_ENGINE_INSTALL` /
+  `LOCAL_ENGINE_CANCEL_INSTALL` / `LOCAL_ENGINE_UNINSTALL` /
+  `LOCAL_ENGINE_RESET_DATA`; install progress arrives as pushed
+  `LOCAL_ENGINE_INSTALL_PROGRESS` + `LOCAL_ENGINE_INSTALL_DONE` events, and the
+  three Python-initiated pushes `localEngineSetupRequired`,
+  `localEngineUninstallPrompt`, `localEngineStartFailed` open/populate the modal.
 - Qt/UI work from async or worker threads must go through `GUIThreadSignaler`
   (`AnkiBrainModule.py`); `ReactBridge.send_to_js` is the safe path.
 
 ## Gotchas
 
-- `ChatAI/__pycache__/*.pyc` is (mistakenly) tracked; running the subprocess
-  modifies it. Don't stage `.pyc` noise.
 - media_tmp is bytes-free across the bridge: JS only ever sees image/audio ids
   (`run-id/filename`). `media_images.cleanup_media_tmp` deletes entries older than
   7 days at startup.
 - New settings keys go in `settings.py` `default_settings`; they are merged into
   `user_files/settings.json` on boot and sent to the webview via
   `DID_LOAD_SETTINGS`.
-- LOCAL mode = ChatAI subprocess + OpenAI key in `user_files/.env`. SERVER mode =
-  account API at `https://anki.rankmd.org` (dev URL when `devMode` is on; see
+- LOCAL mode = ChatAI subprocess + engine runtime under `user_files/local_engine/`
+  + OpenAI key in `user_files/.env`. SERVER mode = account API at
+  `https://anki.rankmd.org` (dev URL when `devMode` is on; see
   `webview/src/api/server-api/networking/index.js`). Voice works in both.
-- `voice/runtime-manifest.json` and `voice/uv.lock` are hashed into each install's
-  `state.json`; editing either marks installed engines `needs-sync` and forces a
-  re-download for users. Touch only when intentionally updating the engine.
+- A LOCAL-mode engine failure must never strand the UI: the subprocess start is
+  bounded by `ExternalScriptManager.startup_timeout` (120 s for ChatAI) and
+  `_start_async_members` sends `DID_FINISH_STARTUP` from a `finally`. Failures
+  land in `user_files/local_engine/state.json` as `last_error` (codes `start` /
+  `runtime`) and surface as the Settings banner + Repair button. `last_error` is
+  deliberately NOT part of the hash-based status verdict, so a crash can never
+  look like manifest drift and silently auto-repair.
+- `voice/runtime-manifest.json`/`uv.lock` and
+  `local_engine/runtime-manifest.json`/`uv.lock` are hashed into each install's
+  `state.json`; editing either pair marks installed engines `needs-sync` and
+  forces a re-download for users. Touch only when intentionally updating the
+  engine.
 - Anki note types `AnkiBrain-Basic` / `AnkiBrain-Cloze` are created on demand in
   `cards.py`; image-occlusion cards use Anki's built-in notetype.
 - Vite must keep `base: './'` (QtWebEngine loads from `file://`); env vars must be
