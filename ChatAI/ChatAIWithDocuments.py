@@ -86,6 +86,7 @@ class ChatAIWithDocuments(ChatInterface):
             os.mkdir(persist_dir)
 
         self.documents_dir_path = documents_dir_path
+        self.persist_directory = persist_directory
 
         self.text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100, length_function=len)
 
@@ -102,7 +103,32 @@ class ChatAIWithDocuments(ChatInterface):
         self.llm = ChatOpenAI(temperature=temperature, model_name=model_name,
                               base_url=get_openai_base_url(), default_headers=get_openai_headers(),
                               timeout=120, max_retries=1)
-        client = chromadb.PersistentClient(path=persist_directory)
+        self.memory = ConversationBufferMemory(memory_key="chat_history", output_key='answer',
+                                               return_messages=True)
+        self._init_vectorstore()
+
+        if not path.isfile(settings_path):
+            with open(settings_path, 'w') as f:
+                json.dump({}, f)
+
+        with open(settings_path, 'r+') as f:
+            settings = json.load(f)
+            if 'documents_saved' not in settings:
+                settings['documents_saved'] = []
+                rewrite_json_file(settings, f)
+
+        # self.scan_documents_folder()
+
+    def _init_vectorstore(self):
+        """
+        (Re)build the local vector store and the retrieval chain over it.
+
+        Also used by clear_documents: chromadb's delete_collection() leaves the
+        store's Collection handle pointing at the deleted collection, so without
+        replacing these objects a later add/query raises 'Collection does not
+        exist' until the engine restarts.
+        """
+        client = chromadb.PersistentClient(path=self.persist_directory)
         # Collections from earlier builds embed with a different function (768-dim
         # mpnet, then 1536-dim OpenAI), so they can never be queried again and are
         # dropped instead of left to grow on disk.
@@ -121,27 +147,12 @@ class ChatAIWithDocuments(ChatInterface):
             embedding_function=LocalMiniLMEmbeddings(),
             client=client,
         )
-        self.memory = ConversationBufferMemory(memory_key="chat_history", output_key='answer',
-                                               return_messages=True)
-
         self.qa = ConversationalRetrievalChain.from_llm(
             self.llm,
             self.vectorstore.as_retriever(),
             memory=self.memory,
             return_source_documents=True
         )
-
-        if not path.isfile(settings_path):
-            with open(settings_path, 'w') as f:
-                json.dump({}, f)
-
-        with open(settings_path, 'r+') as f:
-            settings = json.load(f)
-            if 'documents_saved' not in settings:
-                settings['documents_saved'] = []
-                rewrite_json_file(settings, f)
-
-        # self.scan_documents_folder()
 
     def clear_memory(self):
         self.memory.clear()
@@ -291,7 +302,11 @@ class ChatAIWithDocuments(ChatInterface):
         return chunk_texts, chunk_pages, images
 
     def clear_documents(self):
-        self.vectorstore.delete_collection()
+        try:
+            self.vectorstore.delete_collection()
+        except Exception as e:
+            print(f'<ChatAI> could not delete document collection: {e}', file=sys.stderr)
+        self._init_vectorstore()
 
     def human_message(self, query: str) -> Tuple[str, list[dict[str, str]]]:
         result = self.qa({'question': query})
