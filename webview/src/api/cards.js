@@ -83,7 +83,6 @@ export async function generateCards(
   try {
     if (isLocalMode()) {
       let res = await pyGenerateCards(text, customPrompt, cardType, language);
-      dispatch(setMakeCardsLoading(false));
 
       let cardsRawString = res.cardsRawString;
       if (cardsRawString) {
@@ -102,7 +101,6 @@ export async function generateCards(
         language
       );
 
-      dispatch(setMakeCardsLoading(false));
       if (res.status === "success") {
         dispatch(updateUser(res.data.user));
         let rawString = res.data.response.content;
@@ -111,6 +109,8 @@ export async function generateCards(
     }
   } catch (err) {
     errorToast("Error Making Cards", err.message);
+  } finally {
+    dispatch(setMakeCardsLoading(false));
   }
 }
 

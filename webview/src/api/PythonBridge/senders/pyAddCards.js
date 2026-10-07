@@ -1,6 +1,6 @@
 import { asendPythonCommand } from "../index";
 import { InterprocessCommand as IC } from "../InterprocessCommand";
-import { infoToast, successToast } from "../../toast";
+import { errorToast, successToast } from "../../toast";
 import { setCards } from "../../redux/slices/cards";
 import { pyEditSetting } from "./pyEditSetting";
 import { store } from "../../redux";
@@ -63,8 +63,10 @@ export async function pyAddCards(
       );
     }
   } catch (err) {
-    // The backup is intentionally left in place for recovery.
-    infoToast(
+    // The backup is intentionally left in place for recovery. This is a
+    // failure the user has to read and act on, so it opens the error dialog
+    // rather than a toast that vanishes.
+    errorToast(
       "Could Not Add Cards",
       "There was an error adding cards to Anki. " +
         "This happens if you do not have the English Basic and Cloze card types available, " +
@@ -74,8 +76,7 @@ export async function pyAddCards(
         'If you do not see them, click "Add", then click "Add: Basic" -> OK, then again "Add: Cloze" -> OK. ' +
         'Click on the "fields" button and make sure that the card types have English fields. ' +
         "You can now switch Anki back to your native language. " +
-        "If you still need help, please email ankibrain@rankmd.org",
-      120 * 1000
+        "If you still need help, please email ankibrain@rankmd.org"
     );
   }
 }

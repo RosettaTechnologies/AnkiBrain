@@ -20,10 +20,10 @@ import {
   Text,
   Textarea,
   useColorMode,
-  useToast,
 } from "@chakra-ui/react";
 import { DeleteIcon, SmallAddIcon } from "@chakra-ui/icons";
 import { suggestOcclusions } from "../../../api/occlusion";
+import { errorToast, infoToast } from "../../../api/toast";
 import { OcclusionOverlay } from "./OcclusionOverlay";
 
 /*
@@ -122,7 +122,6 @@ function normalizeOcclusion(occlusion) {
 export function OcclusionEditorModal(props) {
   const { isOpen, onClose, image, initialCard = null, onSave } = props;
   const { colorMode } = useColorMode();
-  const toast = useToast();
 
   // The vision call shares the ChatAI subprocess with card generation; the
   // pipe matches one response per request, so don't allow a manual Suggest
@@ -366,13 +365,10 @@ export function OcclusionEditorModal(props) {
     try {
       const result = await suggestOcclusions(image.id);
       if (!result.shapes || result.shapes.length === 0) {
-        toast({
-          title: "No regions suggested",
-          description:
-            "The AI did not find labeled structures in this image. Draw masks manually instead.",
-          status: "info",
-          isClosable: true,
-        });
+        infoToast(
+          "No regions suggested",
+          "The AI did not find labeled structures in this image. Draw masks manually instead."
+        );
         return;
       }
       setShapes((prev) => {
@@ -387,36 +383,17 @@ export function OcclusionEditorModal(props) {
       });
       setHeader((prev) => prev || result.header);
       setBackExtra((prev) => prev || result.backExtra);
-      toast({
-        title: "Suggestions added",
-        description: `${result.shapes.length} region(s) proposed — review and adjust before saving.`,
-        status: "success",
-        isClosable: true,
-      });
     } catch (err) {
-      toast({
-        title: "AI suggestion failed",
-        description: String((err && err.message) || err).slice(0, 300),
-        status: "error",
-        isClosable: true,
-        duration: 10000,
-      });
+      errorToast(
+        "AI suggestion failed",
+        String((err && err.message) || err).slice(0, 300)
+      );
     } finally {
       setAiLoading(false);
     }
   };
 
   const handleSave = () => {
-    if (shapes.length === 0) {
-      toast({
-        title: "No masks yet",
-        description: "Draw at least one mask (or use Suggest with AI) before saving.",
-        status: "warning",
-        isClosable: true,
-      });
-      return;
-    }
-
     const occlusions = shapes.map((shape) => {
       const base = {
         ordinal: parseInt(shape.ordinal, 10) || 1,

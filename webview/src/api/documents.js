@@ -178,61 +178,54 @@ export async function importDocuments(dispatch = store.dispatch) {
 
   dispatch(setDocumentsLoading(true));
 
-  if (!isLocalMode() && !store.getState().user.value) {
-    infoToast("Log in required", "Please log in first.");
-    return;
-  }
-
-  let res = await pyOpenDocumentBrowser();
-  if (!res.documents) {
-    dispatch(setDocumentsLoading(false));
-    return;
-  }
-
-  let docs = res.documents;
-  if (docs.length < 1) {
-    return;
-  }
-
-  if (!isLocalMode() && docs.length > 1) {
-    infoToast(
-      "Multiple documents",
-      "You have selected multiple documents; only the first will be imported. " +
-        "Multi-document upload will be added in the future!" // todo fix
-    );
-  }
-
-  let doc = docs[0];
-
   try {
+    if (!isLocalMode() && !store.getState().user.value) {
+      infoToast("Log in required", "Please log in first.");
+      return;
+    }
+
+    let res = await pyOpenDocumentBrowser();
+    if (!res.documents) {
+      return;
+    }
+
+    let docs = res.documents;
+    if (docs.length < 1) {
+      return;
+    }
+
+    if (!isLocalMode() && docs.length > 1) {
+      infoToast(
+        "Multiple documents",
+        "You have selected multiple documents; only the first will be imported. " +
+          "Multi-document upload will be added in the future!" // todo fix
+      );
+    }
+
+    let doc = docs[0];
+
     if (isLocalMode()) {
-      try {
-        if (doc.size > 1024 * 1024 * 1024) {
-          infoToast("Document Too Large", "The maximum file size is 1 GB.");
-          return;
-        }
-
-        infoToast(
-          "Adding Documents...",
-          "This can take a while depending on your documents' word count and your CPU/GPU hardware. " +
-            "For example, on limited hardware, the 2019 MGH WhiteBook takes about 10 minutes to import."
-        );
-
-        let res = await asendPythonCommand(InterprocessCommand.ADD_DOCUMENTS, {
-          documents: docs,
-        });
-
-        let documentsAdded = res.documents_added;
-        dispatch(addDocumentsToStore(documentsAdded));
-        successToast(
-          "Documents Added",
-          `${documentsAdded.length} document(s) have been added to your local vector storage.`
-        );
-      } catch (err) {
-        errorToast("Error", err);
-      } finally {
-        dispatch(setDocumentsLoading(false));
+      if (doc.size > 1024 * 1024 * 1024) {
+        infoToast("Document Too Large", "The maximum file size is 1 GB.");
+        return;
       }
+
+      infoToast(
+        "Adding Documents...",
+        "This can take a while depending on your documents' word count and your CPU/GPU hardware. " +
+          "For example, on limited hardware, the 2019 MGH WhiteBook takes about 10 minutes to import."
+      );
+
+      let added = await asendPythonCommand(InterprocessCommand.ADD_DOCUMENTS, {
+        documents: docs,
+      });
+
+      let documentsAdded = added.documents_added;
+      dispatch(addDocumentsToStore(documentsAdded));
+      successToast(
+        "Documents Added",
+        `${documentsAdded.length} document(s) have been added to your local vector storage.`
+      );
 
       return;
     }
@@ -268,7 +261,7 @@ export async function importDocuments(dispatch = store.dispatch) {
       errorToast("Request error", res.message);
     }
   } catch (err) {
-    errorToast("Error attempting request", err);
+    errorToast("Error", String((err && err.message) || err));
   } finally {
     dispatch(setDocumentsLoading(false));
   }

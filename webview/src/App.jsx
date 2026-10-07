@@ -19,6 +19,7 @@ import { AuthScreen } from "./Components/Screens/AuthScreen/AuthScreen";
 import { GlobalLoadingIndicator } from "./Components/GlobalLoadingIndicator";
 import { setBoolGlobalLoadingIndicator } from "./api/redux/slices/bGlobalLoadingIndicator";
 import { AppAlertModal } from "./Components/modals/AppAlertModal";
+import { ErrorDialog } from "./Components/modals/ErrorDialog";
 import { SettingsScreen } from "./Components/Screens/SettingsScreen/SettingsScreen";
 import { EmailVerificationModal } from "./Components/modals/EmailVerificationModal";
 import { InterprocessCommand } from "./api/PythonBridge/InterprocessCommand";
@@ -203,6 +204,7 @@ function App() {
 
           {globalLoading && <GlobalLoadingIndicator />}
           <AppAlertModal />
+          <ErrorDialog />
           {!needsAuth && (
             <>
               <BootReminderModal

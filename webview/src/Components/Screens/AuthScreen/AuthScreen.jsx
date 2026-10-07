@@ -25,7 +25,7 @@ import {
   postRequestPasswordResetCode,
 } from "../../../api/server-api/networking/user";
 import { getAPIEndpoints } from "../../../api/server-api/networking";
-import { errorToast, infoToast, successToast } from "../../../api/toast";
+import { successToast } from "../../../api/toast";
 
 const MODES = {
   LOGIN: "login",
@@ -45,6 +45,9 @@ export function AuthScreen() {
 
   const [mode, setMode] = useState(MODES.LOGIN);
   const [busy, setBusy] = useState(false);
+  // Validation failures are shown inline in whichever form is on screen
+  // instead of as a toast/dialog.
+  const [formError, setFormError] = useState("");
 
   // Shared email/password fields.
   const [email, setEmail] = useState("");
@@ -97,8 +100,9 @@ export function AuthScreen() {
 
   function handleLogin(e) {
     e.preventDefault();
+    setFormError("");
     if (!email || !password) {
-      infoToast("Missing details", "Enter your email and password.");
+      setFormError("Enter your email and password.");
       return;
     }
     run(async () => {
@@ -109,20 +113,17 @@ export function AuthScreen() {
 
   function handleSignup(e) {
     e.preventDefault();
+    setFormError("");
     if (!email || !password) {
-      infoToast("Missing details", "Enter an email and password.");
+      setFormError("Enter an email and password.");
       return;
     }
     if (password !== confirmPassword) {
-      errorToast(
-        "Passwords do not match",
-        "Make sure your password and password confirmation match."
-      );
+      setFormError("Make sure your password and password confirmation match.");
       return;
     }
     if (!agreedPP || !agreedTOS) {
-      infoToast(
-        "Info",
+      setFormError(
         "Please agree to both the Privacy Policy and Terms of Service before registering."
       );
       return;
@@ -137,8 +138,9 @@ export function AuthScreen() {
 
   function handleVerify(e) {
     e.preventDefault();
+    setFormError("");
     if (!verificationCode) {
-      infoToast("Missing code", "Enter the verification code from your email.");
+      setFormError("Enter the verification code from your email.");
       return;
     }
     run(async () => {
@@ -148,8 +150,9 @@ export function AuthScreen() {
 
   function handleRequestResetCode(e) {
     e.preventDefault();
+    setFormError("");
     if (!email) {
-      infoToast("Missing email", "Enter the email address for your account.");
+      setFormError("Enter the email address for your account.");
       return;
     }
     run(async () => {
@@ -166,11 +169,9 @@ export function AuthScreen() {
 
   function handleConfirmReset(e) {
     e.preventDefault();
+    setFormError("");
     if (!resetCode || !newPassword) {
-      infoToast(
-        "Missing details",
-        "Enter the verification code and choose a new password."
-      );
+      setFormError("Enter the verification code and choose a new password.");
       return;
     }
     run(async () => {
@@ -222,6 +223,11 @@ export function AuthScreen() {
               setVerificationCode(e.target.value);
             }}
           />
+          {formError && (
+            <Text color={"red.400"} fontSize={12} mb={2}>
+              {formError}
+            </Text>
+          )}
           <Button type="submit" variant="accent" width="100%" isDisabled={busy}>
             Validate
           </Button>
@@ -278,6 +284,11 @@ export function AuthScreen() {
             >
               Send verification code
             </Button>
+            {formError && (
+              <Text color={"red.400"} fontSize={12} mt={2}>
+                {formError}
+              </Text>
+            )}
           </form>
         ) : (
           <form onSubmit={handleConfirmReset}>
@@ -298,6 +309,11 @@ export function AuthScreen() {
                 setNewPassword(e.target.value);
               }}
             />
+            {formError && (
+              <Text color={"red.400"} fontSize={12} mb={2}>
+                {formError}
+              </Text>
+            )}
             <Button
               type="submit"
               variant="accent"
@@ -405,6 +421,11 @@ export function AuthScreen() {
             </Checkbox>
           </>
         )}
+        {formError && (
+          <Text color={"red.400"} fontSize={12} mb={2}>
+            {formError}
+          </Text>
+        )}
         <Button
           type="submit"
           variant="accent"
@@ -414,7 +435,6 @@ export function AuthScreen() {
           {isSignup ? "Create Account" : "Login"}
         </Button>
       </form>
-
       <Divider mt={5} mb={3} />
 
       {!isSignup && (

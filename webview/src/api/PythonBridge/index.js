@@ -495,17 +495,13 @@ function _sendToPython(data) {
 
 export function sendPythonCommand(cmd, params = {}) {
   if (import.meta.env.VITE_APP_ENV === "STANDALONE") {
-    return true;
+    return false;
   }
 
   const pyCommandLock = store.getState().pyCommandLock.value;
   if (pyCommandLock) {
-    errorToast(
-      "Error",
-      "Please wait for the current action to complete executing. "
-    );
-
-    return;
+    errorToast("Busy", "Please wait for the current action to complete.");
+    return false;
   }
 
   store.dispatch(setPyCommandLock(true));
@@ -515,6 +511,7 @@ export function sendPythonCommand(cmd, params = {}) {
                                                                                                                                                                                                           );*/
 
   _sendToPython(consolidated);
+  return true;
 }
 
 let commandResolvers = new Map();

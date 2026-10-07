@@ -637,6 +637,9 @@ export const OpenAISettings = (props) => {
   );
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
+  // A headers-JSON parse failure is a field-level problem: it renders under
+  // the textarea instead of as a toast/dialog.
+  const [headersError, setHeadersError] = useState("");
   // Result of the last Test connection, reported as two verdicts: the API URL
   // and the API key.
   const [testResult, setTestResult] = useState(null);
@@ -669,9 +672,11 @@ export const OpenAISettings = (props) => {
   // Returns the parsed object, or null after showing why it could not be read.
   const parsedHeaders = () => {
     try {
-      return parseHeadersText(headersText);
+      const parsed = parseHeadersText(headersText);
+      setHeadersError("");
+      return parsed;
     } catch (e) {
-      errorToast("Extra Headers", String(e.message).slice(0, 300));
+      setHeadersError(String(e.message).slice(0, 300));
       return null;
     }
   };
@@ -844,7 +849,10 @@ export const OpenAISettings = (props) => {
         fontSize={11}
         placeholder={'{\n  "x-opencode-session": "abc123"\n}'}
         value={headersText}
-        onChange={(e) => setHeadersText(e.target.value)}
+        onChange={(e) => {
+          setHeadersText(e.target.value);
+          setHeadersError("");
+        }}
       />
       <Text fontSize={11} color={"gray.500"} mb={1}>
         Sent automatically on every request: AnkiBrain identifies itself and
@@ -856,6 +864,11 @@ export const OpenAISettings = (props) => {
         object of header name to value; a header set there overrides the
         automatic ones).
       </Text>
+      {headersError && (
+        <Text fontSize={11} color={"red.400"} mb={2}>
+          {headersError}
+        </Text>
+      )}
 
       <Flex direction={"row"} gap={2} mb={3}>
         <Button
@@ -1019,6 +1032,8 @@ export const OpenAISettings = (props) => {
 const AdvancedSettings = (props) => {
   const temperature = useSelector((state) => state.appSettings.ai.temperature);
   const llm = useSelector((state) => state.appSettings.ai.llmModel);
+  // Out-of-range temperature is a field-level problem: inline, not a dialog.
+  const [temperatureError, setTemperatureError] = useState("");
   const dispatch = useDispatch();
   const devMode = useSelector((state) => state.devMode.value);
   const apiBaseUrl = useSelector((state) => state.apiBaseUrl.value);
@@ -1042,12 +1057,6 @@ const AdvancedSettings = (props) => {
               value={llm}
               onChange={async (e) => {
                 await setLLMModel(e.target.value);
-                if (isLocalMode()) {
-                  successToast(
-                    "LLM Changed",
-                    "The AI Language Model has been changed. Please restart AnkiBrain for this change to take effect."
-                  );
-                }
               }}
             >
               <option value={"gpt-3.5-turbo"}>gpt-3.5-turbo (legacy - will stop working October 2026)</option>
@@ -1077,23 +1086,28 @@ const AdvancedSettings = (props) => {
               if (isNumber) {
                 const number = Number(e.target.value);
                 if (number < 0 || number > 1) {
-                  errorToast(
-                    "Invalid Temperature",
-                    "Please enter a temperature between 0 and 1."
+                  setTemperatureError(
+                    "Enter a temperature between 0 and 1."
                   );
                 } else {
+                  setTemperatureError("");
                   await setTemperature(e.target.value);
-                  if (isLocalMode()) {
-                    successToast(
-                      "Temperature Changed",
-                      "The AI temperature has been changed. Please restart AnkiBrain for this change to take effect."
-                    );
-                  }
                 }
               }
             }}
             mt={5}
           />
+          {temperatureError && (
+            <Text fontSize={11} color={"red.400"} mt={1}>
+              {temperatureError}
+            </Text>
+          )}
+          {isLocalMode() && (
+            <Text fontSize={11} color={"gray.500"} mt={1}>
+              Model and temperature changes take effect after restarting
+              AnkiBrain.
+            </Text>
+          )}
         </Flex>
       </Flex>
 

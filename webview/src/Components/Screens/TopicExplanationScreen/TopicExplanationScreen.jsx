@@ -29,7 +29,6 @@ import {
   clearStagedImages,
 } from "../../../api/redux/slices/makeCardsText";
 import { useEffect, useState } from "react";
-import { errorToast } from "../../../api/toast";
 import { isLocalMode } from "../../../api/user";
 import { CustomPromptTopicExplanationModal } from "./CustomPromptTopicExplanationModal";
 
@@ -51,8 +50,11 @@ export function TopicExplanationScreen(props) {
   const [requestedTopicWordLength, setRequestedTopicWordLength] = useState(
     requestedTopic.length
   );
+  // Over-limit topic is a field-level problem: inline, not a dialog.
+  const [topicError, setTopicError] = useState("");
   useEffect(() => {
     setRequestedTopicWordLength(requestedTopic.trim().split(/\s+/).length);
+    setTopicError("");
   }, [requestedTopic]);
 
   const topicExplanation = useSelector((state) => state.topicExplanation.value);
@@ -138,7 +140,9 @@ export function TopicExplanationScreen(props) {
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 if (requestedTopicWordLength > 750) {
-                  errorToast("Too many tokens", "");
+                  setTopicError(
+                    "Topic is limited to 750 words. Shorten it and try again."
+                  );
                 } else {
                   submitTopic();
                 }
@@ -154,6 +158,11 @@ export function TopicExplanationScreen(props) {
           <Text alignSelf={"end"} fontSize={12} color={"gray"}>
             {requestedTopicWordLength}/750
           </Text>
+          {topicError && (
+            <Text alignSelf={"end"} fontSize={11} color={"red.400"}>
+              {topicError}
+            </Text>
+          )}
         </Flex>
 
         <Flex justifyContent={"center"} alignItems={"center"} mb={4}>

@@ -35,7 +35,6 @@ import {
   Textarea,
   useBreakpointValue,
   useColorMode,
-  useToast,
 } from "@chakra-ui/react";
 import { pyAddCards } from "../../../api/PythonBridge/senders/pyAddCards";
 import { pyClearCardsBackup } from "../../../api/PythonBridge/senders/pyCardBackup";
@@ -226,13 +225,15 @@ export function CardMakingScreen() {
 
   const [deck, setDeck] = useState("");
   const [tag, setTag] = useState("");
+  const [tagError, setTagError] = useState("");
+  const [makeTextError, setMakeTextError] = useState("");
+  const [perfError, setPerfError] = useState("");
   const [showClearCardsAlert, setShowClearCardsAlert] = useState(false);
   const [showClearImagesAlert, setShowClearImagesAlert] = useState(false);
   const [selectedCardType, setSelectedCardType] = useState("basic");
   const customPromptMakeCards = useSelector(
     (state) => state.customPrompts.value.makeCards
   );
-  const toast = useToast();
 
   // Which editor view is active. Replaces the old Tabs; the segment buttons
   // live in the toolbar so all page actions sit in one wrapping strip.
@@ -648,7 +649,6 @@ export function CardMakingScreen() {
     dispatch(setCards([]));
     await pyEditSetting("tempCards", []);
     await pyClearCardsBackup();
-    successToast("Cards Cleared", "Your cards have been cleared.");
   };
 
   // "Clear All" in the images sidebar: empties the extracted-image registry
@@ -665,10 +665,6 @@ export function CardMakingScreen() {
         cards.map((c) => (c.images && c.images.length ? { ...c, images: [] } : c))
       )
     );
-    successToast(
-      "Images Cleared",
-      "Extracted images were removed from the library."
-    );
   };
 
   const clearAllTags = () => {
@@ -683,15 +679,10 @@ export function CardMakingScreen() {
     }
 
     if (tag.includes(" ")) {
-      toast({
-        title: "Invalid Tag",
-        description: "Tags cannot contain spaces.",
-        status: "error",
-        isClosable: true,
-      });
-
+      setTagError("Tags cannot contain spaces.");
       return;
     }
+    setTagError("");
 
     dispatch(
       setCards(
@@ -815,11 +806,6 @@ export function CardMakingScreen() {
           chunksCount: splitResult.chunks.length,
           imagesCount: docImages.length,
         })
-      );
-
-      successToast(
-        "Document Loaded",
-        "Review the pages, exclude any you don't want cards from, then click Make Cards."
       );
     } catch (err) {
       errorToast("Error", err.message);
@@ -1031,9 +1017,10 @@ export function CardMakingScreen() {
   const handleGeneratePerfCards = () => {
     const n = Math.floor(Number(perfCount));
     if (!Number.isFinite(n) || n < 1) {
-      errorToast("Invalid Count", "Enter a whole number of cards (1-50000).");
+      setPerfError("Enter a whole number of cards (1-50000).");
       return;
     }
+    setPerfError("");
     const added = addPerfCards(Math.min(n, 50000));
     infoToast(
       "Perf Cards Added",
@@ -1086,6 +1073,7 @@ export function CardMakingScreen() {
       );
       return;
     }
+    setMakeTextError("");
     if (makeCardsText.trim().split(/\s+/).length <= 750) {
       const imageAssignment =
         stagedImages.length > 0
@@ -1106,7 +1094,7 @@ export function CardMakingScreen() {
         dispatch(clearStagedImages());
       }
     } else {
-      errorToast("Too many tokens");
+      setMakeTextError("Text is limited to 750 words. Trim it and try again.");
     }
   };
 
@@ -1325,6 +1313,7 @@ export function CardMakingScreen() {
               value={tag}
               onChange={(e) => {
                 setTag(e.target.value);
+                setTagError("");
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -1335,6 +1324,11 @@ export function CardMakingScreen() {
             <Button size={"sm"} onClick={handleAddTag} aria-label={"Apply tag"}>
               <AddIcon boxSize={3} />
             </Button>
+            {tagError && (
+              <Text fontSize={11} color={"red.400"}>
+                {tagError}
+              </Text>
+            )}
           </ToolbarGroup>
 
           {/* Push the secondary cluster to the right on wide windows */}
@@ -1462,8 +1456,16 @@ export function CardMakingScreen() {
                       min={1}
                       max={50000}
                       value={perfCount}
-                      onChange={(e) => setPerfCount(e.target.value)}
+                      onChange={(e) => {
+                        setPerfCount(e.target.value);
+                        setPerfError("");
+                      }}
                     />
+                    {perfError && (
+                      <Text fontSize={11} color={"red.400"} mt={1}>
+                        {perfError}
+                      </Text>
+                    )}
                     <Button
                       size={"sm"}
                       mt={2}
@@ -1552,6 +1554,7 @@ export function CardMakingScreen() {
                   const text = event.target.value;
                   const currentWordCount = text.trim().split(/\s+/).length;
                   if (currentWordCount < 750) {
+                    setMakeTextError("");
                     debouncedCardsTextChangeHandler(text);
                   }
                 }}
@@ -1564,6 +1567,11 @@ export function CardMakingScreen() {
               <Text alignSelf={"end"} fontSize={12} color={"gray"} p={0} m={0}>
                 {makeCardsText.trim().split(/\s+/).length}/750
               </Text>
+              {makeTextError && (
+                <Text alignSelf={"end"} fontSize={11} color={"red.400"}>
+                  {makeTextError}
+                </Text>
+              )}
               {stagedImages.length > 0 && (
                 <Flex mt={2} direction={"column"} gap={1}>
                   <Text fontSize={11} color={"gray"}>

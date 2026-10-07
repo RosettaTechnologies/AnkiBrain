@@ -20,7 +20,6 @@ import {
   Tag,
   Text,
 } from "@chakra-ui/react";
-import { errorToast, infoToast } from "../../api/toast";
 import { ArrowBackIcon } from "@chakra-ui/icons";
 import { getAPIEndpoints } from "../../api/server-api/networking";
 import { useNavigate } from "react-router-dom";
@@ -31,6 +30,8 @@ export function LoginModal(props) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [signupMode, setSignupMode] = useState(false);
+  // Validation failures render inline above the submit button.
+  const [formError, setFormError] = useState("");
   const [agreedPP, setAgreedPP] = useState(false);
   const [agreedTOS, setAgreedTOS] = useState(false);
 
@@ -79,17 +80,16 @@ export function LoginModal(props) {
           <form
             onSubmit={async (e) => {
               e.preventDefault();
+              setFormError("");
               if (signupMode) {
                 if (!agreedPP || !agreedTOS) {
-                  infoToast(
-                    "Info",
+                  setFormError(
                     "Please agree to both the Privacy Policy and Terms of Service before registering."
                   );
                   return;
                 }
                 if (password !== confirmPassword) {
-                  errorToast(
-                    "Passwords do not match",
+                  setFormError(
                     "Make sure your password and password confirmation match."
                   );
                 } else {
@@ -137,6 +137,12 @@ export function LoginModal(props) {
               </div>
             )}
 
+            {formError && !signupMode && (
+              <Text color={"red.400"} fontSize={12} mb={2}>
+                {formError}
+              </Text>
+            )}
+
             {!signupMode && (
               <Button type={"submit"} variant={"accent"}>
                 Login
@@ -180,6 +186,11 @@ export function LoginModal(props) {
                     </a>
                   </Link>
                 </Checkbox>
+                {formError && (
+                  <Text color={"red.400"} fontSize={12} mb={2}>
+                    {formError}
+                  </Text>
+                )}
                 <Button type="submit" variant={"accent"}>
                   Confirm
                 </Button>

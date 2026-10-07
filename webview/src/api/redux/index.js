@@ -38,6 +38,7 @@ import { cardAudioSlice } from "./slices/cardAudio";
 import { occlusionGenerationSlice } from "./slices/occlusionGeneration";
 import { documentContextSlice } from "./slices/documentContext";
 import { stagedDocumentSlice } from "./slices/stagedDocument";
+import { errorDialog } from "./slices/errorDialog";
 
 const showLoginModalSlice = createSlice({
   name: "showLoginModal",
@@ -106,6 +107,7 @@ export const store = configureStore({
     documentContext: documentContextSlice.reducer,
     documents: documentsSlice.reducer,
     documentsLoading: documentsLoadingSlice.reducer,
+    errorDialog: errorDialog.reducer,
     failedCards: failedCards.reducer,
     imagesRegistry: imagesRegistry.reducer,
     audioRegistry: audioRegistry.reducer,
