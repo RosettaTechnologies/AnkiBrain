@@ -20,6 +20,7 @@ Stdlib-only by design (no aqt imports): `python3 -m local_engine.state` is a
 usable test CLI, and the webserver-side code never imports it.
 """
 
+import glob
 import hashlib
 import json
 import os
@@ -77,25 +78,113 @@ def platform_key():
     return f'{system}-{norm}'
 
 
+# Minimum host OS the pinned wheels support, mirrored from the locked packages
+# that set the floor: onnxruntime 1.30.0 ships only manylinux_2_28 and
+# macosx_14_0_arm64 wheels, and no sdist at all. Bump together with uv.lock.
+MIN_GLIBC = (2, 28)
+MIN_MACOS = (14, 0)
+
+# Platforms uv itself has a build for, but where a locked dependency publishes
+# no wheel, so `uv sync --frozen` would need a Rust/MSVC toolchain and fail on a
+# stock machine. Kept in code on purpose: runtime-manifest.json is hashed into
+# every install's state.json, so putting the reason there would mark every
+# existing engine out-of-sync and force a pointless re-sync.
+DEPENDENCY_UNSUPPORTED = {
+    'windows-arm64': 'Windows on ARM is not supported for Local mode: a required dependency publishes no ARM64 Windows wheels. A Windows x64 device is required.',
+}
+
+
+def _version_tuple(text):
+    """Leading dotted-number prefix of a version string ('14.6.1' -> (14, 6, 1))."""
+    parts = []
+    for chunk in (text or '').split('.'):
+        digits = ''
+        for ch in chunk:
+            if not ch.isdigit():
+                break
+            digits += ch
+        if not digits:
+            break
+        parts.append(int(digits))
+    return tuple(parts)
+
+
+def _host_libc():
+    """
+    ('glibc', (2, 28)) | ('musl', None) | (None, None) for this machine.
+
+    glibc answers CS_GNU_LIBC_VERSION; musl does not implement it, so "no
+    answer" plus a musl loader on disk is the positive musl signal. Anything
+    else stays unknown and is NOT a failure: a wrong refusal would block a
+    machine that installs fine.
+    """
+    try:
+        info = os.confstr('CS_GNU_LIBC_VERSION')
+    except (ValueError, OSError):
+        info = None
+    if info:
+        fields = info.split()
+        return ('glibc', _version_tuple(fields[1])) if len(fields) == 2 else ('glibc', ())
+    if glob.glob('/lib/ld-musl-*.so.1'):
+        return 'musl', None
+    name, version = platform.libc_ver()
+    if name == 'glibc':
+        return 'glibc', _version_tuple(version)
+    return None, None
+
+
+def _host_floor_reason(key):
+    """
+    Why THIS machine cannot run the pinned engine, or None when it can.
+
+    Only consulted when `key` is the host's own platform key, so cross-platform
+    status calls (and tests) never judge another machine by this one.
+    """
+    if key == 'darwin-aarch64':
+        version = _version_tuple(platform.mac_ver()[0])
+        if version and (version + (0, 0))[:2] < MIN_MACOS:
+            return ('Local mode needs macOS %d.%d or newer on Apple Silicon: a '
+                    'required dependency publishes no older arm64 build.'
+                    % MIN_MACOS)
+        return None
+    if key in ('linux-x86_64', 'linux-aarch64'):
+        libc, version = _host_libc()
+        if libc == 'musl':
+            return ('Local mode does not support musl-based Linux (for example '
+                    'Alpine): required dependencies publish no musllinux wheels. '
+                    'A glibc %d.%d or newer distribution is required.' % MIN_GLIBC)
+        if libc == 'glibc' and version and (version + (0,))[:2] < MIN_GLIBC:
+            return ('Local mode needs glibc %d.%d or newer: required dependencies '
+                    'publish only manylinux_2_28 builds.' % MIN_GLIBC)
+    return None
+
+
 def platform_support(key=None):
     """
     (supported: bool, reason: str|None) for the current platform.
 
-    `platforms` = uv has a vendored build for the OS/arch; `unsupported_platforms`
-    = no uv build at all; `platforms_extra_unsupported` = uv exists but a locked
-    dependency publishes no wheels there (Intel Macs).
+    `unsupported_platforms` = no uv build at all (Intel Macs);
+    `platforms_extra_unsupported` = uv exists but a locked dependency publishes
+    no wheels; DEPENDENCY_UNSUPPORTED = the same verdict for a platform the
+    manifest still lists as buildable; the host floors = uv and the wheels exist,
+    but this machine is too old to install them.
     """
     key = key or platform_key()
+    if key in DEPENDENCY_UNSUPPORTED:
+        return False, DEPENDENCY_UNSUPPORTED[key]
     manifest = read_manifest()
-    if key in manifest['uv']['platforms']:
-        extra = manifest.get('platforms_extra_unsupported', {})
-        if key in extra:
-            return False, extra[key]
-        return True, None
-    unsupported = manifest['uv'].get('unsupported_platforms', {})
-    if key in unsupported:
-        return False, unsupported[key]
-    return False, f'The AnkiBrain local AI engine has no runtime build for platform "{key}".'
+    if key not in manifest['uv']['platforms']:
+        unsupported = manifest['uv'].get('unsupported_platforms', {})
+        return False, unsupported.get(
+            key, f'The AnkiBrain local AI engine has no runtime build for platform "{key}".')
+    extra = manifest.get('platforms_extra_unsupported', {})
+    if key in extra:
+        return False, extra[key]
+    if key == platform_key():
+        reason = _host_floor_reason(key)
+        if reason:
+            return False, reason
+    return True, None
 
 
 def windows_long_paths_ok(base_dir):
