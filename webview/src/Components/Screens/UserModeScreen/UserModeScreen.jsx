@@ -66,7 +66,7 @@ const COMPARISON = [
   {
     aspect: "Cost",
     regular: "Included with your account",
-    local: "Your API provider, or free locally",
+    local: "Your API provider, or run a local model",
   },
   {
     aspect: "Every computer",

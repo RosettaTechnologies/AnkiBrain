@@ -81,27 +81,27 @@ import {
 } from "../../../api/redux/slices/appSettings";
 import { pySetUserMode } from "../../../api/PythonBridge/senders/pySetUserMode";
 import { setUserMode } from "../../../api/redux/slices/userMode";
+import { setUserModeSelectorOpen } from "../../../api/redux/slices/userModeSelector";
 import { pyRestartAnki } from "../../../api/PythonBridge/senders/pyRestartAnki";
 
 /**
  * User-mode switch, available in both modes. One click apart with no Anki
  * restart: python persists the choice and restarts its async members
  * in-process, so the app immediately re-enters SERVER's auth gate or LOCAL's
- * engine gate. Switching to Local goes through the same cost warning as
- * first launch.
+ * engine gate. Switching to Local opens the shared mode selector (same surface
+ * as first launch and the auth/engine gates' "switch mode"), which repeats the
+ * costs before anything is downloaded.
  */
 const UserModeSettings = () => {
   const dispatch = useDispatch();
   const userMode = useSelector((state) => state.userMode.value);
   const [busy, setBusy] = useState(false);
-  const [showLocalConfirm, setShowLocalConfirm] = useState(false);
 
   const selectUserMode = async (mode) => {
     setBusy(true);
     try {
       const res = await pySetUserMode(mode);
       if (res && res.ok) {
-        setShowLocalConfirm(false);
         dispatch(setUserMode(mode));
       } else {
         errorToast("Could not switch mode", String((res && res.error) || ""));
@@ -162,54 +162,11 @@ const UserModeSettings = () => {
           mb={2}
           variant={"outline"}
           isDisabled={busy}
-          onClick={() => setShowLocalConfirm(true)}
+          onClick={() => dispatch(setUserModeSelectorOpen(true))}
         >
           Use Local mode (advanced)
         </Button>
       )}
-
-      <Modal
-        isOpen={showLocalConfirm}
-        isCentered
-        onClose={() => {
-          if (!busy) setShowLocalConfirm(false);
-        }}
-      >
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Set up Local mode?</ModalHeader>
-          <ModalBody>
-            <Text mb={3}>Local mode is a real setup:</Text>
-            <Flex direction={"column"} fontSize={13} gap={1}>
-              <Text>• About 1.2 GB of engine files are downloaded.</Text>
-              <Text>
-                • You need your own OpenAI-compatible API key (billed by your
-                provider, not by AnkiBrain).
-              </Text>
-              <Text>• Responses are slower than Regular mode on most computers.</Text>
-              <Text>• Nothing syncs between your computers.</Text>
-            </Flex>
-          </ModalBody>
-          <ModalFooter>
-            <Button
-              variant={"ghost"}
-              mr={3}
-              isDisabled={busy}
-              onClick={() => setShowLocalConfirm(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              colorScheme={"red"}
-              isLoading={busy}
-              isDisabled={busy}
-              onClick={() => selectUserMode("LOCAL")}
-            >
-              Continue with local mode
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
       <Divider mt={3} />
     </Flex>
   );
