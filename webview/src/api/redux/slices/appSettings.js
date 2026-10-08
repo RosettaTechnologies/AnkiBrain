@@ -17,6 +17,10 @@ export const appSettings = createSlice({
       // endpoint reports per response instead.
       openaiInputCostPer1M: 0,
       openaiOutputCostPer1M: 0,
+      // Result of the last successful Test connection, hydrated from
+      // settings.json at boot ({ok, baseUrl, urlMessage, key:{status,message}})
+      // so the verification survives a restart; null when nothing verified.
+      openaiTestResult: null,
       hasOpenaiApiKey: false,
     },
   },
@@ -45,6 +49,9 @@ export const appSettings = createSlice({
     setOpenAIOutputCostPer1M: (state, action) => {
       state.ai.openaiOutputCostPer1M = action.payload;
     },
+    setOpenAITestResult: (state, action) => {
+      state.ai.openaiTestResult = action.payload;
+    },
     setHasOpenaiApiKey: (state, action) => {
       state.ai.hasOpenaiApiKey = action.payload;
     },
@@ -60,5 +67,6 @@ export const {
   setOpenAIModels,
   setOpenAIInputCostPer1M,
   setOpenAIOutputCostPer1M,
+  setOpenAITestResult,
   setHasOpenaiApiKey,
 } = appSettings.actions;

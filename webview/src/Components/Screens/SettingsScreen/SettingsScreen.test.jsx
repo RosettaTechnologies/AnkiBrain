@@ -2,7 +2,11 @@ import { ChakraProvider } from "@chakra-ui/react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { store } from "../../../api/redux";
-import { setLLMModel, setOpenAIModels } from "../../../api/redux/slices/appSettings";
+import {
+  setLLMModel,
+  setOpenAIModels,
+  setOpenAITestResult,
+} from "../../../api/redux/slices/appSettings";
 import { OpenAISettings } from "./SettingsScreen";
 import { pyTestOpenAIConnection } from "../../../api/PythonBridge/senders/pyOpenAIConfig";
 import { pyEditSetting } from "../../../api/PythonBridge/senders/pyEditSetting";
@@ -43,6 +47,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   store.dispatch(setOpenAIModels([]));
   store.dispatch(setLLMModel("gpt-5.6-luna"));
+  store.dispatch(setOpenAITestResult(null));
 });
 
 test("a reachable endpoint refreshes the model list and accepts the key", async () => {
@@ -187,4 +192,45 @@ test("typing filters the listed models", async () => {
     "option"
   );
   expect(options.map((o) => o.textContent)).toEqual(["z-model"]);
+});
+
+test("a successful test persists the endpoint/key verdict", async () => {
+  pyTestOpenAIConnection.mockResolvedValue({
+    ok: true,
+    status: 200,
+    url_message: "Reachable (HTTP 200) - 2 models listed.",
+    models: ["a-model", "z-model"],
+    key: {
+      status: "accepted",
+      message: "The endpoint returned its model list with this key.",
+    },
+  });
+  renderSection();
+  await clickTest("sk-test");
+  await waitFor(() =>
+    expect(pyEditSetting).toHaveBeenCalledWith("openaiVerifiedUrl", "")
+  );
+  expect(pyEditSetting).toHaveBeenCalledWith("openaiKeyStatus", "accepted");
+  expect(pyEditSetting).toHaveBeenCalledWith(
+    "openaiKeyStatusMessage",
+    "The endpoint returned its model list with this key."
+  );
+  expect(pyEditSetting).toHaveBeenCalledWith(
+    "openaiUrlStatusMessage",
+    "Reachable (HTTP 200) - 2 models listed."
+  );
+});
+
+test("a stored verdict renders without re-testing", () => {
+  store.dispatch(
+    setOpenAITestResult({
+      ok: true,
+      baseUrl: "",
+      urlMessage: "Reachable (HTTP 200) - 2 models listed.",
+      key: { status: "accepted", message: "Key accepted." },
+    })
+  );
+  renderSection();
+  expect(screen.getByText(/Reachable \(HTTP 200\)/)).toBeInTheDocument();
+  expect(screen.getByText(/accepted/)).toBeInTheDocument();
 });

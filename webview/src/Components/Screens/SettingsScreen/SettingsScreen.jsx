@@ -64,6 +64,7 @@ import {
   pyLocalEngineResetData,
   pyLocalEngineUninstall,
 } from "../../../api/PythonBridge/senders/pyLocalEngine";
+import { ManualInstallModal } from "../../modals/ManualInstallModal";
 import {
   pySetOpenAIConfig,
   pyTestOpenAIConnection,
@@ -80,6 +81,7 @@ import {
   setOpenAIModels,
   setOpenAIInputCostPer1M,
   setOpenAIOutputCostPer1M,
+  setOpenAITestResult,
 } from "../../../api/redux/slices/appSettings";
 import { pySetUserMode } from "../../../api/PythonBridge/senders/pySetUserMode";
 import { setUserMode } from "../../../api/redux/slices/userMode";
@@ -446,6 +448,7 @@ const LocalEngineSettings = (props) => {
   const [confirmUninstall, setConfirmUninstall] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [working, setWorking] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
 
   const diskMb = (status && status.estimate && status.estimate.disk_mb) || 1200;
 
@@ -581,6 +584,12 @@ const LocalEngineSettings = (props) => {
         </Button>
       )}
 
+      {!unsupported && (
+        <Button mb={3} variant={"ghost"} onClick={() => setManualOpen(true)}>
+          Manual install instructions
+        </Button>
+      )}
+
       {!unsupported && installed && (
         <Button
           mb={3}
@@ -662,6 +671,16 @@ const LocalEngineSettings = (props) => {
         </ModalContent>
       </Modal>
 
+      <ManualInstallModal
+        isOpen={manualOpen}
+        onClose={() => setManualOpen(false)}
+        platformKey={status && status.platform}
+        uvVersion={status && status.uv_version}
+        pythonVersion={status && status.python_version}
+        engineRoot={status && status.engine_root}
+        reason={status && status.reason}
+      />
+
       <Divider mt={3} />
     </Flex>
   );
@@ -729,6 +748,9 @@ export const OpenAISettings = (props) => {
   const llm = useSelector((state) => state.appSettings.ai.llmModel);
   const baseUrl = useSelector((state) => state.appSettings.ai.openaiBaseUrl);
   const models = useSelector((state) => state.appSettings.ai.openaiModels);
+  const persistedTestResult = useSelector(
+    (state) => state.appSettings.ai.openaiTestResult
+  );
   const hasKey = useSelector((state) => state.appSettings.ai.hasOpenaiApiKey);
   const savedHeaders = useSelector(
     (state) => state.appSettings.ai.openaiExtraHeaders
@@ -758,8 +780,16 @@ export const OpenAISettings = (props) => {
   // the textarea instead of as a toast/dialog.
   const [headersError, setHeadersError] = useState("");
   // Result of the last Test connection, reported as two verdicts: the API URL
-  // and the API key.
-  const [testResult, setTestResult] = useState(null);
+  // and the API key. Seeded from settings.json so a setup verified in an
+  // earlier session still shows its status instead of "not tested" — and, via
+  // localConfig.js, keeps the AI usable without re-testing after a restart.
+  // Only trusted while it belongs to the currently saved URL.
+  const [testResult, setTestResult] = useState(() =>
+    persistedTestResult &&
+    persistedTestResult.baseUrl === String(baseUrl || "")
+      ? persistedTestResult
+      : null
+  );
   // The model is free text: the endpoint's list is a real dropdown, and a
   // provider without a /models route must still be configurable by typing.
   const [modelText, setModelText] = useState(llm || "");
@@ -819,6 +849,24 @@ export const OpenAISettings = (props) => {
     }
   };
 
+  // Persist the verdict so a restart can trust a known-good endpoint without a
+  // fresh Test connection. Only a successful test is stored as the verified
+  // URL; a failure clears it so the LOCAL-mode gate falls back to "test me".
+  const persistTestResult = async (result) => {
+    const ok = !!(result && result.ok);
+    store.dispatch(setOpenAITestResult(ok ? result : null));
+    await pyEditSetting("openaiVerifiedUrl", ok ? result.baseUrl : null);
+    await pyEditSetting("openaiKeyStatus", ok ? result.key.status : "");
+    await pyEditSetting(
+      "openaiKeyStatusMessage",
+      ok ? String(result.key.message || "") : ""
+    );
+    await pyEditSetting(
+      "openaiUrlStatusMessage",
+      ok ? String(result.urlMessage || "") : ""
+    );
+  };
+
   const doTest = async () => {
     const extraHeaders = parsedHeaders();
     if (extraHeaders === null) return;
@@ -839,19 +887,25 @@ export const OpenAISettings = (props) => {
       // endpoint answered, drop it when it did not.
       store.dispatch(setOpenAIModels(res && res.ok ? list : []));
       await pyEditSetting("openaiModels", res && res.ok ? list : []);
-      setTestResult({
+      const result = {
         ok: !!(res && res.ok),
+        baseUrl: url.trim(),
         urlMessage: String(
           (res && res.url_message) || "No answer from the endpoint."
         ).slice(0, 300),
         key: keyStatus,
-      });
+      };
+      setTestResult(result);
+      await persistTestResult(result);
     } catch (e) {
-      setTestResult({
+      const result = {
         ok: false,
+        baseUrl: url.trim(),
         urlMessage: String(e && e.message ? e.message : e).slice(0, 300),
         key: { status: "not-attempted", message: "Not tested." },
-      });
+      };
+      setTestResult(result);
+      await persistTestResult(result);
     } finally {
       setTesting(false);
     }
@@ -899,6 +953,10 @@ export const OpenAISettings = (props) => {
         if (previousBaseUrl !== nextBaseUrl) {
           store.dispatch(setOpenAIModels([]));
           await pyEditSetting("openaiModels", []);
+          // A changed URL invalidates both the model list and the stored
+          // Test-connection verdict for the old endpoint.
+          setTestResult(null);
+          await persistTestResult(null);
         }
         if (key.trim()) {
           store.dispatch(setHasOpenaiApiKey(true));

@@ -36,7 +36,7 @@ import time
 import zipfile
 from os import path
 
-from runtime_runner import BootstrapError, Runner, fetch
+from runtime_runner import BootstrapError, Runner, fetch, locate_binary
 from local_engine import state as estate
 
 
@@ -77,8 +77,8 @@ def _install_uv(runner):
     else:
         with tarfile.open(archive, 'r:gz') as t:
             t.extractall(extract_dir)
-    src = path.join(extract_dir, *plat['binary'].split('/'))
-    if not path.isfile(src):
+    src = locate_binary(extract_dir, plat['binary'])
+    if src is None:
         raise BootstrapError('uv', 'uv archive layout unexpected (missing ' + plat['binary'] + ')',
                              'Manifest binary path out of sync with the release asset.')
     os.makedirs(paths.bin_dir, exist_ok=True)

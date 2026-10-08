@@ -31,12 +31,12 @@
       "windows-amd64": {
         "asset": "uv-x86_64-pc-windows-msvc.zip",
         "sha256": "b23350c79e8ad0192b8124af13a0f17e8d4e4549524785e1aef389ae5a06990e",
-        "binary": "uv-x86_64-pc-windows-msvc/uv.exe"
+        "binary": "uv.exe"
       },
       "windows-arm64": {
         "asset": "uv-aarch64-pc-windows-msvc.zip",
         "sha256": "4343217d668727b8a8eb5cad92389a1d2eeead93c89940d1b955ba1bb15462eb",
-        "binary": "uv-aarch64-pc-windows-msvc/uv.exe"
+        "binary": "uv.exe"
       }
     },
     "unsupported_platforms": {

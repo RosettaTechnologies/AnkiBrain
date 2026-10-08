@@ -25,6 +25,7 @@ import {
 } from "../../api/PythonBridge/senders/pyLocalEngine";
 import { setLocalEngineInstallActive } from "../../api/redux/slices/localEngine";
 import { setUserModeSelectorOpen } from "../../api/redux/slices/userModeSelector";
+import { ManualInstallModal } from "./ManualInstallModal";
 
 /**
  * Local AI engine setup: one honest screen — what this is, what it costs
@@ -79,6 +80,7 @@ export function LocalEngineSetupModal({ gate = false }) {
   const [cancelError, setCancelError] = useState(null);
   const [actionWorking, setActionWorking] = useState(false);
   const [actionError, setActionError] = useState(null);
+  const [manualOpen, setManualOpen] = useState(false);
 
   if (!open) return null;
 
@@ -318,6 +320,14 @@ export function LocalEngineSetupModal({ gate = false }) {
           >
             {headline}
           </Button>
+          <Button
+            width="100%"
+            variant="ghost"
+            mb={2}
+            onClick={() => setManualOpen(true)}
+          >
+            Manual install instructions
+          </Button>
           {gate && (
             <Button
               width="100%"
@@ -451,6 +461,14 @@ export function LocalEngineSetupModal({ gate = false }) {
           >
             Retry
           </Button>
+          <Button
+            width="100%"
+            variant="ghost"
+            mb={2}
+            onClick={() => setManualOpen(true)}
+          >
+            Manual install instructions
+          </Button>
           {gate && (
             <Button
               width="100%"
@@ -484,37 +502,59 @@ export function LocalEngineSetupModal({ gate = false }) {
 
   if (gate) {
     return (
-      <Flex
-        height="100%"
-        width="100%"
-        direction="column"
-        align="center"
-        justify="center"
-        p={6}
-      >
-        <Text fontWeight="bold" fontSize="lg" mb={4}>
-          AnkiBrain Local Mode
-        </Text>
-        <Box width="100%" maxWidth="440px">
-          {body}
-        </Box>
-      </Flex>
+      <>
+        <Flex
+          height="100%"
+          width="100%"
+          direction="column"
+          align="center"
+          justify="center"
+          p={6}
+        >
+          <Text fontWeight="bold" fontSize="lg" mb={4}>
+            AnkiBrain Local Mode
+          </Text>
+          <Box width="100%" maxWidth="440px">
+            {body}
+          </Box>
+        </Flex>
+        <ManualInstallModal
+          isOpen={manualOpen}
+          onClose={() => setManualOpen(false)}
+          platformKey={status && status.platform}
+          uvVersion={status && status.uv_version}
+          pythonVersion={status && status.python_version}
+          engineRoot={status && status.engine_root}
+          reason={status && status.reason}
+        />
+      </>
     );
   }
 
   return (
-    <Modal
-      isOpen={open}
-      onClose={handleCancel}
-      size="md"
-      closeOnOverlayClick={false}
-      closeOnEsc={false}
-    >
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>AnkiBrain Local Mode</ModalHeader>
-        <ModalBody pb={6}>{body}</ModalBody>
-      </ModalContent>
-    </Modal>
+    <>
+      <Modal
+        isOpen={open}
+        onClose={handleCancel}
+        size="md"
+        closeOnOverlayClick={false}
+        closeOnEsc={false}
+      >
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>AnkiBrain Local Mode</ModalHeader>
+          <ModalBody pb={6}>{body}</ModalBody>
+        </ModalContent>
+      </Modal>
+      <ManualInstallModal
+        isOpen={manualOpen}
+        onClose={() => setManualOpen(false)}
+        platformKey={status && status.platform}
+        uvVersion={status && status.uv_version}
+        pythonVersion={status && status.python_version}
+        engineRoot={status && status.engine_root}
+        reason={status && status.reason}
+      />
+    </>
   );
 }

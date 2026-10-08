@@ -53,6 +53,24 @@ def dir_mb(*dirs):
     return total / 1e6
 
 
+def locate_binary(extract_dir, rel):
+    """Path to the manifest-named binary inside an extracted uv archive.
+
+    `rel` is the manifest `binary` value. Release archives have shipped a
+    different layout than the manifest names (uv 0.12.3 Windows zips are flat
+    while the entry named a nested path), so fall back to a name search over the
+    extracted tree. Returns None when neither matches.
+    """
+    candidate = path.join(extract_dir, *rel.split('/'))
+    if path.isfile(candidate):
+        return candidate
+    wanted = rel.rsplit('/', 1)[-1]
+    for base, _dirs, files in os.walk(extract_dir):
+        if wanted in files:
+            return path.join(base, wanted)
+    return None
+
+
 class Runner:
     """Subprocess helper: logs to file, streams coarse progress, cancels cleanly."""
 

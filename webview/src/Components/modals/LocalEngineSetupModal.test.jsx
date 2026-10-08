@@ -4,6 +4,7 @@ import { Provider } from "react-redux";
 import { store } from "../../api/redux";
 import {
   setLocalEngineInstallActive,
+  setLocalEngineInstallDone,
   setLocalEngineStartError,
   setLocalEngineStatus,
   setSetupModalMode,
@@ -172,4 +173,28 @@ test("gate during an active install hides Cancel", () => {
 
   expect(screen.getByText("Preparing installer (uv)")).toBeInTheDocument();
   expect(screen.queryByText("Cancel")).toBeNull();
+});
+
+test("failure screen offers manual install instructions", () => {
+  store.dispatch(
+    setLocalEngineStatus({
+      status: "supported-but-absent",
+      platform: "windows-amd64",
+    })
+  );
+  // setSetupModalOpen(true) clears a stale terminal result when nothing is
+  // active, so the failure payload must be dispatched after it.
+  store.dispatch(setSetupModalOpen(true));
+  store.dispatch(
+    setLocalEngineInstallDone({
+      ok: false,
+      error: { message: "uv archive layout unexpected (missing uv.exe)" },
+    })
+  );
+  renderModal();
+
+  expect(screen.getByText("Install failed")).toBeInTheDocument();
+  fireEvent.click(screen.getByText("Manual install instructions"));
+
+  expect(screen.getByText(/uv python install/)).toBeInTheDocument();
 });

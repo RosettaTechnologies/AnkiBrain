@@ -76,6 +76,15 @@ default_settings = {
     # recommended models.
     'openaiInputCostPer1M': 0,
     'openaiOutputCostPer1M': 0,
+    # Result of the last *successful* Test connection, so the LOCAL-mode config
+    # gate survives a restart: the AI stays usable without re-testing after
+    # Anki restarts. openaiVerifiedUrl is the base URL that answered (None
+    # while nothing has been verified; '' is a valid value - OpenAI's default
+    # endpoint). The gate only trusts it while it still matches openaiBaseUrl.
+    'openaiVerifiedUrl': None,
+    'openaiKeyStatus': '',
+    'openaiKeyStatusMessage': '',
+    'openaiUrlStatusMessage': '',
 
     'user': None,
     'devMode': False,

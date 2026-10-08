@@ -40,6 +40,7 @@ import {
   setOpenAIModels,
   setOpenAIInputCostPer1M,
   setOpenAIOutputCostPer1M,
+  setOpenAITestResult,
   setTemperature,
 } from "../redux/slices/appSettings";
 import { setLoadingText } from "../redux/slices/loadingText";
@@ -269,6 +270,10 @@ export async function handlePythonDataReceived(
         openaiModels,
         openaiInputCostPer1M,
         openaiOutputCostPer1M,
+        openaiVerifiedUrl,
+        openaiKeyStatus,
+        openaiKeyStatusMessage,
+        openaiUrlStatusMessage,
         hasOpenaiApiKey,
       } = data;
 
@@ -327,6 +332,26 @@ export async function handlePythonDataReceived(
       }
       if (typeof openaiOutputCostPer1M === "number") {
         dispatch(setOpenAIOutputCostPer1M(openaiOutputCostPer1M));
+      }
+      // Flat settings reconstruct the last successful Test connection. null /
+      // absent openaiVerifiedUrl means "never verified" ('' is a real URL:
+      // OpenAI's default endpoint).
+      if (openaiVerifiedUrl !== undefined) {
+        dispatch(
+          setOpenAITestResult(
+            openaiVerifiedUrl === null
+              ? null
+              : {
+                  ok: true,
+                  baseUrl: openaiVerifiedUrl,
+                  urlMessage: String(openaiUrlStatusMessage || ""),
+                  key: {
+                    status: openaiKeyStatus || "not-attempted",
+                    message: String(openaiKeyStatusMessage || ""),
+                  },
+                }
+          )
+        );
       }
       dispatch(setHasOpenaiApiKey(hasOpenaiApiKey === true));
 

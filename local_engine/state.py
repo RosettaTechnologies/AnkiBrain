@@ -364,6 +364,7 @@ def current_status(paths=None):
         'engine_root': paths.root,
         'fallback_root_used': paths.fallback_used,
         'python_version': manifest['python']['version'],
+        'uv_version': manifest['uv']['version'],
         'venv_python': paths.venv_python,
         'last_error': (state or {}).get('last_error'),
         'estimate': {

@@ -6,7 +6,15 @@ import { localConfigGate, SETTINGS_POINTER } from "./localConfig";
 const configured = {
   hasOpenaiApiKey: true,
   llmModel: "gpt-5.6-luna",
+  openaiBaseUrl: "https://api.example/v1",
   openaiModels: ["gpt-5.6-luna", "gpt-5.6-mini"],
+  // Persisted Test-connection verdict for the saved base URL.
+  openaiTestResult: {
+    ok: true,
+    baseUrl: "https://api.example/v1",
+    urlMessage: "Reachable (HTTP 200) - 2 models listed.",
+    key: { status: "accepted", message: "Key accepted." },
+  },
 };
 
 test("SERVER mode is never gated, configured or not", () => {
@@ -53,9 +61,28 @@ test("LOCAL mode with a key but no model is blocked and says so", () => {
 });
 
 test("LOCAL mode with no verified endpoint asks for Test connection", () => {
-  const gate = localConfigGate("LOCAL", { ...configured, openaiModels: [] });
+  const gate = localConfigGate("LOCAL", {
+    ...configured,
+    openaiTestResult: null,
+  });
 
   expect(gate.ok).toBe(false);
   expect(gate.reason).toContain("Test connection");
   expect(gate.reason).toContain(SETTINGS_POINTER);
+});
+
+test("a verdict from a different endpoint does not count as verified", () => {
+  const gate = localConfigGate("LOCAL", {
+    ...configured,
+    openaiBaseUrl: "https://changed.example/v1",
+  });
+
+  expect(gate.ok).toBe(false);
+  expect(gate.reason).toContain("Test connection");
+});
+
+test("a list of models alone no longer proves the endpoint was verified", () => {
+  expect(
+    localConfigGate("LOCAL", { ...configured, openaiTestResult: null }).ok
+  ).toBe(false);
 });
