@@ -4,12 +4,14 @@ import { pushErrorDialog } from "./redux/slices/errorDialog";
 
 const { toast } = createStandaloneToast();
 
-// Corner placement + subtle variant: a confirmation should not cover the
-// working area or shout. Durations are short because every success here is
-// also visible in the UI state that changed.
+// Corner placement + solid variant: a toast must stay readable over whatever
+// is behind it, so its background is opaque. Chakra's "subtle" variant paints a
+// 16%-alpha tint in dark mode (the app's default), which reads as transparent.
+// Durations are short because every success here is also visible in the UI
+// state that changed.
 const TOAST_DEFAULTS = {
   position: "bottom-right",
-  variant: "subtle",
+  variant: "solid",
   isClosable: true,
 };
 

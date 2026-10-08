@@ -13,6 +13,10 @@ export const appSettings = createSlice({
       // Sent automatically as x-opencode-session; shown read-only in Settings.
       openaiSessionId: "",
       openaiModels: [],
+      // USD per 1M tokens. 0 = unset: the cost tracker uses the cost the
+      // endpoint reports per response instead.
+      openaiInputCostPer1M: 0,
+      openaiOutputCostPer1M: 0,
       hasOpenaiApiKey: false,
     },
   },
@@ -35,6 +39,12 @@ export const appSettings = createSlice({
     setOpenAIModels: (state, action) => {
       state.ai.openaiModels = action.payload;
     },
+    setOpenAIInputCostPer1M: (state, action) => {
+      state.ai.openaiInputCostPer1M = action.payload;
+    },
+    setOpenAIOutputCostPer1M: (state, action) => {
+      state.ai.openaiOutputCostPer1M = action.payload;
+    },
     setHasOpenaiApiKey: (state, action) => {
       state.ai.hasOpenaiApiKey = action.payload;
     },
@@ -48,5 +58,7 @@ export const {
   setOpenAIExtraHeaders,
   setOpenAISessionId,
   setOpenAIModels,
+  setOpenAIInputCostPer1M,
+  setOpenAIOutputCostPer1M,
   setHasOpenaiApiKey,
 } = appSettings.actions;

@@ -23,6 +23,19 @@ import { pyEditSetting } from "../../api/PythonBridge/senders/pyEditSetting";
 import { setColorMode } from "../../api/redux/slices/colorMode";
 import { getUser } from "../../api/server-api/networking/user";
 
+// Session cost for LOCAL mode. At least 4 decimals so a single request's
+// sub-cent cost is visible instead of rounding to $0.00; extra digits when 4
+// would still read as zero, so a nonzero cost never displays as 0.
+function formatSessionCost(value) {
+  const cost = Number(value) || 0;
+  if (cost === 0) return "0.00";
+  for (let digits = 4; digits <= 10; digits += 1) {
+    const text = cost.toFixed(digits);
+    if (Number(text) !== 0) return text;
+  }
+  return cost.toFixed(10);
+}
+
 export function SideBar(props) {
   const navigate = useNavigate();
   const user = useSelector((state) => state.user.value);
@@ -208,7 +221,9 @@ export function SideBar(props) {
         )}
 
         {userMode === "LOCAL" && (
-          <span className="TopHeader-cost">${cost.session.toFixed(2)}</span>
+          <span className="TopHeader-cost">
+            ${formatSessionCost(cost.session)}
+          </span>
         )}
 
         {isLocalMode() && (

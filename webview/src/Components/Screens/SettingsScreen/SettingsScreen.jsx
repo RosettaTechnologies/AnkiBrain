@@ -78,6 +78,8 @@ import {
   setOpenAIBaseUrl,
   setOpenAIExtraHeaders,
   setOpenAIModels,
+  setOpenAIInputCostPer1M,
+  setOpenAIOutputCostPer1M,
 } from "../../../api/redux/slices/appSettings";
 import { pySetUserMode } from "../../../api/PythonBridge/senders/pySetUserMode";
 import { setUserMode } from "../../../api/redux/slices/userMode";
@@ -719,6 +721,10 @@ const ConnectionStatus = ({ result }) => {
   );
 };
 
+// 0 (or missing) is "unset" and shows as an empty field; any other stored
+// number is shown as-is.
+const priceToText = (value) => (value ? String(value) : "");
+
 export const OpenAISettings = (props) => {
   const llm = useSelector((state) => state.appSettings.ai.llmModel);
   const baseUrl = useSelector((state) => state.appSettings.ai.openaiBaseUrl);
@@ -729,6 +735,12 @@ export const OpenAISettings = (props) => {
   );
   const sessionId = useSelector(
     (state) => state.appSettings.ai.openaiSessionId
+  );
+  const inputCost = useSelector(
+    (state) => state.appSettings.ai.openaiInputCostPer1M
+  );
+  const outputCost = useSelector(
+    (state) => state.appSettings.ai.openaiOutputCostPer1M
   );
 
   // The URL field is local state so typing is not fought by the store; the
@@ -758,6 +770,9 @@ export const OpenAISettings = (props) => {
   const [modelsOpen, setModelsOpen] = useState(false);
   const [activeModelIndex, setActiveModelIndex] = useState(-1);
   const [modelQuery, setModelQuery] = useState("");
+  // Optional price override, edited as text so a blank field means "unset".
+  const [inputCostText, setInputCostText] = useState(priceToText(inputCost));
+  const [outputCostText, setOutputCostText] = useState(priceToText(outputCost));
   const filteredModels = models.filter((m) =>
     m.toLowerCase().includes(modelQuery.trim().toLowerCase())
   );
@@ -773,6 +788,24 @@ export const OpenAISettings = (props) => {
   useEffect(() => {
     setHeadersText(headersToText(savedHeaders));
   }, [savedHeaders]);
+
+  useEffect(() => {
+    setInputCostText(priceToText(inputCost));
+  }, [inputCost]);
+
+  useEffect(() => {
+    setOutputCostText(priceToText(outputCost));
+  }, [outputCost]);
+
+  // Blank / non-numeric / negative commits as 0 ("unset"). Persisted on blur
+  // so typing does not fire one python command per keystroke; the subprocess
+  // reads settings.json per request, so no engine restart is needed.
+  const commitCost = async (key, text, actionCreator) => {
+    const parsed = parseFloat(text);
+    const value = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    store.dispatch(actionCreator(value));
+    await pyEditSetting(key, value);
+  };
 
   // Returns the parsed object, or null after showing why it could not be read.
   const parsedHeaders = () => {
@@ -1137,6 +1170,46 @@ export const OpenAISettings = (props) => {
         Restart AnkiBrain from Local AI Engine below for a model change to take
         effect.
       </Text>
+
+      <Text fontWeight={"bold"} fontSize={13} mb={1}>
+        Session cost (optional)
+      </Text>
+      <Text fontSize={11} color={"gray.500"} mb={2}>
+        Leave both blank to use the cost this endpoint reports, or AnkiBrain's
+        built-in price for its recommended models. Fill them in (USD per 1M
+        tokens) to price any other model yourself. Applies to the next message,
+        no restart needed.
+      </Text>
+      <Flex gap={2} mb={2}>
+        <Input
+          flex={1}
+          size={"sm"}
+          placeholder={"Input $ / 1M tokens"}
+          value={inputCostText}
+          onChange={(e) => setInputCostText(e.target.value)}
+          onBlur={() =>
+            commitCost(
+              "openaiInputCostPer1M",
+              inputCostText,
+              setOpenAIInputCostPer1M
+            )
+          }
+        />
+        <Input
+          flex={1}
+          size={"sm"}
+          placeholder={"Output $ / 1M tokens"}
+          value={outputCostText}
+          onChange={(e) => setOutputCostText(e.target.value)}
+          onBlur={() =>
+            commitCost(
+              "openaiOutputCostPer1M",
+              outputCostText,
+              setOpenAIOutputCostPer1M
+            )
+          }
+        />
+      </Flex>
 
       <Divider mt={3} />
     </Flex>

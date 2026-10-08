@@ -70,6 +70,12 @@ default_settings = {
     # below only writes keys that are missing.
     'openaiSessionId': str(uuid.uuid4()),
     'openaiModels': [],
+    # Optional price override for the LOCAL-mode session cost tracker, in USD
+    # per 1M tokens. 0 = unset: the tracker then uses the cost the endpoint
+    # reports in the response usage, else a built-in price for AnkiBrain's
+    # recommended models.
+    'openaiInputCostPer1M': 0,
+    'openaiOutputCostPer1M': 0,
 
     'user': None,
     'devMode': False,

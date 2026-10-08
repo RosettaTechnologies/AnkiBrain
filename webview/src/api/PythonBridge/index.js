@@ -38,6 +38,8 @@ import {
   setOpenAIExtraHeaders,
   setOpenAISessionId,
   setOpenAIModels,
+  setOpenAIInputCostPer1M,
+  setOpenAIOutputCostPer1M,
   setTemperature,
 } from "../redux/slices/appSettings";
 import { setLoadingText } from "../redux/slices/loadingText";
@@ -265,6 +267,8 @@ export async function handlePythonDataReceived(
         openaiExtraHeaders,
         openaiSessionId,
         openaiModels,
+        openaiInputCostPer1M,
+        openaiOutputCostPer1M,
         hasOpenaiApiKey,
       } = data;
 
@@ -317,6 +321,12 @@ export async function handlePythonDataReceived(
       }
       if (Array.isArray(openaiModels)) {
         dispatch(setOpenAIModels(openaiModels));
+      }
+      if (typeof openaiInputCostPer1M === "number") {
+        dispatch(setOpenAIInputCostPer1M(openaiInputCostPer1M));
+      }
+      if (typeof openaiOutputCostPer1M === "number") {
+        dispatch(setOpenAIOutputCostPer1M(openaiOutputCostPer1M));
       }
       dispatch(setHasOpenaiApiKey(hasOpenaiApiKey === true));
 

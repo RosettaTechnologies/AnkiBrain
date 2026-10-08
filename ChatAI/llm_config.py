@@ -53,3 +53,35 @@ def get_openai_headers():
     if isinstance(extra, dict):
         headers.update({str(k): str(v) for k, v in extra.items() if str(k).strip()})
     return headers
+
+
+def _positive_number(value):
+    if isinstance(value, bool):
+        return 0.0
+    if isinstance(value, (int, float)):
+        number = float(value)
+    elif isinstance(value, str):
+        try:
+            number = float(value.strip())
+        except ValueError:
+            return 0.0
+    else:
+        return 0.0
+    return number if number > 0 else 0.0
+
+
+def get_cost_prices():
+    """
+    Optional `(input, output)` price override for the session cost tracker, in
+    USD per 1M tokens. Settings → Basic stores `openaiInputCostPer1M` /
+    `openaiOutputCostPer1M`; 0 (or missing) means "unset", and the tracker then
+    uses whatever cost the endpoint reports in the response usage.
+
+    Read per call, not cached at startup: a price edit applies to the next
+    request without restarting the engine.
+    """
+    data = _settings()
+    return (
+        _positive_number(data.get('openaiInputCostPer1M')),
+        _positive_number(data.get('openaiOutputCostPer1M')),
+    )

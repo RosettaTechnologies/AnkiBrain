@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 from ChatAIWithDocuments import ChatAIWithDocuments, settings_path, get_card_gen_chunk_size
 from ChatAIWithoutDocuments import ChatAIWithoutDocuments
 from InterprocessCommand import InterprocessCommand as IC
-from langchain_community.callbacks import get_openai_callback
+from cost_tracking import get_cost_tracker
 
 
 def _module_return(data: dict[str, str]):
@@ -32,11 +32,11 @@ def module_return(cmd: IC, data: dict[str, Any] = None):
     if data is None:
         data = {}
 
-    # Always attach total_cost to the module's response.
-    if oa_cb is not None:
-        data['total_cost'] = oa_cb.total_cost
+    # Always attach the running session cost to the module's response.
+    if cost_tracker is not None:
+        data['total_cost'] = cost_tracker.total_cost
     else:
-        raise Exception('Must supply an OpenAICallbackHandler.')
+        raise Exception('Must supply a CostTracker.')
 
     _module_return({
         'cmd': cmd.value,
@@ -199,7 +199,7 @@ if __name__ == '__main__':
     except Exception as e:
         module_error(str(e))
 
-    with get_openai_callback() as oa_cb:
+    with get_cost_tracker() as cost_tracker:
         while True:
             input_line = sys.stdin.readline().strip()
             if not input_line:
