@@ -15,6 +15,8 @@
 - FIX: Regular (server) mode: use a login/signup gate to reduce confusion as app is not usable
   in server mode without an account
 - FIX: Local mode: the AI engine now installs itself in one click. Added install/repair/uninstall functionality.
+- FIX: Local mode: until the AI engine is installed the panel now shows only the engine setup
+  screen; on an unsupported platform (Windows ARM64 and Intel Mac)it explains the reason
 - FIX: generated cards list now uses pagination for performance even with very large number of cards
 
 # 1.0.1

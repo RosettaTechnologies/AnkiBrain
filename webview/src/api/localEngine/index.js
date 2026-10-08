@@ -37,3 +37,18 @@ export function openLocalEngineModal(mode = "default") {
 export function closeLocalEngineModal() {
   store.dispatch(setSetupModalOpen(false));
 }
+
+/**
+ * LOCAL-mode install gate: true when the webview must replace the app shell
+ * with the full-screen engine setup gate. Only an installed-and-in-sync
+ * engine admits the app; absent, needs-sync and unsupported all gate (the gate
+ * explains the unsupported verdict and points at Anki's Switch User Mode…
+ * menu). A null status means python never reported a problem — do not gate, so
+ * a failed status round trip degrades to the app instead of trapping on a
+ * state nothing can leave. STANDALONE dev is exempt so the UI still previews.
+ */
+export function needsLocalEngineGate(userMode, appDidBoot, status) {
+  if (import.meta.env.VITE_APP_ENV === "STANDALONE") return false;
+  if (userMode !== "LOCAL" || !appDidBoot || !status) return false;
+  return status.status !== "supported-and-installed";
+}

@@ -40,11 +40,11 @@ beforeEach(() => {
   store.dispatch(setLocalEngineStartError(null));
 });
 
-function renderModal() {
+function renderModal(gate = false) {
   return render(
     <Provider store={store}>
       <ChakraProvider>
-        <LocalEngineSetupModal />
+        <LocalEngineSetupModal gate={gate} />
       </ChakraProvider>
     </Provider>
   );
@@ -123,4 +123,40 @@ test("installed status with last_error shows the banner and Repair engine", () =
 
   expect(screen.getByText("chromadb import failed")).toBeInTheDocument();
   expect(screen.getByText("Repair engine")).toBeInTheDocument();
+});
+
+test("gate with an absent engine offers Install engine and no Cancel", () => {
+  store.dispatch(setLocalEngineStatus({ status: "supported-but-absent" }));
+  renderModal(true);
+
+  expect(screen.getByText("Install engine")).toBeInTheDocument();
+  expect(screen.queryByText("Cancel")).toBeNull();
+  expect(
+    screen.getByText("Install the local AI engine to continue to AnkiBrain.")
+  ).toBeInTheDocument();
+});
+
+test("gate on an unsupported platform explains and points at Switch User Mode", () => {
+  store.dispatch(
+    setLocalEngineStatus({
+      status: "unsupported",
+      reason: "Intel Macs are not supported for Local mode.",
+    })
+  );
+  renderModal(true);
+
+  expect(
+    screen.getByText("Intel Macs are not supported for Local mode.")
+  ).toBeInTheDocument();
+  expect(screen.getByText(/Switch User Mode/)).toBeInTheDocument();
+  expect(screen.queryByText("Cancel")).toBeNull();
+});
+
+test("gate during an active install hides Cancel", () => {
+  store.dispatch(setLocalEngineStatus({ status: "supported-but-absent" }));
+  store.dispatch(setLocalEngineInstallActive(true));
+  renderModal(true);
+
+  expect(screen.getByText("Preparing installer (uv)")).toBeInTheDocument();
+  expect(screen.queryByText("Cancel")).toBeNull();
 });

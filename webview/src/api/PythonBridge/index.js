@@ -14,9 +14,11 @@ import {
   setTtsSettings,
 } from "../redux/slices/tts";
 import {
+  setLocalEngineInstallActive,
   setLocalEngineInstallDone,
   setLocalEngineInstallEvent,
   setLocalEngineStartError,
+  setLocalEngineStatus,
 } from "../redux/slices/localEngine";
 import { setDocuments } from "../redux/slices/documentsSlice";
 import { store } from "../redux";
@@ -126,10 +128,20 @@ export async function handlePythonDataReceived(
       errorToast("Voice Error", String(pyResponseObject.message || "").slice(0, 300));
       break;
     case "localEngineSetupRequired":
+      // The boot push carries the full status; seed it synchronously so the
+      // LOCAL-mode gate is already decided on the same render as appDidBoot.
+      // Mid-session pushes (a command hit LocalEngineNotInstalledError) carry
+      // no status and fall back to openLocalEngineModal's own refresh.
+      if (pyResponseObject.status) {
+        store.dispatch(setLocalEngineStatus(pyResponseObject.status));
+      }
       openLocalEngineModal("default");
       if (pyResponseObject.autoStart) {
         // Drift self-heals on boot: the modal opens and the (cache-warm)
         // repair starts immediately. An absent engine waits for a click.
+        // Mark the flow active before the install send so the gate renders
+        // the live progress checklist instead of an Install button.
+        store.dispatch(setLocalEngineInstallActive(true));
         pyLocalEngineInstall();
       }
       break;

@@ -33,6 +33,7 @@ import {
 import { BootReminderModal } from "./Components/modals/BootReminderModal";
 import { VoiceSetupModal } from "./Components/modals/VoiceSetupModal";
 import { LocalEngineSetupModal } from "./Components/modals/LocalEngineSetupModal";
+import { needsLocalEngineGate } from "./api/localEngine";
 
 function App() {
   const appDidBoot = useSelector((state) => state.appDidBoot.value);
@@ -45,6 +46,7 @@ function App() {
   const showLoginModal = useSelector((state) => state.showLoginModal.value);
   const userMode = useSelector((state) => state.userMode.value);
   const user = useSelector((state) => state.user.value);
+  const localEngineStatus = useSelector((state) => state.localEngine.status);
   const appAlertModal = useSelector((state) => state.appAlertModal.value);
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -62,6 +64,16 @@ function App() {
     userMode === "SERVER" &&
     appDidBoot &&
     !(user && user.isVerified);
+
+  // LOCAL-mode gate: until the local AI engine is installed the app shell is
+  // replaced by the full-screen engine setup gate. Unsupported platforms are
+  // gated too — that gate explains the verdict and points at Anki's
+  // Switch User Mode… menu. STANDALONE dev is exempt, like the auth gate.
+  const needsLocalEngine = needsLocalEngineGate(
+    userMode,
+    appDidBoot,
+    localEngineStatus
+  );
 
 
   //Function that can be called globally to render the loading screen
@@ -205,7 +217,7 @@ function App() {
           {globalLoading && <GlobalLoadingIndicator />}
           <AppAlertModal />
           <ErrorDialog />
-          {!needsAuth && (
+          {!needsAuth && !needsLocalEngine && (
             <>
               <BootReminderModal
                 show={showBootReminderModalNow}
@@ -215,13 +227,13 @@ function App() {
               />
               <EmailVerificationModal />
               <VoiceSetupModal />
-              <LocalEngineSetupModal />
             </>
           )}
+          {!needsAuth && <LocalEngineSetupModal gate={needsLocalEngine} />}
 
           {!globalLoading && needsAuth && <AuthScreen />}
 
-          {!globalLoading && !needsAuth && (
+          {!globalLoading && !needsAuth && !needsLocalEngine && (
             <>
               <SideBar />
 
