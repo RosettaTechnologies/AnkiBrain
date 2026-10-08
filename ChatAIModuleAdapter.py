@@ -234,15 +234,15 @@ class ChatAIModuleAdapter:
             # that path must not offer an install modal.
             if estate.venv_present(self.paths()):
                 raise LocalEngineError(
-                    'The local AI engine is not running yet. Use AnkiBrain menu → '
-                    '"Restart AI…" and try again in a few seconds.')
+                    'The local AI engine is not running yet. Press Restart AnkiBrain '
+                    'in Settings → Local AI Engine and try again in a few seconds.')
             raise LocalEngineNotInstalledError('The local AI engine is not installed.')
         try:
             return await asyncio.wait_for(
                 self.scriptManager.call(data), timeout=REQUEST_TIMEOUT_SECONDS)
         except asyncio.TimeoutError:
             err = (f'The AI engine did not respond within {REQUEST_TIMEOUT_SECONDS}s. '
-                   'Use AnkiBrain menu → "Restart AI…", then try again.')
+                   'Press Restart AnkiBrain in Settings → Local AI Engine, then try again.')
             estate.record_error(self.paths(), {'code': 'runtime', 'message': err, 'hint': None})
             raise LocalEngineError(err)
         except LocalEngineNotInstalledError:
@@ -253,7 +253,7 @@ class ChatAIModuleAdapter:
             estate.record_error(self.paths(), {
                 'code': 'runtime',
                 'message': str(e)[:600],
-                'hint': 'Press Restart AI… from the AnkiBrain menu, or Repair engine in Settings.',
+                'hint': 'Press Restart AnkiBrain or Repair engine in Settings → Local AI Engine.',
             })
             raise LocalEngineError(str(e))
 

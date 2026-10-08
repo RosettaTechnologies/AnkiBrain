@@ -52,7 +52,9 @@ def module_error(text: str):
 
 
 def handle_module_input(data: dict[str, Any]):
-    if os.getenv('OPENAI_API_KEY') is None:
+    # A set-but-empty key used to pass this guard and then fail deep inside the
+    # SDK with an opaque 401; treat blank as missing.
+    if not (os.getenv('OPENAI_API_KEY') or '').strip():
         module_error('Please set OPENAI_API_KEY')
         return
 

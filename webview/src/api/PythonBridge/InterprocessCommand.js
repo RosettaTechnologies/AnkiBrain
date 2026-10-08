@@ -91,6 +91,14 @@ export const InterprocessCommand = {
   LOCAL_ENGINE_RESET_DATA: "LOCAL_ENGINE_RESET_DATA",
   DID_LOCAL_ENGINE_RESET_DATA: "DID_LOCAL_ENGINE_RESET_DATA",
 
+  // User mode + engine restart (the Anki menu no longer carries them).
+  // SET_USER_MODE {mode} -> DID_SET_USER_MODE {ok, mode?|error}; RESTART_ANKI
+  // {} -> DID_RESTART_ANKI {ok}.
+  SET_USER_MODE: "SET_USER_MODE",
+  DID_SET_USER_MODE: "DID_SET_USER_MODE",
+  RESTART_ANKI: "RESTART_ANKI",
+  DID_RESTART_ANKI: "DID_RESTART_ANKI",
+
   // OpenAI / OpenAI-compatible endpoint config (LOCAL mode).
   TEST_OPENAI_CONNECTION: "TEST_OPENAI_CONNECTION",
   DID_TEST_OPENAI_CONNECTION: "DID_TEST_OPENAI_CONNECTION", // {ok, status, url_message, models, key{status,message}}

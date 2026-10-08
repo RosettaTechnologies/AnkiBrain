@@ -8,6 +8,7 @@ import {
 } from "./redux/slices/topicExplanation";
 import { isLocalMode } from "./user";
 import { explainTopic as explain } from "./server-api/explainTopic";
+import { localConfigGate } from "./localConfig";
 
 export async function explainTopic(
   topic,
@@ -31,6 +32,15 @@ export async function explainTopic(
 
   // Necessary to reset conversations because of underlying implementation in python
   if (isLocalMode()) {
+    const gate = localConfigGate(
+      store.getState().userMode.value,
+      store.getState().appSettings.ai
+    );
+    if (!gate.ok) {
+      dispatch(setTopicExplanationLoading(false));
+      infoToast("Setup required", gate.reason);
+      return;
+    }
     if (store.getState().messages.value.length > 0) {
       await clearMessages();
       infoToast(

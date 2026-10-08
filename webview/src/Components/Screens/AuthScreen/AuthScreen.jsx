@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Box,
   Button,
@@ -26,6 +26,7 @@ import {
 } from "../../../api/server-api/networking/user";
 import { getAPIEndpoints } from "../../../api/server-api/networking";
 import { successToast } from "../../../api/toast";
+import { setUserModeSelectorOpen } from "../../../api/redux/slices/userModeSelector";
 
 const MODES = {
   LOGIN: "login",
@@ -505,7 +506,31 @@ function AuthCard({ title, subtitle, children }) {
           {subtitle}
         </Text>
         {children}
+        {/* This gate presupposes a mode was picked already, so the way out of
+            it has to live here: Local mode needs no account at all. */}
+        <Divider my={5} />
+        <SwitchUserModeFooter />
       </Box>
+    </Flex>
+  );
+}
+
+function SwitchUserModeFooter() {
+  const dispatch = useDispatch();
+  return (
+    <Flex direction="column" align="center">
+      <Text fontSize={12} color="gray" textAlign="center">
+        AnkiBrain can also run the AI on this computer, with your own API key
+        and no account.
+      </Text>
+      <Button
+        variant="ghost"
+        size="sm"
+        mt={1}
+        onClick={() => dispatch(setUserModeSelectorOpen(true))}
+      >
+        Use a different mode
+      </Button>
     </Flex>
   );
 }

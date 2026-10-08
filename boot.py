@@ -1,8 +1,8 @@
 import shutil
 from os import path
+from typing import Optional
 
 from aqt import mw
-from aqt.utils import showInfo
 
 from project_paths import root_project_dir
 
@@ -35,34 +35,19 @@ def load_ankibrain():
     from project_paths import settings_path
 
     mw.settingsManager = SettingsManager(pth=settings_path)
-    user_mode: UserMode = mw.settingsManager.get_user_mode()
+    user_mode: Optional[UserMode] = mw.settingsManager.get_user_mode()
 
+    # A missing mode is no longer asked about in a Qt dialog: the panel loads
+    # and its webview UserModeScreen picks the mode in-process (SET_USER_MODE).
     if user_mode == UserMode.LOCAL:
-        load_ankibrain_local_mode()
+        print('Loading AnkiBrain in Local Mode...')
     elif user_mode == UserMode.SERVER:
-        load_ankibrain_server_mode()
+        print('Loading AnkiBrain in Regular (Server) Mode...')
     else:
-        # No mode set, ask the user.
-        from UserModeDialog import show_user_mode_dialog
-        show_user_mode_dialog()
+        print('No user mode chosen yet; the panel will ask.')
 
-
-def load_ankibrain_local_mode():
-    print('Loading AnkiBrain in Local Mode...')
     from AnkiBrainModule import AnkiBrain
-    from util import UserMode
-
-    # The engine runtime is provisioned from the panel itself: the webview's
-    # Local AI Engine setup modal detects an absent/stale engine and offers
-    # Install/Repair. Boot must never block on an installer dialog.
-    mw.ankiBrain = AnkiBrain(user_mode=UserMode.LOCAL)
-
-
-def load_ankibrain_server_mode():
-    print('Loading AnkiBrain in Regular (Server) Mode...')
-    from AnkiBrainModule import AnkiBrain
-    from util import UserMode
-    mw.ankiBrain = AnkiBrain(user_mode=UserMode.SERVER)
+    mw.ankiBrain = AnkiBrain(user_mode=user_mode)
 
 
 # TODO: this doesn't actually work, none of the menu items get removed. Method is not being used.
@@ -81,6 +66,3 @@ def unload_ankibrain():
     from AnkiBrainModule import (remove_ankibrain_menu_actions)
     remove_ankibrain_menu_actions()
 
-
-def reload_ankibrain():
-    showInfo('Please restart Anki to allow AnkiBrain to update.')

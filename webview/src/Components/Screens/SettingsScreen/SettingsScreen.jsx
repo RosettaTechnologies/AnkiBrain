@@ -32,6 +32,7 @@ import "./SettingsScreen.css";
 import { errorToast, infoToast, successToast } from "../../../api/toast";
 import { setLLMModel, setTemperature } from "../../../api/settings";
 import { setShowCardBottomHint as setStoreShowCardBottomHint } from "../../../api/redux/slices/showCardBottomHint";
+import { setShowSidePanel as setStoreShowSidePanel } from "../../../api/redux/slices/showSidePanel";
 import { useDispatch, useSelector } from "react-redux";
 import { isLocalMode } from "../../../api/user";
 import { setDevMode } from "../../../api/redux/slices/devMode";
@@ -78,6 +79,121 @@ import {
   setOpenAIExtraHeaders,
   setOpenAIModels,
 } from "../../../api/redux/slices/appSettings";
+import { pySetUserMode } from "../../../api/PythonBridge/senders/pySetUserMode";
+import { setUserMode } from "../../../api/redux/slices/userMode";
+import { pyRestartAnki } from "../../../api/PythonBridge/senders/pyRestartAnki";
+
+/**
+ * User-mode switch, available in both modes. One click apart with no Anki
+ * restart: python persists the choice and restarts its async members
+ * in-process, so the app immediately re-enters SERVER's auth gate or LOCAL's
+ * engine gate. Switching to Local goes through the same cost warning as
+ * first launch.
+ */
+const UserModeSettings = () => {
+  const dispatch = useDispatch();
+  const userMode = useSelector((state) => state.userMode.value);
+  const [busy, setBusy] = useState(false);
+  const [showLocalConfirm, setShowLocalConfirm] = useState(false);
+
+  const selectUserMode = async (mode) => {
+    setBusy(true);
+    try {
+      const res = await pySetUserMode(mode);
+      if (res && res.ok) {
+        setShowLocalConfirm(false);
+        dispatch(setUserMode(mode));
+      } else {
+        errorToast("Could not switch mode", String((res && res.error) || ""));
+      }
+    } catch (e) {
+      errorToast(
+        "Could not switch mode",
+        String((e && e.message) || e).slice(0, 300)
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Box>
+      <Flex direction={"column"} mb={3}>
+        <Text>
+          Current mode:{" "}
+          {userMode === "LOCAL"
+            ? "Local (the AI runs on this computer)"
+            : "Regular (AnkiBrain's servers run the AI)"}
+        </Text>
+        <Text fontSize={12} color={"gray"}>
+          Regular mode is the easy default: no downloads and no API key, but it
+          needs an AnkiBrain account. Local mode keeps everything on this
+          computer and needs your own OpenAI-compatible API key.
+        </Text>
+      </Flex>
+      <Button
+        width={325}
+        mb={2}
+        variant={"accent"}
+        isDisabled={busy}
+        onClick={() => selectUserMode("SERVER")}
+      >
+        Use Regular mode (recommended)
+      </Button>
+      <Button
+        width={325}
+        variant={"outline"}
+        isDisabled={busy}
+        onClick={() => setShowLocalConfirm(true)}
+      >
+        Use Local mode (advanced)
+      </Button>
+
+      <Modal
+        isOpen={showLocalConfirm}
+        isCentered
+        onClose={() => {
+          if (!busy) setShowLocalConfirm(false);
+        }}
+      >
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Set up Local mode?</ModalHeader>
+          <ModalBody>
+            <Text mb={3}>Local mode is a real setup:</Text>
+            <Flex direction={"column"} fontSize={13} gap={1}>
+              <Text>• About 1.2 GB of engine files are downloaded.</Text>
+              <Text>
+                • You need your own OpenAI-compatible API key (billed by your
+                provider, not by AnkiBrain).
+              </Text>
+              <Text>• Responses are slower than Regular mode on most computers.</Text>
+              <Text>• Nothing syncs between your computers.</Text>
+            </Flex>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              variant={"ghost"}
+              mr={3}
+              isDisabled={busy}
+              onClick={() => setShowLocalConfirm(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              colorScheme={"red"}
+              isLoading={busy}
+              isDisabled={busy}
+              onClick={() => selectUserMode("LOCAL")}
+            >
+              Continue with local mode
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    </Box>
+  );
+};
 
 const VoiceSettings = (props) => {
   const dispatch = useDispatch();
@@ -474,6 +590,18 @@ const LocalEngineSettings = (props) => {
         </Button>
       )}
 
+      {!unsupported && (
+        <Button
+          mb={3}
+          variant={"ghost"}
+          onClick={async () => {
+            await pyRestartAnki();
+          }}
+        >
+          Restart AnkiBrain
+        </Button>
+      )}
+
       {!unsupported && installed && (
         <Button
           mb={3}
@@ -744,15 +872,24 @@ export const OpenAISettings = (props) => {
     const extraHeaders = parsedHeaders();
     if (extraHeaders === null) return;
     setSaving(true);
+    // Captured before the save: a changed base URL invalidates the model list
+    // fetched from the old endpoint, so the LOCAL config gate's "verified
+    // endpoint" must mean the currently saved URL.
+    const previousBaseUrl = baseUrl || "";
+    const nextBaseUrl = url.trim();
     try {
       const res = await pySetOpenAIConfig({
         apiKey: key.trim() || null,
-        baseUrl: url.trim(),
+        baseUrl: nextBaseUrl,
         extraHeaders,
       });
       if (res && res.ok) {
-        store.dispatch(setOpenAIBaseUrl(url.trim()));
+        store.dispatch(setOpenAIBaseUrl(nextBaseUrl));
         store.dispatch(setOpenAIExtraHeaders(extraHeaders));
+        if (previousBaseUrl !== nextBaseUrl) {
+          store.dispatch(setOpenAIModels([]));
+          await pyEditSetting("openaiModels", []);
+        }
         if (key.trim()) {
           store.dispatch(setHasOpenaiApiKey(true));
           setKey("");
@@ -1020,7 +1157,7 @@ export const OpenAISettings = (props) => {
         {models.length > 0
           ? `${models.length} models listed by this endpoint. `
           : ""}
-        Use the AnkiBrain menu → &quot;Restart AI…&quot; for a model change to take
+        Restart AnkiBrain from Local AI Engine below for a model change to take
         effect.
       </Text>
 
@@ -1104,8 +1241,8 @@ const AdvancedSettings = (props) => {
           )}
           {isLocalMode() && (
             <Text fontSize={11} color={"gray.500"} mt={1}>
-              Model and temperature changes take effect after restarting
-              AnkiBrain.
+              Model and temperature changes take effect after Restart AnkiBrain
+              (Settings → Local AI Engine).
             </Text>
           )}
         </Flex>
@@ -1165,6 +1302,10 @@ export const SettingsScreen = (props) => {
   const deleteCardsAfterAdding = useSelector(
     (state) => state.deleteCardsAfterAdding.value
   );
+  // Stored key is showSidePanel (true = visible at boot); the switch shows its
+  // inverse, matching the Anki menu item.
+  const showSidePanel = useSelector((state) => state.showSidePanel.value);
+  const startMinimized = !showSidePanel;
 
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const language = useSelector((store) => store.language.value);
@@ -1186,6 +1327,11 @@ export const SettingsScreen = (props) => {
   const handleChangeDeleteCardsAfterAdding = async (value) => {
     dispatch(setDeleteCardsAfterAdding(value));
     await pyEditSetting("deleteCardsAfterAdding", value);
+  };
+
+  const setStartMinimized = async (value) => {
+    dispatch(setStoreShowSidePanel(!value));
+    await pyEditSetting("showSidePanel", !value);
   };
 
   const dispatch = useDispatch();
@@ -1427,6 +1573,22 @@ export const SettingsScreen = (props) => {
                           }}
                         />
                       </Flex>
+                      <Flex direction={"row"} justifyContent={"space-between"}>
+                        <Flex direction={"column"}>
+                          <Text>Start AnkiBrain minimized</Text>
+                          <Text fontSize={12} color={"gray"}>
+                            AnkiBrain's panel stays hidden each time Anki
+                            starts. Open it any time with Anki's AnkiBrain →
+                            Show/Hide AnkiBrain menu item.
+                          </Text>
+                        </Flex>
+                        <Switch
+                          isChecked={startMinimized}
+                          onChange={async () => {
+                            await setStartMinimized(!startMinimized);
+                          }}
+                        />
+                      </Flex>
                     </ModalBody>
                     <ModalFooter />
                   </ModalContent>
@@ -1560,6 +1722,8 @@ export const SettingsScreen = (props) => {
                     <ModalFooter></ModalFooter>
                   </ModalContent>
                 </Modal>
+
+                <UserModeSettings />
 
                 <VoiceSettings />
 

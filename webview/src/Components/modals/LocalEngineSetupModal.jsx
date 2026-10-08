@@ -24,6 +24,7 @@ import {
   pyLocalEngineUninstall,
 } from "../../api/PythonBridge/senders/pyLocalEngine";
 import { setLocalEngineInstallActive } from "../../api/redux/slices/localEngine";
+import { setUserModeSelectorOpen } from "../../api/redux/slices/userModeSelector";
 
 /**
  * Local AI engine setup: one honest screen — what this is, what it costs
@@ -48,8 +49,9 @@ import { setLocalEngineInstallActive } from "../../api/redux/slices/localEngine"
  *   gate=true  — App.jsx's LOCAL-mode gate: rendered full-screen in place of
  *                the app shell while the engine is missing, always open and
  *                always the install/repair flow, with every Cancel exit
- *                suppressed. The only ways out are install/retry or Anki's
- *                AnkiBrain → “Switch User Mode…” menu.
+ *                suppressed. The ways out are install/retry, or "Choose a
+ *                different mode", which hands the panel to the user-mode
+ *                selector (it switches modes in-process).
  */
 
 // The install pipeline, in order. The modal renders this as a static
@@ -104,6 +106,10 @@ export function LocalEngineSetupModal({ gate = false }) {
     dispatch(setLocalEngineInstallActive(true));
     pyLocalEngineInstall();
   };
+
+  // Without this the gate is a mode trap: the selector screen is the one
+  // surface that can move the user out of LOCAL mode.
+  const openModeSelector = () => dispatch(setUserModeSelectorOpen(true));
 
   /**
    * The one exit for the install/repair flow. If nothing has been started
@@ -185,10 +191,13 @@ export function LocalEngineSetupModal({ gate = false }) {
               "This platform is not supported by the local AI engine."}
           </Text>
           {gate ? (
-            <Text fontSize={13} color="gray.500">
-              Local mode requires the local AI engine. Use Anki's AnkiBrain →
-              “Switch User Mode…” menu to switch to Regular mode.
-            </Text>
+            <Button
+              width="100%"
+              variant="outline"
+              onClick={openModeSelector}
+            >
+              Choose a different mode
+            </Button>
           ) : (
             <Button width="100%" variant="ghost" onClick={handleCancel}>
               Cancel
@@ -309,6 +318,15 @@ export function LocalEngineSetupModal({ gate = false }) {
           >
             {headline}
           </Button>
+          {gate && (
+            <Button
+              width="100%"
+              variant="ghost"
+              onClick={openModeSelector}
+            >
+              Choose a different mode
+            </Button>
+          )}
           {!gate && (
             <Button width="100%" variant="ghost" onClick={handleCancel}>
               Cancel
@@ -433,6 +451,15 @@ export function LocalEngineSetupModal({ gate = false }) {
           >
             Retry
           </Button>
+          {gate && (
+            <Button
+              width="100%"
+              variant="ghost"
+              onClick={openModeSelector}
+            >
+              Choose a different mode
+            </Button>
+          )}
           {!gate && (
             <Button width="100%" variant="ghost" onClick={handleCancel}>
               Cancel

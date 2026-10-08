@@ -31,6 +31,7 @@ import {
 import { useEffect, useState } from "react";
 import { isLocalMode } from "../../../api/user";
 import { CustomPromptTopicExplanationModal } from "./CustomPromptTopicExplanationModal";
+import { LocalConfigNotice } from "../../LocalConfigNotice";
 
 export function TopicExplanationScreen(props) {
   const levelOfExpertise = useSelector(
@@ -164,6 +165,8 @@ export function TopicExplanationScreen(props) {
             </Text>
           )}
         </Flex>
+
+        <LocalConfigNotice />
 
         <Flex justifyContent={"center"} alignItems={"center"} mb={4}>
           <Button

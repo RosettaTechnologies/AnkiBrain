@@ -16,6 +16,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { handlePythonDataReceived, initPythonBridge } from "./api/PythonBridge";
 import { ImportScreen } from "./Components/Screens/ImportScreen/ImportScreen";
 import { AuthScreen } from "./Components/Screens/AuthScreen/AuthScreen";
+import { UserModeScreen } from "./Components/Screens/UserModeScreen/UserModeScreen";
 import { GlobalLoadingIndicator } from "./Components/GlobalLoadingIndicator";
 import { setBoolGlobalLoadingIndicator } from "./api/redux/slices/bGlobalLoadingIndicator";
 import { AppAlertModal } from "./Components/modals/AppAlertModal";
@@ -67,14 +68,33 @@ function App() {
 
   // LOCAL-mode gate: until the local AI engine is installed the app shell is
   // replaced by the full-screen engine setup gate. Unsupported platforms are
-  // gated too — that gate explains the verdict and points at Anki's
-  // Switch User Mode… menu. STANDALONE dev is exempt, like the auth gate.
+  // gated too — that gate explains the verdict and offers the user-mode
+  // selector as the way back to Regular mode. STANDALONE dev is exempt, like
+  // the auth gate.
   const needsLocalEngine = needsLocalEngineGate(
     userMode,
     appDidBoot,
     localEngineStatus
   );
 
+  // First-launch gate: no mode chosen yet, so neither of the other two gates
+  // can even be evaluated. The shell and the boot modals stay away until the
+  // mode exists.
+  const needsUserMode = appDidBoot && !userMode;
+
+  // Either gate can hand the whole panel to the mode selector: first launch
+  // (not dismissible — no mode exists yet) or a deliberate "switch mode" from
+  // the auth gate / the engine gate (dismissible, returning to that gate).
+  const selectorOpen = useSelector((state) => state.userModeSelector.value);
+  const showModeSelector = needsUserMode || selectorOpen;
+
+  // The app shell is the last thing standing: every other surface owns the
+  // panel while it is up.
+  const showShell =
+    !globalLoading &&
+    !showModeSelector &&
+    !needsAuth &&
+    !needsLocalEngine;
 
   //Function that can be called globally to render the loading screen
   useEffect(() => {
@@ -212,12 +232,14 @@ function App() {
             flexDirection: "column",
           }}
         >
-          {!needsAuth && showLoginModal && <LoginModal isOpen={showLoginModal} />}
+          {!needsAuth && !showModeSelector && showLoginModal && (
+            <LoginModal isOpen={showLoginModal} />
+          )}
 
           {globalLoading && <GlobalLoadingIndicator />}
           <AppAlertModal />
           <ErrorDialog />
-          {!needsAuth && !needsLocalEngine && (
+          {!needsAuth && !needsLocalEngine && !showModeSelector && (
             <>
               <BootReminderModal
                 show={showBootReminderModalNow}
@@ -229,11 +251,17 @@ function App() {
               <VoiceSetupModal />
             </>
           )}
-          {!needsAuth && <LocalEngineSetupModal gate={needsLocalEngine} />}
+          {!needsAuth && !showModeSelector && (
+            <LocalEngineSetupModal gate={needsLocalEngine} />
+          )}
 
-          {!globalLoading && needsAuth && <AuthScreen />}
+          {!globalLoading && showModeSelector && (
+            <UserModeScreen dismissible={!needsUserMode} />
+          )}
 
-          {!globalLoading && !needsAuth && !needsLocalEngine && (
+          {!globalLoading && !showModeSelector && needsAuth && <AuthScreen />}
+
+          {showShell && (
             <>
               <SideBar />
 

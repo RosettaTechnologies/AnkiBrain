@@ -8,7 +8,8 @@ import {
   consumeOcclusionCancelled,
 } from "./redux/slices/occlusionGeneration";
 import { pyGenerateOcclusionShapes } from "./PythonBridge/senders/pyGenerateOcclusionShapes";
-import { errorToast } from "./toast";
+import { errorToast, infoToast } from "./toast";
+import { localConfigGate } from "./localConfig";
 
 /*
  * AI mask generation for image-occlusion cards.
@@ -50,6 +51,14 @@ async function runVisionPass({ imageId, context = "" }) {
 // Manual "Suggest with AI" from the occlusion editor: serialized with the
 // batch lane, but without generation bookkeeping (the modal owns its spinner).
 export function suggestOcclusionsQueued(imageId, context = "") {
+  const gate = localConfigGate(
+    store.getState().userMode.value,
+    store.getState().appSettings.ai
+  );
+  if (!gate.ok) {
+    infoToast("Setup required", gate.reason);
+    return [];
+  }
   return enqueueOcclusionTask(() => runVisionPass({ imageId, context }));
 }
 
@@ -85,6 +94,14 @@ export function createOcclusionCards(images, contexts = {}) {
 }
 
 export function requestOcclusionGeneration(items) {
+  const gate = localConfigGate(
+    store.getState().userMode.value,
+    store.getState().appSettings.ai
+  );
+  if (!gate.ok) {
+    infoToast("Setup required", gate.reason);
+    return Promise.resolve();
+  }
   const list = (items || []).filter((item) => item && item.uid && item.imageId);
   if (list.length === 0) {
     return Promise.resolve();

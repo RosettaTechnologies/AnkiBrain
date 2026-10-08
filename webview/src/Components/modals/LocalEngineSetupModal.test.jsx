@@ -136,7 +136,7 @@ test("gate with an absent engine offers Install engine and no Cancel", () => {
   ).toBeInTheDocument();
 });
 
-test("gate on an unsupported platform explains and points at Switch User Mode", () => {
+test("gate on an unsupported platform explains and offers the mode selector", () => {
   store.dispatch(
     setLocalEngineStatus({
       status: "unsupported",
@@ -148,8 +148,21 @@ test("gate on an unsupported platform explains and points at Switch User Mode", 
   expect(
     screen.getByText("Intel Macs are not supported for Local mode.")
   ).toBeInTheDocument();
-  expect(screen.getByText(/Switch User Mode/)).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Choose a different mode" })
+  ).toBeInTheDocument();
   expect(screen.queryByText("Cancel")).toBeNull();
+});
+
+test("gate with an absent engine opens the user-mode selector", () => {
+  store.dispatch(setLocalEngineStatus({ status: "supported-but-absent" }));
+  renderModal(true);
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Choose a different mode" })
+  );
+
+  expect(store.getState().userModeSelector.value).toBe(true);
 });
 
 test("gate during an active install hides Cancel", () => {

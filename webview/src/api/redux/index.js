@@ -25,6 +25,8 @@ import { failedCards } from "./slices/failedCards";
 import { languageSlice } from "./slices/language";
 import { lockCheckoutSession } from "./slices/lockCheckoutSession";
 import { showCardBottomHint } from "./slices/showCardBottomHint";
+import { showSidePanel } from "./slices/showSidePanel";
+import { userModeSelector } from "./slices/userModeSelector";
 import { deleteCardsAfterAdding } from "./slices/deleteCardsAfterAdding";
 import { showBootReminderDialog } from "./slices/showBootReminderDialog";
 import { appDidBoot } from "./slices/appDidBoot";
@@ -125,11 +127,13 @@ export const store = configureStore({
     showBootReminderDialog: showBootReminderDialog.reducer,
     stagedDocument: stagedDocumentSlice.reducer,
     showCardBottomHint: showCardBottomHint.reducer,
+    showSidePanel: showSidePanel.reducer,
     showLoginModal: showLoginModalSlice.reducer,
     topicExplanation: topicExplanationSlice.reducer,
     tts: ttsSlice.reducer,
     useDocuments: useDocuments.reducer,
     user: userSlice.reducer,
     userMode: userMode.reducer,
+    userModeSelector: userModeSelector.reducer,
   },
 });

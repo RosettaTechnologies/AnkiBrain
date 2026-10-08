@@ -161,7 +161,11 @@ test("the model dropdown lists the endpoint's models after a successful test", a
     expect(pyEditSetting).toHaveBeenCalledWith("llmModel", "z-model")
   );
   expect(store.getState().appSettings.ai.llmModel).toBe("z-model");
-  expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  // The popover dismisses through a Chakra transition, so a bare assertion
+  // here races under a loaded full-suite run.
+  await waitFor(() =>
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument()
+  );
 });
 
 test("the model dropdown offers nothing before a successful test", () => {

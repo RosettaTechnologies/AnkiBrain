@@ -22,6 +22,7 @@ import {
 import { InfoOutlineIcon } from "@chakra-ui/icons";
 import { setUseDocuments } from "../../../api/documents";
 import { isLocalMode } from "../../../api/user";
+import { LocalConfigNotice } from "../../LocalConfigNotice";
 
 export function TalkScreen() {
   const dispatch = useDispatch();
@@ -92,6 +93,8 @@ export function TalkScreen() {
 
         <div style={{ flexGrow: 1 }}></div>
       </Box>
+
+      <LocalConfigNotice />
 
       <div
         className={"MessageInputContainer"}

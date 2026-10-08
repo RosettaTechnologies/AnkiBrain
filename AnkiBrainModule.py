@@ -2,10 +2,10 @@ import asyncio
 import json
 import signal
 import threading
+from typing import Optional
 
 from aqt import mw, gui_hooks
 from aqt.qt import *
-from aqt.utils import showInfo
 from dotenv import load_dotenv, dotenv_values
 
 from ChatAIModuleAdapter import ChatAIModuleAdapter
@@ -14,7 +14,6 @@ from InterprocessCommand import InterprocessCommand as IC
 from KokoroTTSAdapter import KokoroTTSAdapter
 from PostUpdateDialog import PostUpdateDialog
 from SidePanel import SidePanel
-from UserModeDialog import show_user_mode_dialog
 from card_injection import handle_card_will_show
 from card_backup import read_pending_backup
 from changelog import ChangelogDialog
@@ -34,8 +33,8 @@ class GUIThreadSignaler(QObject):
     openFileBrowserSignal = pyqtSignal(int, bool)
     importImagesSignal = pyqtSignal(int)  # image-occlusion: pick image file(s)
     importClipboardImageSignal = pyqtSignal(int)  # image-occlusion: paste image
-    showNoAPIKeyDialogSignal = pyqtSignal()
     sendToJSFromAsyncThreadSignal = pyqtSignal(dict)
+    syncStartMinimizedSignal = pyqtSignal(bool)
 
     def __init__(self):
         super().__init__()
@@ -43,14 +42,18 @@ class GUIThreadSignaler(QObject):
         self.openFileBrowserSignal.connect(self.open_file_browser)
         self.importImagesSignal.connect(self.import_images)
         self.importClipboardImageSignal.connect(self.import_clipboard_image)
-        self.showNoAPIKeyDialogSignal.connect(self.show_no_API_key_dialog)
         self.sendToJSFromAsyncThreadSignal.connect(self.send_to_js_from_async_thread)
+        self.syncStartMinimizedSignal.connect(self.apply_start_minimized_checked)
 
     def send_to_js_from_async_thread(self, json_dict: dict):
         mw.ankiBrain.sidePanel.webview.send_to_js(json_dict)
 
-    def show_no_API_key_dialog(self):
-        showInfo('AnkiBrain has loaded. No OpenAI API key is set. Open AnkiBrain Settings → Basic → OpenAI / OpenAI-compatible API, enter your key, and click Save.')
+    def apply_start_minimized_checked(self, checked: bool):
+        """The action's checkmark is only set at boot; a Settings-side write
+        must not leave it lying for the rest of the session."""
+        action = getattr(mw, 'ankibrain_start_minimized_action', None)
+        if action is not None:
+            action.setChecked(bool(checked))
 
     def reset_ui(self):
         mw.reset()
@@ -151,7 +154,9 @@ class GUIThreadSignaler(QObject):
 #The "AnkiBrain" class is the main class. It is responsible for initializing the application, UI setup, file browser interactions,
 #webview load handling. 
 class AnkiBrain:
-    def __init__(self, user_mode: UserMode = UserMode.LOCAL):
+    def __init__(self, user_mode: Optional[UserMode] = None):
+        # None means "not chosen yet": boot always constructs the app and the
+        # webview's first-launch UserModeScreen picks the mode.
         self.user_mode = user_mode
         self.loop = None
 
@@ -206,13 +211,13 @@ class AnkiBrain:
         gui_hooks.webview_did_receive_js_message.append(self.handle_anki_card_webview_pycmd)
 
         add_ankibrain_menu_item('Show/Hide AnkiBrain', self.toggle_panel)
-        add_ankibrain_menu_item('Switch User Mode...', show_user_mode_dialog)
-        add_ankibrain_menu_item('Voice Engine: Install/Repair...', self.install_voice_engine)
-
-        if self.user_mode == UserMode.LOCAL:
-            add_ankibrain_menu_item('Restart AI...', self.restart_async_members_from_sync)
-            add_ankibrain_menu_item('Local AI Engine: Install/Repair...', self.install_local_engine)
-            add_ankibrain_menu_item('Uninstall Local AI Engine...', self.uninstall_local_engine)
+        # Start-minimized is the inverse of the stored showSidePanel preference
+        # (True = visible at boot). Show/Hide above does not touch it.
+        mw.ankibrain_start_minimized_action = add_ankibrain_menu_toggle(
+            'Start AnkiBrain minimized',
+            self.set_start_minimized,
+            checked=not mw.settingsManager.get('showSidePanel'),
+        )
 
         # Check if AnkiBrain has been updated.
         has_updated = mw.settingsManager.has_ankibrain_updated()
@@ -294,7 +299,6 @@ class AnkiBrain:
                 load_dotenv(dotenv_path, override=True)
                 if os.getenv('OPENAI_API_KEY') is None or os.getenv('OPENAI_API_KEY') == '':
                     print('No API key detected')
-                    self.guiThreadSignaler.showNoAPIKeyDialogSignal.emit()
                 else:
                     print(f'Detected API Key: {os.getenv("OPENAI_API_KEY")}')
         finally:
@@ -313,10 +317,19 @@ class AnkiBrain:
         except Exception as e:
             print(f'(AnkiBrain) tts stop: {e}')
 
-        if self.user_mode == UserMode.LOCAL:
-            print('Stopping AnkiBrain...')
-            await self.chatAI.stop()
-            self.chatReady = False
+        # Unconditional: a user-mode switch (or an engine that started under a
+        # previous mode) must be stopped here even though the mode is no longer
+        # LOCAL. ChatAIModuleAdapter.stop() is a no-op when no engine started.
+        print('Stopping AnkiBrain...')
+        await self.chatAI.stop()
+        self.chatReady = False
+
+    async def set_user_mode(self, mode: UserMode):
+        """Switch mode in-process: persist, then restart the async members so
+        the new mode's startup runs (no Anki restart needed)."""
+        self.user_mode = mode
+        mw.settingsManager.set_user_mode(mode)
+        await self.restart_async_members()
 
     async def restart_async_members(self):
         print('Restarting AnkiBrain...')
@@ -392,12 +405,17 @@ class AnkiBrain:
         mw.ankiBrain.loop.call_soon_threadsafe(self.loop.stop)
 
     def toggle_panel(self):
+        """Show/Hide is transient: it never changes the start-minimized
+        preference (menu toggle / Settings switch own that)."""
         if self.sidePanel.isVisible():
             self.sidePanel.hide()
-            mw.settingsManager.edit('showSidePanel', False)
         else:
             self.sidePanel.show()
-            mw.settingsManager.edit('showSidePanel', True)
+
+    def set_start_minimized(self, checked=False):
+        """Menu toggle: records only whether the panel should be hidden at
+        boot. Current visibility is Show/Hide's job."""
+        mw.settingsManager.edit('showSidePanel', not bool(checked))
 
     def handle_anki_card_webview_pycmd(self, handled, cmd, context):
         try:
@@ -510,28 +528,6 @@ class AnkiBrain:
             return
         asyncio.run_coroutine_threadsafe(self.reactBridge.speak_text(text), self.loop)
 
-    def install_voice_engine(self):
-        """Menu action: open the webview's Voice Setup modal, which shows the
-        size estimate and drives the pinned bootstrap (progress + retry live
-        in the React app, not in a Qt dialog)."""
-        from aqt import mw
-        mw.ankiBrain.sidePanel.show()
-        mw.ankiBrain.reactBridge.send_to_js({'cmd': 'ttsSetupRequired'})
-
-    def install_local_engine(self):
-        """Menu action: open the webview's Local AI Engine modal, which shows
-        the size estimate and drives the pinned bootstrap (progress, cancel,
-        repair and retry all live in the React app, not in a Qt dialog)."""
-        mw.ankiBrain.sidePanel.show()
-        mw.ankiBrain.reactBridge.send_to_js(
-            {'cmd': 'localEngineSetupRequired', 'autoStart': False})
-
-    def uninstall_local_engine(self):
-        """Menu action: open the modal's uninstall confirmation screen; the
-        actual teardown is driven by the webview (LOCAL_ENGINE_UNINSTALL)."""
-        mw.ankiBrain.sidePanel.show()
-        mw.ankiBrain.reactBridge.send_to_js({'cmd': 'localEngineUninstallPrompt'})
-
 
 def show_changelog():
     mw.changelog = ChangelogDialog(mw)
@@ -561,6 +557,16 @@ def add_ankibrain_menu_item(name: str, fn):
 
     # Keep track of added actions for removal later if needed.
     mw.menu_actions.append(action)
+
+
+def add_ankibrain_menu_toggle(name: str, fn, checked: bool):
+    """Checkable menu item: `checked` is the state to show at build time."""
+    action = mw.ankibrain_menu.addAction(name)
+    action.setCheckable(True)
+    action.setChecked(bool(checked))
+    qconnect(action.triggered, fn)
+    mw.menu_actions.append(action)
+    return action
 
 
 def remove_ankibrain_menu_actions():

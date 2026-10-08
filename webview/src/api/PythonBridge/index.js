@@ -56,6 +56,7 @@ import React from "react";
 import { setLanguage } from "../redux/slices/language";
 import { setCards } from "../redux/slices/cards";
 import { setShowCardBottomHint } from "../redux/slices/showCardBottomHint";
+import { setShowSidePanel } from "../redux/slices/showSidePanel";
 import { setDeleteCardsAfterAdding } from "../redux/slices/deleteCardsAfterAdding";
 import { setShowBootReminderDialog } from "../redux/slices/showBootReminderDialog";
 import { pyEditSetting } from "./senders/pyEditSetting";
@@ -258,6 +259,7 @@ export async function handlePythonDataReceived(
         recoveredCards,
         showBootReminderDialog,
         showCardBottomHint,
+        showSidePanel,
         canToggleDevMode,
         openaiBaseUrl,
         openaiExtraHeaders,
@@ -366,6 +368,9 @@ export async function handlePythonDataReceived(
       }
       if (showCardBottomHint !== null || showCardBottomHint !== undefined) {
         dispatch(setShowCardBottomHint(showCardBottomHint));
+      }
+      if (showSidePanel !== undefined) {
+        dispatch(setShowSidePanel(showSidePanel));
       }
 
       // AnkiBrain Voice: hydrate the tts slice from settings.json (python

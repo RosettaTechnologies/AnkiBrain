@@ -624,6 +624,29 @@ class ReactBridge:
                                   {'ok': False, 'error': str(e)[:300]},
                                   commandId=commandId)
 
+            elif cmd == IC.SET_USER_MODE:
+                # Fire-and-forget ack first: the mode switch restarts the async
+                # members, which is what clears the panel's loading overlay.
+                mode = (data.get('mode') or '').strip().upper()
+                if mode not in ('LOCAL', 'SERVER'):
+                    self.send_cmd(IC.DID_SET_USER_MODE,
+                                  {'ok': False, 'error': 'Unknown user mode.'},
+                                  commandId=commandId)
+                elif self.app.chatAI.install_in_progress():
+                    self.send_cmd(IC.DID_SET_USER_MODE,
+                                  {'ok': False,
+                                   'error': 'An engine install is already running.'},
+                                  commandId=commandId)
+                else:
+                    self.send_cmd(IC.DID_SET_USER_MODE, {'ok': True, 'mode': mode},
+                                  commandId=commandId)
+                    asyncio.run_coroutine_threadsafe(
+                        self.app.set_user_mode(UserMode(mode)), self.app.loop)
+
+            elif cmd == IC.RESTART_ANKI:
+                self.send_cmd(IC.DID_RESTART_ANKI, {'ok': True}, commandId=commandId)
+                self.app.restart_async_members_from_sync()
+
             elif cmd == IC.NETWORK_REQUEST:
                 url = data['url']
                 verb = data['verb']
@@ -674,6 +697,9 @@ class ReactBridge:
                     value = json.dumps(value)
 
                 mw.settingsManager.edit(key, value)
+                if key == 'showSidePanel':
+                    mw.ankiBrain.guiThreadSignaler.syncStartMinimizedSignal.emit(
+                        not bool(value))
                 self.send_cmd(IC.DID_EDIT_SETTING, commandId=commandId)
 
             elif cmd == IC.PRINT_FROM_JS:

@@ -139,6 +139,19 @@ class InterprocessCommand(Enum):
     LOCAL_ENGINE_RESET_DATA = 'LOCAL_ENGINE_RESET_DATA'
     DID_LOCAL_ENGINE_RESET_DATA = 'DID_LOCAL_ENGINE_RESET_DATA'      # {ok, error?}
 
+    # User mode + engine restart, driven from the webview now that Anki's menu
+    # no longer carries them.
+    # SET_USER_MODE {mode: 'LOCAL'|'SERVER'} -> DID_SET_USER_MODE {ok, mode?|error}:
+    #   persists the choice and restarts the async members in-process, so the
+    #   new mode's startup (engine gate or auth gate) runs without an Anki
+    #   restart. Refused while an engine install is running.
+    # RESTART_ANKI {} -> DID_RESTART_ANKI {ok}: the panel's whole-panel loading
+    #   overlay covers the restart, which settles on DID_FINISH_STARTUP.
+    SET_USER_MODE = 'SET_USER_MODE'
+    DID_SET_USER_MODE = 'DID_SET_USER_MODE'
+    RESTART_ANKI = 'RESTART_ANKI'
+    DID_RESTART_ANKI = 'DID_RESTART_ANKI'
+
     # OpenAI / OpenAI-compatible endpoint config (LOCAL mode).
     # TEST_OPENAI_CONNECTION {apiKey?, baseUrl?} -> DID_TEST_OPENAI_CONNECTION
     #   {ok, status, url_message, models, key{status,message}}: one GET on the

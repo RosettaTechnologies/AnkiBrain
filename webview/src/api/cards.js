@@ -5,6 +5,7 @@ import { isLocalMode } from "./user";
 import { setMakeCardsLoading } from "./redux/slices/makeCardsText";
 import { generateCardsRequest } from "./server-api/cards";
 import { errorToast, infoToast, successToast } from "./toast";
+import { localConfigGate } from "./localConfig";
 import { addFailedCards } from "./redux/slices/failedCards";
 import { assignImagesToCard } from "./batching";
 
@@ -79,6 +80,16 @@ export async function generateCards(
   dispatch = store.dispatch,
   imageAssignment = null
 ) {
+  if (isLocalMode()) {
+    const gate = localConfigGate(
+      store.getState().userMode.value,
+      store.getState().appSettings.ai
+    );
+    if (!gate.ok) {
+      infoToast("Setup required", gate.reason);
+      return;
+    }
+  }
   dispatch(setMakeCardsLoading(true));
   try {
     if (isLocalMode()) {

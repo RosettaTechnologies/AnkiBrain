@@ -118,6 +118,7 @@ import { EditableCard } from "./EditableCard";
 import { ImagePickerModal } from "./ImagePickerModal";
 import { DocumentImageLibrary } from "./DocumentImageLibrary";
 import { OcclusionEditorModal } from "./OcclusionEditorModal";
+import { LocalConfigNotice } from "../../LocalConfigNotice";
 
 function ClearCardsAlert(props) {
   const cancelRef = useRef();
@@ -1187,6 +1188,7 @@ export function CardMakingScreen() {
           colorMode === "light" ? "rgba(0,0,0,0.1)" : "customPurple.700"
         }
       >
+        <LocalConfigNotice />
         {/* Row 1: pill navigation — visually separate from the action strip */}
         <Flex
           align={"center"}

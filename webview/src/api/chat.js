@@ -8,7 +8,8 @@ import { pyAskAIConversation } from "./PythonBridge/senders/pyAskAIConversation"
 import { setChatLoading } from "./redux/slices/chatLoading";
 import { isLocalMode } from "./user";
 import { sendUserMessageToServer } from "./server-api/chat";
-import { errorToast } from "./toast";
+import { errorToast, infoToast } from "./toast";
+import { localConfigGate } from "./localConfig";
 
 export function addAIMessageToStore(
   text,
@@ -43,6 +44,14 @@ export async function sendUserMessage(
   dispatch = store.dispatch
 ) {
   if (isLocalMode()) {
+    const gate = localConfigGate(
+      store.getState().userMode.value,
+      store.getState().appSettings.ai
+    );
+    if (!gate.ok) {
+      infoToast("Setup required", gate.reason);
+      return;
+    }
     // The lock may still be held by another in-flight command; python pipes
     // one reply per request, so the ask is refused with a readable dialog
     // and the draft is kept instead of parking a spinner forever.

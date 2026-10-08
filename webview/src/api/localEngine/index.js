@@ -42,8 +42,9 @@ export function closeLocalEngineModal() {
  * LOCAL-mode install gate: true when the webview must replace the app shell
  * with the full-screen engine setup gate. Only an installed-and-in-sync
  * engine admits the app; absent, needs-sync and unsupported all gate (the gate
- * explains the unsupported verdict and points at Anki's Switch User Mode…
- * menu). A null status means python never reported a problem — do not gate, so
+ * explains the unsupported verdict and offers the user-mode selector, which is
+ * how the user leaves LOCAL mode).
+ * A null status means python never reported a problem — do not gate, so
  * a failed status round trip degrades to the app instead of trapping on a
  * state nothing can leave. STANDALONE dev is exempt so the UI still previews.
  */
