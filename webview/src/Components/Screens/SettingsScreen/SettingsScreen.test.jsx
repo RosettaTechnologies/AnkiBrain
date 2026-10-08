@@ -3,12 +3,18 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { Provider } from "react-redux";
 import { store } from "../../../api/redux";
 import {
+  setHasOpenaiApiKey,
   setLLMModel,
+  setOpenAIBaseUrl,
   setOpenAIModels,
   setOpenAITestResult,
 } from "../../../api/redux/slices/appSettings";
+import { localConfigGate } from "../../../api/localConfig";
 import { OpenAISettings } from "./SettingsScreen";
-import { pyTestOpenAIConnection } from "../../../api/PythonBridge/senders/pyOpenAIConfig";
+import {
+  pySetOpenAIConfig,
+  pyTestOpenAIConnection,
+} from "../../../api/PythonBridge/senders/pyOpenAIConfig";
 import { pyEditSetting } from "../../../api/PythonBridge/senders/pyEditSetting";
 
 // Both senders are mocked: the test path awaits pyEditSetting, and without a
@@ -48,6 +54,8 @@ beforeEach(() => {
   store.dispatch(setOpenAIModels([]));
   store.dispatch(setLLMModel("gpt-5.6-luna"));
   store.dispatch(setOpenAITestResult(null));
+  store.dispatch(setOpenAIBaseUrl(""));
+  store.dispatch(setHasOpenaiApiKey(false));
 });
 
 test("a reachable endpoint refreshes the model list and accepts the key", async () => {
@@ -233,4 +241,157 @@ test("a stored verdict renders without re-testing", () => {
   renderSection();
   expect(screen.getByText(/Reachable \(HTTP 200\)/)).toBeInTheDocument();
   expect(screen.getByText(/accepted/)).toBeInTheDocument();
+});
+
+test("a tested endpoint saved afterwards keeps its verdict", async () => {
+  pyTestOpenAIConnection.mockResolvedValue({
+    ok: true,
+    status: 200,
+    url_message: "Reachable (HTTP 200) - 1 models listed.",
+    models: ["gateway-model"],
+    key: { status: "accepted", message: "Key accepted." },
+  });
+  pySetOpenAIConfig.mockResolvedValue({ ok: true });
+  renderSection();
+  fireEvent.change(screen.getByPlaceholderText("https://api.openai.com/v1"), {
+    target: { value: "https://gateway.example/v1" },
+  });
+  await clickTest("sk-test");
+  await screen.findByText(/Reachable \(HTTP 200\) - 1 models listed\./);
+  // An unsaved URL stays out of settings.json while it is only a draft...
+  expect(pyEditSetting).not.toHaveBeenCalledWith(
+    "openaiVerifiedUrl",
+    "https://gateway.example/v1"
+  );
+
+  fireEvent.click(screen.getByText("Save"));
+  // ...and the save adopts the draft's successful test as the saved
+  // endpoint's verdict, models included, so a restart restores it instead of
+  // asking for another Test connection.
+  await waitFor(() =>
+    expect(pyEditSetting).toHaveBeenCalledWith(
+      "openaiVerifiedUrl",
+      "https://gateway.example/v1"
+    )
+  );
+  // The gate assertion also waits for the save's key/model bookkeeping, which
+  // runs after the verdict writes.
+  await waitFor(() =>
+    expect(
+      localConfigGate("LOCAL", store.getState().appSettings.ai)
+    ).toMatchObject({ ok: true })
+  );
+  expect(pyEditSetting).toHaveBeenCalledWith("openaiModels", [
+    "gateway-model",
+  ]);
+  const ai = store.getState().appSettings.ai;
+  expect(ai.openaiBaseUrl).toBe("https://gateway.example/v1");
+  expect(ai.openaiTestResult).toMatchObject({
+    ok: true,
+    baseUrl: "https://gateway.example/v1",
+  });
+});
+
+test("a failed test of an unsaved URL leaves the saved endpoint verified", async () => {
+  store.dispatch(setOpenAIBaseUrl("https://saved.example/v1"));
+  store.dispatch(setHasOpenaiApiKey(true));
+  store.dispatch(
+    setOpenAITestResult({
+      ok: true,
+      baseUrl: "https://saved.example/v1",
+      urlMessage: "Reachable (HTTP 200) - 1 models listed.",
+      key: { status: "accepted", message: "Key accepted." },
+    })
+  );
+  pyTestOpenAIConnection.mockResolvedValue({
+    ok: false,
+    status: null,
+    url_message:
+      "Could not reach https://draft.example/v1/models: All connection attempts failed",
+    models: [],
+    key: {
+      status: "not-attempted",
+      message: "Not tested - the URL did not answer.",
+    },
+  });
+  renderSection();
+  fireEvent.change(screen.getByPlaceholderText("https://api.openai.com/v1"), {
+    target: { value: "https://draft.example/v1" },
+  });
+  await clickTest();
+  await screen.findByText(/Could not reach https:\/\/draft\.example/);
+  // The draft's failure is session-only: the saved endpoint's verdict is
+  // untouched, so the AI still runs after a restart.
+  expect(pyEditSetting).not.toHaveBeenCalledWith("openaiVerifiedUrl", null);
+  expect(pyEditSetting).not.toHaveBeenCalledWith(
+    "openaiVerifiedUrl",
+    "https://draft.example/v1"
+  );
+  const ai = store.getState().appSettings.ai;
+  expect(ai.openaiTestResult).toMatchObject({
+    ok: true,
+    baseUrl: "https://saved.example/v1",
+  });
+  expect(localConfigGate("LOCAL", ai)).toMatchObject({ ok: true });
+});
+
+test("saving a different URL drops the stored verdict of the old endpoint", async () => {
+  store.dispatch(setOpenAIBaseUrl("https://old.example/v1"));
+  store.dispatch(setHasOpenaiApiKey(true));
+  store.dispatch(
+    setOpenAITestResult({
+      ok: true,
+      baseUrl: "https://old.example/v1",
+      urlMessage: "Reachable (HTTP 200) - 1 models listed.",
+      key: { status: "accepted", message: "Key accepted." },
+    })
+  );
+  pySetOpenAIConfig.mockResolvedValue({ ok: true });
+  renderSection();
+  fireEvent.change(screen.getByPlaceholderText("https://api.openai.com/v1"), {
+    target: { value: "https://new.example/v1" },
+  });
+  fireEvent.click(screen.getByText("Save"));
+  await waitFor(() =>
+    expect(pyEditSetting).toHaveBeenCalledWith("openaiVerifiedUrl", null)
+  );
+  const ai = store.getState().appSettings.ai;
+  expect(ai.openaiBaseUrl).toBe("https://new.example/v1");
+  expect(ai.openaiTestResult).toBeNull();
+  expect(localConfigGate("LOCAL", ai).ok).toBe(false);
+});
+
+test("testing with a blank URL field verifies the saved endpoint", async () => {
+  store.dispatch(setOpenAIBaseUrl("https://saved.example/v1"));
+  store.dispatch(setHasOpenaiApiKey(true));
+  pyTestOpenAIConnection.mockResolvedValue({
+    ok: true,
+    status: 200,
+    url_message: "Reachable (HTTP 200) - 1 models listed.",
+    models: ["saved-model"],
+    key: { status: "accepted", message: "Key accepted." },
+  });
+  renderSection();
+  fireEvent.change(screen.getByPlaceholderText("https://api.openai.com/v1"), {
+    target: { value: "" },
+  });
+  await clickTest();
+  await waitFor(() =>
+    expect(pyTestOpenAIConnection).toHaveBeenCalledWith({
+      apiKey: null,
+      baseUrl: null,
+      extraHeaders: {},
+    })
+  );
+  // Python falls back to the saved URL for a blank field, so that is the URL
+  // the verdict (and a restart) must name.
+  await waitFor(() =>
+    expect(pyEditSetting).toHaveBeenCalledWith(
+      "openaiVerifiedUrl",
+      "https://saved.example/v1"
+    )
+  );
+  expect(localConfigGate("LOCAL", store.getState().appSettings.ai)).toMatchObject(
+    { ok: true }
+  );
 });

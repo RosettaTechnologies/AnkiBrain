@@ -850,11 +850,15 @@ export const OpenAISettings = (props) => {
   };
 
   // Persist the verdict so a restart can trust a known-good endpoint without a
-  // fresh Test connection. Only a successful test is stored as the verified
-  // URL; a failure clears it so the LOCAL-mode gate falls back to "test me".
-  const persistTestResult = async (result) => {
+  // fresh Test connection. This is the only writer of the verdict keys: they
+  // always describe the endpoint that is currently saved. Only a successful
+  // test stores the verified URL; a failure clears it so the LOCAL-mode gate
+  // falls back to "test me".
+  const persistTestResult = async (result, models) => {
     const ok = !!(result && result.ok);
+    const list = ok && Array.isArray(models) ? models : [];
     store.dispatch(setOpenAITestResult(ok ? result : null));
+    store.dispatch(setOpenAIModels(list));
     await pyEditSetting("openaiVerifiedUrl", ok ? result.baseUrl : null);
     await pyEditSetting("openaiKeyStatus", ok ? result.key.status : "");
     await pyEditSetting(
@@ -865,6 +869,7 @@ export const OpenAISettings = (props) => {
       "openaiUrlStatusMessage",
       ok ? String(result.urlMessage || "") : ""
     );
+    await pyEditSetting("openaiModels", list);
   };
 
   const doTest = async () => {
@@ -872,6 +877,13 @@ export const OpenAISettings = (props) => {
     if (extraHeaders === null) return;
     setTesting(true);
     setTestResult(null);
+    // A blank field means "test the saved endpoint" (python resolves it the
+    // same way), and only a test of the saved endpoint may touch its stored
+    // verdict: a draft URL is session feedback alone, so an unsaved experiment
+    // can neither grant nor revoke the verification a restart relies on.
+    const savedUrl = String(baseUrl || "");
+    const testedUrl = url.trim() || savedUrl;
+    const describesSaved = testedUrl === savedUrl;
     try {
       const res = await pyTestOpenAIConnection({
         apiKey: key.trim() || null,
@@ -883,29 +895,34 @@ export const OpenAISettings = (props) => {
         message: "No API key entered.",
       };
       const list = Array.isArray(res && res.models) ? res.models : [];
-      // The list belongs to the URL that was just tested: refresh it when the
-      // endpoint answered, drop it when it did not.
-      store.dispatch(setOpenAIModels(res && res.ok ? list : []));
-      await pyEditSetting("openaiModels", res && res.ok ? list : []);
       const result = {
         ok: !!(res && res.ok),
-        baseUrl: url.trim(),
+        baseUrl: testedUrl,
         urlMessage: String(
           (res && res.url_message) || "No answer from the endpoint."
         ).slice(0, 300),
         key: keyStatus,
       };
       setTestResult(result);
-      await persistTestResult(result);
+      if (describesSaved) {
+        // The list belongs to the URL that was just tested: refresh it when
+        // the endpoint answered, drop it when it did not.
+        await persistTestResult(result, list);
+      } else {
+        // Unsaved draft: follow it in the dropdown, leave settings.json alone.
+        store.dispatch(setOpenAIModels(result.ok ? list : []));
+      }
     } catch (e) {
       const result = {
         ok: false,
-        baseUrl: url.trim(),
+        baseUrl: testedUrl,
         urlMessage: String(e && e.message ? e.message : e).slice(0, 300),
         key: { status: "not-attempted", message: "Not tested." },
       };
       setTestResult(result);
-      await persistTestResult(result);
+      if (describesSaved) {
+        await persistTestResult(result, []);
+      }
     } finally {
       setTesting(false);
     }
@@ -936,10 +953,6 @@ export const OpenAISettings = (props) => {
     const extraHeaders = parsedHeaders();
     if (extraHeaders === null) return;
     setSaving(true);
-    // Captured before the save: a changed base URL invalidates the model list
-    // fetched from the old endpoint, so the LOCAL config gate's "verified
-    // endpoint" must mean the currently saved URL.
-    const previousBaseUrl = baseUrl || "";
     const nextBaseUrl = url.trim();
     try {
       const res = await pySetOpenAIConfig({
@@ -950,13 +963,22 @@ export const OpenAISettings = (props) => {
       if (res && res.ok) {
         store.dispatch(setOpenAIBaseUrl(nextBaseUrl));
         store.dispatch(setOpenAIExtraHeaders(extraHeaders));
-        if (previousBaseUrl !== nextBaseUrl) {
-          store.dispatch(setOpenAIModels([]));
-          await pyEditSetting("openaiModels", []);
-          // A changed URL invalidates both the model list and the stored
-          // Test-connection verdict for the old endpoint.
+        // A save commits the endpoint that is saved now, so it commits that
+        // endpoint's verification too: the last test of exactly this URL wins
+        // (a successful one is promoted to the saved verdict), a verdict
+        // already stored for this URL is kept, and anything describing a
+        // different endpoint is dropped - a restart must never ask for a
+        // re-test of a setup that is still verified.
+        const testedThisUrl =
+          !!testResult && testResult.baseUrl === nextBaseUrl;
+        const storedThisUrl = !!(
+          persistedTestResult && persistedTestResult.baseUrl === nextBaseUrl
+        );
+        if (testedThisUrl) {
+          await persistTestResult(testResult, models);
+        } else if (!storedThisUrl) {
           setTestResult(null);
-          await persistTestResult(null);
+          await persistTestResult(null, []);
         }
         if (key.trim()) {
           store.dispatch(setHasOpenaiApiKey(true));
