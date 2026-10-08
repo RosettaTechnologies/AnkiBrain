@@ -16,7 +16,6 @@
   in server mode without an account
 - FIX: Local mode: the AI engine now installs itself in one click. Added install/repair/uninstall functionality.
 - FIX: generated cards list now uses pagination for performance even with very large number of cards
-- UI: Migrate from old Chakra/Bootstrap to Ionic v9
 
 # 1.0.1
 - Fix the highlight-to-interact feature (Explain/Talk buttons)
