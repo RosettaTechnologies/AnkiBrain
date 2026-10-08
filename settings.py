@@ -36,6 +36,10 @@ def get_ankibrain_version():
 
 LOCAL_EMBEDDING_BACKEND = 'onnx-minilm-l6-v2'
 
+# Model ids the LLM dropdown shipped before GPT-5.6; openai is retiring them.
+# Stored selections are migrated to the current default on boot.
+LEGACY_LLM_MODELS = ('gpt-3.5-turbo', 'gpt-4')
+
 default_settings = {
     "aiLanguage": 'English',
     'customPromptChat': '',
@@ -144,6 +148,11 @@ class SettingsManager:
         if self.settings.get('localEmbeddingBackend') != LOCAL_EMBEDDING_BACKEND:
             self.settings['documents_saved'] = []
             self.edit('localEmbeddingBackend', LOCAL_EMBEDDING_BACKEND)
+
+        # A stored legacy selection (see LEGACY_LLM_MODELS) is moved to the
+        # current default and written back, so this is a no-op on later boots.
+        if self.settings.get('llmModel') in LEGACY_LLM_MODELS:
+            self.edit('llmModel', 'gpt-5.6-luna')
 
     def save(self):
         # Write to a sibling temp file and swap it in: a crash mid-write can
