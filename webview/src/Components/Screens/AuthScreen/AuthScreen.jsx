@@ -519,14 +519,9 @@ function SwitchUserModeFooter() {
   const dispatch = useDispatch();
   return (
     <Flex direction="column" align="center">
-      <Text fontSize={12} color="gray" textAlign="center">
-        AnkiBrain can also run the AI on this computer, with your own API key
-        and no account.
-      </Text>
       <Button
         variant="ghost"
         size="sm"
-        mt={1}
         onClick={() => dispatch(setUserModeSelectorOpen(true))}
       >
         Use a different mode

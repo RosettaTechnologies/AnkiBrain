@@ -51,7 +51,7 @@ const COMPARISON = [
   {
     aspect: "Setup",
     regular: "None — start right away",
-    local: "~1.2 GB download + your API key",
+    local: "~1.2 GB download + your own model",
   },
   {
     aspect: "Speed",
@@ -66,7 +66,7 @@ const COMPARISON = [
   {
     aspect: "Cost",
     regular: "Included with your account",
-    local: "Billed by your API provider",
+    local: "Your API provider, or free locally",
   },
   {
     aspect: "Every computer",
@@ -210,8 +210,9 @@ export function UserModeScreen({ dismissible = false }) {
               Local mode (advanced users only)
             </Text>
             <Text fontSize={13} m={0} mt={1}>
-              Runs the AI engine on this computer with your own
-              OpenAI-compatible API key.
+              Runs the AI engine on this computer with your own model: an
+              OpenAI-compatible API key, or a locally-running server such as
+              LM Studio or llama.cpp (no key needed).
             </Text>
           </Box>
         </Button>
@@ -235,8 +236,9 @@ export function UserModeScreen({ dismissible = false }) {
             <List spacing={1} fontSize={13} pl={4} styleType="disc">
               <ListItem>About 1.2 GB of engine files are downloaded.</ListItem>
               <ListItem>
-                You need your own OpenAI-compatible API key (billed by your
-                provider, not by AnkiBrain).
+                You bring your own model: an OpenAI-compatible API key (billed
+                by your provider, not by AnkiBrain) or a locally-running server
+                like LM Studio or llama.cpp, which needs no key.
               </ListItem>
               <ListItem>
                 Setup can be difficult: machine-learning dependencies are
