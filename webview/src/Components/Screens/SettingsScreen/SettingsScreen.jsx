@@ -117,7 +117,15 @@ const UserModeSettings = () => {
   };
 
   return (
-    <Box>
+    <Flex direction={"column"} mt={5} width={325}>
+      <Divider />
+      <Flex direction={"row"} alignItems={"center"} mt={3} mb={2}>
+        <i
+          className={"bi bi-signpost-split-fill"}
+          style={{ fontSize: 22, marginRight: 10 }}
+        />
+        <Text fontWeight={"bold"}>Mode</Text>
+      </Flex>
       <Flex direction={"column"} mb={3}>
         <Text>
           Current mode:{" "}
@@ -125,29 +133,40 @@ const UserModeSettings = () => {
             ? "Local (the AI runs on this computer)"
             : "Regular (AnkiBrain's servers run the AI)"}
         </Text>
-        <Text fontSize={12} color={"gray"}>
-          Regular mode is the easy default: no downloads and no API key, but it
-          needs an AnkiBrain account. Local mode keeps everything on this
-          computer and needs your own OpenAI-compatible API key.
-        </Text>
       </Flex>
-      <Button
-        width={325}
-        mb={2}
-        variant={"accent"}
-        isDisabled={busy}
-        onClick={() => selectUserMode("SERVER")}
-      >
-        Use Regular mode (recommended)
-      </Button>
-      <Button
-        width={325}
-        variant={"outline"}
-        isDisabled={busy}
-        onClick={() => setShowLocalConfirm(true)}
-      >
-        Use Local mode (advanced)
-      </Button>
+
+      {userMode === "LOCAL" ? (
+        <Button
+          width={325}
+          height={"auto"}
+          py={3}
+          px={4}
+          whiteSpace={"normal"}
+          textAlign={"left"}
+          variant={"accent"}
+          isDisabled={busy}
+          onClick={() => selectUserMode("SERVER")}
+        >
+          <Flex direction={"column"} align={"flex-start"}>
+            <Text fontWeight={"bold"} fontSize={"md"} m={0}>
+              Switch to regular mode
+            </Text>
+            <Text fontSize={12} m={0} mt={1} opacity={0.9}>
+              Recommended if having issues
+            </Text>
+          </Flex>
+        </Button>
+      ) : (
+        <Button
+          width={325}
+          mb={2}
+          variant={"outline"}
+          isDisabled={busy}
+          onClick={() => setShowLocalConfirm(true)}
+        >
+          Use Local mode (advanced)
+        </Button>
+      )}
 
       <Modal
         isOpen={showLocalConfirm}
@@ -191,7 +210,8 @@ const UserModeSettings = () => {
           </ModalFooter>
         </ModalContent>
       </Modal>
-    </Box>
+      <Divider mt={3} />
+    </Flex>
   );
 };
 
