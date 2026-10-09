@@ -5,6 +5,7 @@ import {
   Divider,
   Flex,
   Input,
+  Link,
   Modal,
   ModalBody,
   ModalCloseButton,
@@ -65,6 +66,7 @@ import {
   pyLocalEngineUninstall,
 } from "../../../api/PythonBridge/senders/pyLocalEngine";
 import { ManualInstallModal } from "../../modals/ManualInstallModal";
+import { DeleteAccountModal } from "../../modals/DeleteAccountModal";
 import {
   pySetOpenAIConfig,
   pyTestOpenAIConnection,
@@ -1417,6 +1419,7 @@ export const SettingsScreen = (props) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
 
   const [showGetHelpModal, setShowGetHelpModal] = useState(false);
   const [showUserInterfaceSettings, setShowUserInterfaceSettings] =
@@ -1921,6 +1924,36 @@ export const SettingsScreen = (props) => {
                     Submit Bug Report
                   </a>
                 </Button>
+
+                {!isLocalMode() && (
+                  <>
+                    <Divider mt={5} />
+                    <Button
+                      mt={5}
+                      width={325}
+                      colorScheme={"red"}
+                      onClick={() => setShowDeleteAccountModal(true)}
+                    >
+                      Delete Account
+                    </Button>
+                    <Text mt={3} width={325} fontSize={"sm"} opacity={0.8}>
+                      Deleting your account permanently removes it and all
+                      document data stored on AnkiBrain's servers. To request a
+                      refund of your remaining balance, email{" "}
+                      <Link
+                        href={"mailto:ankibrain@rankmd.org"}
+                        color={"blue.400"}
+                      >
+                        ankibrain@rankmd.org
+                      </Link>{" "}
+                      before deleting.
+                    </Text>
+                    <DeleteAccountModal
+                      isOpen={showDeleteAccountModal}
+                      onClose={() => setShowDeleteAccountModal(false)}
+                    />
+                  </>
+                )}
               </Flex>
             </TabPanel>
             <TabPanel>

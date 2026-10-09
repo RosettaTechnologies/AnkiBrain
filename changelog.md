@@ -12,6 +12,9 @@
   Set AnkiBrain to use any OpenAI-compatible endpoint (OpenAI, OpenRouter, Groq, Ollama, …),
   store the key there, press Test connection to list the endpoint's models, and pick the
   model from that list.
+- FEATURE: Regular (server) mode: Settings → Basic now has a Delete Account button that removes
+  the account and all of the document data AnkiBrain stores on its servers; email
+  ankibrain@rankmd.org before deleting to request a refund of any remaining balance.
 - FIX: Regular (server) mode: use a login/signup gate to reduce confusion as app is not usable
   in server mode without an account
 - FIX: Local mode: the AI engine now installs itself in one click. Added install/repair/uninstall functionality.

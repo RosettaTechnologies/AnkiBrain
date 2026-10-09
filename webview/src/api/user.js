@@ -1,4 +1,5 @@
 import {
+  deleteUser,
   postLogin,
   postResendVerificationEmail,
   postUser,
@@ -67,4 +68,16 @@ export async function resendVerificationCode(accessToken) {
 
 export function isLocalMode() {
   return store.getState().userMode.value === "LOCAL";
+}
+
+export async function deleteAccount(accessToken) {
+  const res = await deleteUser(accessToken);
+  if (res && res.status === "success") {
+    successToast(
+      "Account Deleted",
+      "Your AnkiBrain account has been deleted."
+    );
+    await logout();
+  }
+  return res;
 }
