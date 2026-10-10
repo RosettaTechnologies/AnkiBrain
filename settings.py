@@ -1,4 +1,6 @@
 import json
+import os
+import uuid
 from os import path
 from typing import Any, Optional
 
@@ -31,26 +33,82 @@ def get_ankibrain_version():
     Because of this -- BEFORE the default settings keys are merged -- the SettingsManager will check 
     if currentVersion doesn't exist, then flag that AnkiBrain must have updated.
 """
+
+LOCAL_EMBEDDING_BACKEND = 'onnx-minilm-l6-v2'
+
+# Model ids the LLM dropdown shipped before GPT-5.6; openai is retiring them.
+# Stored selections are migrated to the current default on boot.
+LEGACY_LLM_MODELS = ('gpt-3.5-turbo', 'gpt-4')
+
 default_settings = {
     "aiLanguage": 'English',
-    'automaticallyAddCards': True,
     'customPromptChat': '',
     'customPromptMakeCards': '',
     'customPromptTopicExplanation': '',
     'deleteCardsAfterAdding': True,
     "colorMode": "dark",
     "currentVersion": get_ankibrain_version(),
-    "documents_saved": [],  # local mode only, server mode uses user.documentsSaved
+    "documents_saved": [],  # local mode only; server mode keeps documents on the account
+    # Which embedding backend the LOCAL-mode document index was built with.
+    # '' means a build that embedded through the OpenAI-compatible endpoint.
+    "localEmbeddingBackend": '',
     "lifetime_total_cost": 0,
     "user_mode": None,
     "llmModel": 'gpt-5.6-luna',
     'temperature': 0,
+    # ── OpenAI / OpenAI-compatible endpoint (LOCAL mode) ─────────────────────
+    # The API key itself lives in user_files/.env as OPENAI_API_KEY; only the
+    # base URL, the extra request headers and the last-fetched model list live
+    # here. An empty base URL means OpenAI's own default endpoint. The headers
+    # are merged over AnkiBrain's own User-Agent, so a gateway that routes on
+    # custom headers (e.g. opencode Go's x-opencode-session) works.
+    'openaiBaseUrl': '',
+    'openaiExtraHeaders': {},
+    # Stable per-install session id. Every request carries it as
+    # x-opencode-session (opencode Go refuses to route without it; other
+    # gateways ignore unknown headers). Generated once here, because the merge
+    # below only writes keys that are missing.
+    'openaiSessionId': str(uuid.uuid4()),
+    'openaiModels': [],
+    # Optional price override for the LOCAL-mode session cost tracker, in USD
+    # per 1M tokens. 0 = unset: the tracker then uses the cost the endpoint
+    # reports in the response usage, else a built-in price for AnkiBrain's
+    # recommended models.
+    'openaiInputCostPer1M': 0,
+    'openaiOutputCostPer1M': 0,
+    # Result of the last *successful* Test connection, so the LOCAL-mode config
+    # gate survives a restart: the AI stays usable without re-testing after
+    # Anki restarts. openaiVerifiedUrl is the base URL that answered (None
+    # while nothing has been verified; '' is a valid value - OpenAI's default
+    # endpoint). The gate only trusts it while it still matches openaiBaseUrl.
+    'openaiVerifiedUrl': None,
+    'openaiKeyStatus': '',
+    'openaiKeyStatusMessage': '',
+    'openaiUrlStatusMessage': '',
+
     'user': None,
     'devMode': False,
     'showBootReminderDialog': True,
     'showCardBottomHint': True,
     'showSidePanel': True,
     'tempCards': [],
+    # ── AnkiBrain Voice (Kokoro TTS) ─────────────────────────────────────────
+    # No enable/disable switch: the engine is on when it's installed (Settings
+    # screen installs or uninstalls it); speak/audio buttons that find it
+    # absent just open the setup dialog.
+    'ttsVoice': 'af_heart',        # kokoro voice id; its first letter is the lang code
+    # Engine-side source-language detection: foreign text is spoken with a
+    # first voice of its detected language; ttsVoice is the fallback for
+    # uncertain/unsupported text. On by default.
+    'ttsAutoDetect': True,
+    'ttsSpeed': 1.0,
+    # Review-screen TTS policy: none | front | back | both. Unlike the old
+    # ttsEmbedCardAudio/ttsCardAudioSides pair (which synthesized everything
+    # inline at ADD_CARDS time), this only drives the webview: it decides
+    # whether new cards auto-enqueue GENERATE_CARD_AUDIO jobs and what the
+    # "Generate audio for all cards" button targets. Adds never synthesize.
+    'ttsCardAudioMode': 'none',
+    'ttsEngineRoot': '',           # voice data root override; empty = user_files/voice
 }
 
 
@@ -90,18 +148,35 @@ class SettingsManager:
             # Now we store the actual current version in the settings.json file.
             self.set_new_version(get_ankibrain_version(), save=True)
         else:
-            # No settings file, this is either a first time install or update from version where there
-            # was no settings file (or user deleted it). In the second case there might be bugs
-            # if the update adds dependencies to requirements.txt and the user does not update the
-            # dependencies. 
+            # No settings file: a first-time install, or an update from a version
+            # that had none (or the user deleted it). Nothing to migrate either
+            # way — engine dependencies are provisioned from local_engine/uv.lock
+            # by the setup modal, not from the settings file.
             self.b_ankibrain_updated = False
             create_settings_file(self.pth)
             with open(self.pth, 'r') as f:
                 self.settings = json.load(f)
 
+        # LOCAL-mode documents are embedded by the engine's local ONNX model now;
+        # vectors written by the API-embedding build are unreachable, so the list
+        # is cleared once and the UI stops listing documents that cannot answer.
+        if self.settings.get('localEmbeddingBackend') != LOCAL_EMBEDDING_BACKEND:
+            self.settings['documents_saved'] = []
+            self.edit('localEmbeddingBackend', LOCAL_EMBEDDING_BACKEND)
+
+        # A stored legacy selection (see LEGACY_LLM_MODELS) is moved to the
+        # current default and written back, so this is a no-op on later boots.
+        if self.settings.get('llmModel') in LEGACY_LLM_MODELS:
+            self.edit('llmModel', 'gpt-5.6-luna')
+
     def save(self):
-        with open(self.pth, 'w') as f:
+        # Write to a sibling temp file and swap it in: a crash mid-write can
+        # never leave a corrupt settings.json (which would lose every setting,
+        # including the pending tempCards).
+        tmp = self.pth + '.tmp'
+        with open(tmp, 'w', encoding='utf-8') as f:
             rewrite_json_file(self.settings, f)
+        os.replace(tmp, self.pth)
 
     def edit(self, k: str, v: Any, save=True):
         self.settings[k] = v

@@ -31,6 +31,11 @@ export function ImportScreen(props) {
   let importedDocs = useSelector((state) => state.documents.value);
   let user = useSelector((state) => state.user.value);
 
+  // LOCAL mode has no account object, so its list is the redux slice: it is
+  // hydrated from settings.json's documents_saved and appended to after an
+  // import. Server mode lists the account's documentsStored.
+  let documentsList = isLocalMode() ? importedDocs : user?.documentsStored || [];
+
   useEffect(() => {
     if (user) {
       dispatch(setDocuments(user.documentsStored));
@@ -127,7 +132,7 @@ export function ImportScreen(props) {
               onClick={() => {
                 setShowDeleteAlert(true);
               }}
-              isDisabled={user !== null && user.documentsStored.length === 0}
+              isDisabled={documentsList.length === 0}
             >
               <DeleteIcon fontSize={"sm"} me={2} />
               Delete Documents
@@ -140,9 +145,9 @@ export function ImportScreen(props) {
             <Spinner color={"accent"} />
           </Flex>
         )}
-        {user !== null && !documentsLoading && (
+        {!documentsLoading && (
           <Box maxHeight={1000} overflowY={"scroll"}>
-            {user.documentsStored.map((doc, i) => (
+            {documentsList.map((doc, i) => (
               <Card
                 mt={5}
                 mb={5}

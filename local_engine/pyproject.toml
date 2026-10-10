@@ -1,0 +1,23 @@
+[project]
+name = "ankibrain-local-engine"
+version = "1.1.0"
+description = "AnkiBrain LOCAL-mode ChatAI runtime (run via uv sync, never packaged)"
+requires-python = "==3.11.*"
+dependencies = [
+    "langchain-classic>=1.0,<2",
+    "langchain-community>=0.4,<0.5",
+    "langchain-core>=1.4,<2",
+    "langchain-openai>=1.6,<2",
+    "langchain-text-splitters>=1.1,<2",
+    "chromadb>=1.5,<2",
+    "openai>=2.45,<4",
+    "pypdf>=6,<7",
+    "python-docx>=1.2,<2",
+    "python-pptx>=1.0,<2",
+    "beautifulsoup4>=4.14,<5",
+    "docx2txt>=0.8",
+    "python-dotenv>=1.2,<2",
+]
+
+[tool.uv]
+package = false

@@ -1,8 +1,8 @@
 import shutil
 from os import path
+from typing import Optional
 
 from aqt import mw
-from aqt.utils import showInfo
 
 from project_paths import root_project_dir
 
@@ -14,12 +14,10 @@ def add_ankibrain_menu():
 
 def run_boot_checks():
     """
-    Check for python dependencies in user_files/venv
-    TODO: check if installed dependencies match requirements.txt
+    Remove the root-level /venv left behind by the pre-1.1 layout (it belongs
+    in user_files/, and nothing may hold it open this early in boot).
     :return:
     """
-    # Delete /venv, it should be in /user_files/venv. This should work since the ChatAI module
-    # has not powered on, so venv is not being used.
     old_venv_path = path.join(root_project_dir, 'venv')
     if path.isdir(old_venv_path):
         try:
@@ -37,48 +35,19 @@ def load_ankibrain():
     from project_paths import settings_path
 
     mw.settingsManager = SettingsManager(pth=settings_path)
-    user_mode: UserMode = mw.settingsManager.get_user_mode()
+    user_mode: Optional[UserMode] = mw.settingsManager.get_user_mode()
 
+    # A missing mode is no longer asked about in a Qt dialog: the panel loads
+    # and its webview UserModeScreen picks the mode in-process (SET_USER_MODE).
     if user_mode == UserMode.LOCAL:
-        load_ankibrain_local_mode()
+        print('Loading AnkiBrain in Local Mode...')
     elif user_mode == UserMode.SERVER:
-        load_ankibrain_server_mode()
+        print('Loading AnkiBrain in Regular (Server) Mode...')
     else:
-        # No mode set, ask the user.
-        from UserModeDialog import show_user_mode_dialog
-        show_user_mode_dialog()
+        print('No user mode chosen yet; the panel will ask.')
 
-
-def load_ankibrain_local_mode():
-    print('Loading AnkiBrain in Local Mode...')
-    from util import has_ankibrain_completed_install, UserMode
-    from InstallDialog import InstallDialog, show_install_dialog
-
-    if has_ankibrain_completed_install():
-        from AnkiBrainModule import AnkiBrain
-        ankiBrain = AnkiBrain(user_mode=UserMode.LOCAL)
-        mw.ankiBrain = ankiBrain
-    else:
-        mw.installDialog = InstallDialog(mw)
-        mw.installDialog.hide()
-
-        from AnkiBrainModule import add_ankibrain_menu_item
-        add_ankibrain_menu_item('Install...', show_install_dialog)
-
-        def show_user_mode_dialog():
-            from UserModeDialog import UserModeDialog
-            from aqt import mw
-            mw.userModeDialog = UserModeDialog()
-            mw.userModeDialog.show()
-
-        add_ankibrain_menu_item('Switch User Mode...', show_user_mode_dialog)
-
-
-def load_ankibrain_server_mode():
-    print('Loading AnkiBrain in Regular (Server) Mode...')
     from AnkiBrainModule import AnkiBrain
-    from util import UserMode
-    mw.ankiBrain = AnkiBrain(user_mode=UserMode.SERVER)
+    mw.ankiBrain = AnkiBrain(user_mode=user_mode)
 
 
 # TODO: this doesn't actually work, none of the menu items get removed. Method is not being used.
@@ -97,6 +66,3 @@ def unload_ankibrain():
     from AnkiBrainModule import (remove_ankibrain_menu_actions)
     remove_ankibrain_menu_actions()
 
-
-def reload_ankibrain():
-    showInfo('Please restart Anki to allow AnkiBrain to update.')

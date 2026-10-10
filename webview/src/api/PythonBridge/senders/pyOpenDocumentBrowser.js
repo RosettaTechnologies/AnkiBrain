@@ -1,8 +1,15 @@
 import { asendPythonCommand } from "../index";
 import { InterprocessCommand as IC } from "../InterprocessCommand";
 
-export async function pyOpenDocumentBrowser() {
-  let res = await asendPythonCommand(IC.OPEN_DOCUMENT_BROWSER);
+/*
+ * Open the native file picker for documents.
+ *
+ * allowImages widens the dialog filter so the Make Cards flow can select
+ * documents AND image files in one go; the Import screen's document browser
+ * keeps the unfiltered dialog (an image is not a document there).
+ */
+export async function pyOpenDocumentBrowser({ allowImages = false } = {}) {
+  let res = await asendPythonCommand(IC.OPEN_DOCUMENT_BROWSER, { allowImages });
   let selectedDocuments = res.documents;
   if (!selectedDocuments) {
     return Promise.resolve([]);

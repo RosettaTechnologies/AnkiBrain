@@ -1,0 +1,119 @@
+{
+  "_comment": [
+    "AnkiBrain Voice runtime manifest. THIS FILE IS THE PIN OF TRUTH: every",
+    "version + hash the bootstrap downloads appears here (uv itself, CPython",
+    "build, Kokoro-82M HF revision, pyopenjtalk wheelhouse). Bump together",
+    "with voice/uv.lock when the engine dependencies change; a state.json",
+    "whose manifest hash differs triggers the self-heal re-sync."
+  ],
+  "schema": 1,
+  "manifest_name": "ankibrain-voice-runtime",
+
+  "uv": {
+    "version": "0.12.3",
+    "releases_base": "https://github.com/astral-sh/uv/releases/download/0.12.3/",
+    "platforms": {
+      "linux-x86_64": {
+        "asset": "uv-x86_64-unknown-linux-gnu.tar.gz",
+        "sha256": "600cf9a742aca00d292673b16b5acffaa7b8c269a364ad0c2e79498dcb1fe101",
+        "binary": "uv-x86_64-unknown-linux-gnu/uv"
+      },
+      "linux-aarch64": {
+        "asset": "uv-aarch64-unknown-linux-gnu.tar.gz",
+        "sha256": "bb66cb52e7b1823aed1183630d8d8e5c958840d584a4c55ec10a4cfc168dcca2",
+        "binary": "uv-aarch64-unknown-linux-gnu/uv"
+      },
+      "darwin-aarch64": {
+        "asset": "uv-aarch64-apple-darwin.tar.gz",
+        "sha256": "546f7f8a6c70ff13a3a9d2bc958db3427298cebf3e0cb756f9177133b7068843",
+        "binary": "uv-aarch64-apple-darwin/uv"
+      },
+      "windows-amd64": {
+        "asset": "uv-x86_64-pc-windows-msvc.zip",
+        "sha256": "b23350c79e8ad0192b8124af13a0f17e8d4e4549524785e1aef389ae5a06990e",
+        "binary": "uv.exe"
+      },
+      "windows-arm64": {
+        "asset": "uv-aarch64-pc-windows-msvc.zip",
+        "sha256": "4343217d668727b8a8eb5cad92389a1d2eeead93c89940d1b955ba1bb15462eb",
+        "binary": "uv.exe"
+      }
+    },
+    "unsupported_platforms": {
+      "darwin-x86_64": "Intel Macs are not supported: PyTorch no longer publishes macOS x86_64 wheels. An Apple Silicon Mac (M1 or newer) is required for AnkiBrain Voice."
+    }
+  },
+
+  "python": {
+    "version": "3.11.15",
+    "_comment": "Installed via `uv python install` (python-build-standalone, checksum-verified by uv). UV_PYTHON_INSTALL_DIR keeps it under user_files/voice/."
+  },
+
+  "model": {
+    "hf_repo": "hexgrad/Kokoro-82M",
+    "hf_revision": "f3ff3571791e39611d31c381e3a41a3af07b4987",
+    "default_voice": "af_heart",
+    "_comment": "Warmup downloads model .pth + config + the catalog voices' .pt files. HF_HOME points at user_files/voice/hf_cache."
+  },
+
+  "detector": {
+    "package": "py3langid==0.4.0",
+    "_comment": "Automatic TTS source-language detection (Settings > Voice > Auto-detect). Pin lives here + voice/uv.lock and uv.lock is authoritative; confidence thresholds live in KokoroTTS/__init__.py and are calibrated via KokoroTTS/lang_check.py. Any change here bumps the manifest hash and triggers the self-heal re-sync."
+  },
+
+  "spacy_model": {
+    "name": "en_core_web_sm",
+    "version": "3.8.0",
+    "url": "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
+    "_comment": "misaki's English G2P loads this pipeline (spacy.util.is_package / spacy.cli.download). Relying on the runtime download breaks in a uv venv without pip on PATH, so the bootstrap installs the wheel explicitly and verifies the import."
+  },
+
+  "wheelhouse": {
+    "_comment": [
+      "Prebuilt cp311 wheels for packages that publish sdist only (pyopenjtalk).",
+      "Maintainer procedure: build once per pyopenjtalk bump per platform via",
+      "cibuildwheel (needs cmake + C/C++ toolchain per OS), upload to a GitHub",
+      "release tagged in `release`, publish exact version + sha256 per asset.",
+      "While an entry is null the bootstrap falls back to `uv sync`, which builds",
+      "from source if cmake/CC are present, and otherwise errors with guidance."
+    ],
+    "release": "https://github.com/hexgrad/kokoro/releases/PLACEHOLDER-ankibrain-wheels",
+    "packages": {
+      "pyopenjtalk": {
+        "version": null,
+        "linux_x86_64": { "url": null, "sha256": null },
+        "linux_aarch64": { "url": null, "sha256": null },
+        "macosx_arm64": { "url": null, "sha256": null },
+        "win_amd64": { "url": null, "sha256": null },
+        "win_arm64": { "url": null, "sha256": null }
+      }
+    }
+  },
+
+  "languages": {
+    "a": { "name": "English (American)", "pack": "core",
+           "voices": ["af_heart", "af_alloy", "af_aoede", "af_bella", "af_jessica", "af_kore", "af_nicole", "af_nova", "af_river", "af_sarah", "af_sky", "am_adam", "am_echo", "am_eric", "am_fenrir", "am_liam", "am_michael", "am_onyx", "am_puck", "am_santa"] },
+    "b": { "name": "English (British)", "pack": "core",
+           "voices": ["bf_alice", "bf_emma", "bf_isabella", "bf_lily", "bm_daniel", "bm_fable", "bm_george", "bm_lewis"] },
+    "e": { "name": "Spanish", "pack": "core",
+           "voices": ["ef_dora", "em_alex", "em_santa"] },
+    "f": { "name": "French", "pack": "core",
+           "voices": ["ff_siwis"] },
+    "h": { "name": "Hindi", "pack": "core",
+           "voices": ["hf_alpha", "hf_beta", "hm_omega", "hm_psi"] },
+    "i": { "name": "Italian", "pack": "core",
+           "voices": ["if_sara", "im_nicola"] },
+    "p": { "name": "Portuguese (Brazilian)", "pack": "core",
+           "voices": ["pf_dora", "pm_alex", "pm_santa"] },
+    "z": { "name": "Chinese (Mandarin)", "pack": "core",
+           "voices": ["zf_xiaobei", "zf_xiaoni", "zf_xiaoxiao", "zf_xiaoyi", "zm_yunjian", "zm_yunxi", "zm_yunxia", "zm_yunyang"] },
+    "j": { "name": "Japanese", "pack": "ja",
+           "voices": ["jf_alpha", "jf_gongitsune", "jf_nezumi", "jf_tebukuro", "jm_kumo"] }
+  },
+
+  "size_estimates_mb": {
+    "_comment": "Rounded upper estimates for the setup modal copy only (download, disk). uv archive + managed CPython + core wheels + model. ja adds ~300MB download.",
+    "download": { "linux-x86_64": 760, "linux-aarch64": 700, "darwin-aarch64": 680, "windows-amd64": 780, "windows-arm64": 760 },
+    "disk":     { "linux-x86_64": 1600, "linux-aarch64": 1400, "darwin-aarch64": 1400, "windows-amd64": 1700, "windows-arm64": 1600 }
+  }
+}

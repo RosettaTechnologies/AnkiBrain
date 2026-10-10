@@ -7,7 +7,6 @@ import { bGlobalLoadingIndicatorSlice } from "./slices/bGlobalLoadingIndicator";
 import { chatLoadingSlice } from "./slices/chatLoading";
 import { documentsLoadingSlice } from "./slices/documentsLoadingSlice";
 import { cardsSlice } from "./slices/cards";
-import { bShowCardsJsonEditor } from "./slices/bShowCardsJsonEditor";
 import { useDocuments } from "./slices/useDocuments";
 import { makeCardsSettings } from "./slices/makeCardsSettings";
 import { appAlertModal } from "./slices/appAlertModal";
@@ -26,11 +25,22 @@ import { failedCards } from "./slices/failedCards";
 import { languageSlice } from "./slices/language";
 import { lockCheckoutSession } from "./slices/lockCheckoutSession";
 import { showCardBottomHint } from "./slices/showCardBottomHint";
-import { automaticallyAddCards } from "./slices/automaticallyAddCards";
+import { showSidePanel } from "./slices/showSidePanel";
+import { userModeSelector } from "./slices/userModeSelector";
 import { deleteCardsAfterAdding } from "./slices/deleteCardsAfterAdding";
 import { showBootReminderDialog } from "./slices/showBootReminderDialog";
 import { appDidBoot } from "./slices/appDidBoot";
+import { checkedAuth } from "./slices/checkedAuth";
+import { ttsSlice } from "./slices/tts";
+import { localEngineSlice } from "./slices/localEngine";
 import { customPrompts } from "./slices/customPrompts";
+import { imagesRegistry } from "./slices/imagesRegistry";
+import { audioRegistry } from "./slices/audioRegistry";
+import { cardAudioSlice } from "./slices/cardAudio";
+import { occlusionGenerationSlice } from "./slices/occlusionGeneration";
+import { documentContextSlice } from "./slices/documentContext";
+import { stagedDocumentSlice } from "./slices/stagedDocument";
+import { errorDialog } from "./slices/errorDialog";
 
 const showLoginModalSlice = createSlice({
   name: "showLoginModal",
@@ -85,11 +95,10 @@ export const store = configureStore({
     appAlertModal: appAlertModal.reducer,
     appDidBoot: appDidBoot.reducer,
     appSettings: appSettings.reducer,
-    automaticallyAddCards: automaticallyAddCards.reducer,
     bGlobalLoadingIndicator: bGlobalLoadingIndicatorSlice.reducer,
-    bShowCardsJsonEditor: bShowCardsJsonEditor.reducer,
     cards: cardsSlice.reducer,
     chatLoading: chatLoadingSlice.reducer,
+    checkedAuth: checkedAuth.reducer,
     colorMode: colorMode.reducer,
     cost: cost.reducer,
     currentChatInput: currentChatInputSlice.reducer,
@@ -97,23 +106,34 @@ export const store = configureStore({
     customPrompts: customPrompts.reducer,
     deleteCardsAfterAdding: deleteCardsAfterAdding.reducer,
     devMode: devMode.reducer,
+    documentContext: documentContextSlice.reducer,
     documents: documentsSlice.reducer,
     documentsLoading: documentsLoadingSlice.reducer,
+    errorDialog: errorDialog.reducer,
     failedCards: failedCards.reducer,
+    imagesRegistry: imagesRegistry.reducer,
+    audioRegistry: audioRegistry.reducer,
+    cardAudio: cardAudioSlice.reducer,
     language: languageSlice.reducer,
     loadingText: loadingText.reducer,
+    localEngine: localEngineSlice.reducer,
     lockCheckoutSession: lockCheckoutSession.reducer,
     makeCardsSettings: makeCardsSettings.reducer,
     makeCardsText: makeCardsText.reducer,
     messages: messagesSlice.reducer,
+    occlusionGeneration: occlusionGenerationSlice.reducer,
     pyCommandLock: pyCommandLock.reducer,
     requestedTopic: requestedTopicSlice.reducer,
     showBootReminderDialog: showBootReminderDialog.reducer,
+    stagedDocument: stagedDocumentSlice.reducer,
     showCardBottomHint: showCardBottomHint.reducer,
+    showSidePanel: showSidePanel.reducer,
     showLoginModal: showLoginModalSlice.reducer,
     topicExplanation: topicExplanationSlice.reducer,
+    tts: ttsSlice.reducer,
     useDocuments: useDocuments.reducer,
     user: userSlice.reducer,
     userMode: userMode.reducer,
+    userModeSelector: userModeSelector.reducer,
   },
 });

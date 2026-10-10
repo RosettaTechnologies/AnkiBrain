@@ -8,6 +8,8 @@ import { pyAskAIConversation } from "./PythonBridge/senders/pyAskAIConversation"
 import { setChatLoading } from "./redux/slices/chatLoading";
 import { isLocalMode } from "./user";
 import { sendUserMessageToServer } from "./server-api/chat";
+import { errorToast, infoToast } from "./toast";
+import { localConfigGate } from "./localConfig";
 
 export function addAIMessageToStore(
   text,
@@ -41,12 +43,30 @@ export async function sendUserMessage(
   useDocuments = false,
   dispatch = store.dispatch
 ) {
-  dispatch(setChatLoading(true));
-  dispatch(setCurrentChatInput(""));
   if (isLocalMode()) {
-    pyAskAIConversation(text, useDocuments);
-    addUserMessageToStore(text);
-  } else {
+    const gate = localConfigGate(
+      store.getState().userMode.value,
+      store.getState().appSettings.ai
+    );
+    if (!gate.ok) {
+      infoToast("Setup required", gate.reason);
+      return;
+    }
+    // The lock may still be held by another in-flight command; python pipes
+    // one reply per request, so the ask is refused with a readable dialog
+    // and the draft is kept instead of parking a spinner forever.
+    if (!pyAskAIConversation(text, useDocuments)) {
+      return;
+    }
+    dispatch(setCurrentChatInput(""));
+    addUserMessageToStore(text, dispatch);
+    dispatch(setChatLoading(true));
+    return;
+  }
+
+  dispatch(setCurrentChatInput(""));
+  dispatch(setChatLoading(true));
+  try {
     // Build prevMessages array.
     let prevMessages = [];
     for (let message of store.getState().messages.value) {
@@ -57,15 +77,15 @@ export async function sendUserMessage(
       });
     }
 
-    addUserMessageToStore(text);
-    let res = await sendUserMessageToServer(
+    addUserMessageToStore(text, dispatch);
+    const res = await sendUserMessageToServer(
       text,
       prevMessages,
       useDocuments,
       store.getState().user.value.accessToken
     );
 
-    if (res.status === "success") {
+    if (res && res.status === "success") {
       let aiResponse = res.data.response.content;
       addAIMessageToStore(
         aiResponse,
@@ -76,7 +96,9 @@ export async function sendUserMessage(
       );
       dispatch(updateUser(res.data.user));
     }
-
+  } catch (err) {
+    errorToast("Chat Error", String((err && err.message) || err));
+  } finally {
     dispatch(setChatLoading(false));
   }
 }

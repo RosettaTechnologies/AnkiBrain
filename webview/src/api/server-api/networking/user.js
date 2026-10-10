@@ -49,3 +49,10 @@ export function postPasswordReset(email, newPassword, verificationCode) {
     body: { email, password: newPassword, verificationCode },
   });
 }
+
+export function deleteUser(accessToken) {
+  return _fetch(getAPIEndpoints().USER, {
+    method: "DELETE",
+    body: { accessToken },
+  });
+}

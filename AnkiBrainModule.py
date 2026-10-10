@@ -1,25 +1,25 @@
 import asyncio
 import json
-import platform
 import signal
 import threading
+from typing import Optional
 
 from aqt import mw, gui_hooks
 from aqt.qt import *
-from aqt.utils import showInfo
-from dotenv import set_key, load_dotenv
+from dotenv import load_dotenv, dotenv_values
 
 from ChatAIModuleAdapter import ChatAIModuleAdapter
 from ExplainTalkButtons import ExplainTalkButtons
 from InterprocessCommand import InterprocessCommand as IC
-from OpenAIAPIKeyDialog import OpenAIAPIKeyDialog
+from KokoroTTSAdapter import KokoroTTSAdapter
 from PostUpdateDialog import PostUpdateDialog
 from SidePanel import SidePanel
-from UserModeDialog import show_user_mode_dialog
 from card_injection import handle_card_will_show
+from card_backup import read_pending_backup
 from changelog import ChangelogDialog
-from project_paths import dotenv_path
-from util import run_win_install, run_macos_install, run_linux_install, UserMode
+from media_images import cleanup_media_tmp, import_image_file, store_imported_image_bytes
+from project_paths import dotenv_path, is_dev_checkout
+from util import UserMode
 
 #The "GUIThreadSignaler" class allows the non-UI thread to modify/update the UI thread. Some uses include
 #resetting the UI, opening a file browser, showing dialogs for missing API keys
@@ -28,30 +28,54 @@ class GUIThreadSignaler(QObject):
     Required class for calling UI updates from the non-UI thread.
     """
     resetUISignal = pyqtSignal()
-    openFileBrowserSignal = pyqtSignal(int)  # takes commandId so we can resolve the request
-    showNoAPIKeyDialogSignal = pyqtSignal()
+    # (commandId, allow_images): allow_images widens the picker filter so
+    # Make Cards can accept documents AND images in one selection.
+    openFileBrowserSignal = pyqtSignal(int, bool)
+    importImagesSignal = pyqtSignal(int)  # image-occlusion: pick image file(s)
+    importClipboardImageSignal = pyqtSignal(int)  # image-occlusion: paste image
     sendToJSFromAsyncThreadSignal = pyqtSignal(dict)
+    syncStartMinimizedSignal = pyqtSignal(bool)
 
     def __init__(self):
         super().__init__()
         self.resetUISignal.connect(self.reset_ui)
         self.openFileBrowserSignal.connect(self.open_file_browser)
-        self.showNoAPIKeyDialogSignal.connect(self.show_no_API_key_dialog)
+        self.importImagesSignal.connect(self.import_images)
+        self.importClipboardImageSignal.connect(self.import_clipboard_image)
         self.sendToJSFromAsyncThreadSignal.connect(self.send_to_js_from_async_thread)
+        self.syncStartMinimizedSignal.connect(self.apply_start_minimized_checked)
 
     def send_to_js_from_async_thread(self, json_dict: dict):
         mw.ankiBrain.sidePanel.webview.send_to_js(json_dict)
 
-    def show_no_API_key_dialog(self):
-        showInfo('AnkiBrain has loaded. There is no API key detected, please set one before using the app.')
+    def apply_start_minimized_checked(self, checked: bool):
+        """The action's checkmark is only set at boot; a Settings-side write
+        must not leave it lying for the rest of the session."""
+        action = getattr(mw, 'ankibrain_start_minimized_action', None)
+        if action is not None:
+            action.setChecked(bool(checked))
 
     def reset_ui(self):
         mw.reset()
 
-    def open_file_browser(self, commandId):
+    def open_file_browser(self, commandId, allow_images=False):
         print(f'Opening file browser with commandId {commandId}')
         dialog = QFileDialog()
-        full_paths, _ = dialog.getOpenFileNames()
+        if allow_images:
+            # Make Cards picker: documents and image files in one selection.
+            # The Import screen's document browser keeps the unfiltered
+            # dialog (it must never accept an image as a document).
+            name_filter = (
+                'Documents and images (*.pdf *.docx *.pptx *.txt *.html '
+                '*.png *.jpg *.jpeg *.gif *.webp *.bmp);;'
+                'Documents (*.pdf *.docx *.pptx *.txt *.html);;'
+                'Images (*.png *.jpg *.jpeg *.gif *.webp *.bmp);;'
+                'All files (*)'
+            )
+            full_paths, _ = dialog.getOpenFileNames(
+                None, 'Select document(s) or image(s)', '', name_filter)
+        else:
+            full_paths, _ = dialog.getOpenFileNames()
 
         # No files selected (empty array).
         if not full_paths:
@@ -83,12 +107,65 @@ class GUIThreadSignaler(QObject):
         # elif user_mode == UserMode.LOCAL:
         #     mw.ankiBrain.reactBridge.trigger(IC.ADD_DOCUMENTS, documents=documents)
 
+    def import_images(self, commandId):
+        """
+        Image-occlusion import: pick arbitrary image file(s) and copy them
+        into media_tmp. Answers DID_IMPORT_IMAGES with registry descriptors
+        (ids/urls), or an empty list when nothing was selected.
+        """
+        dialog = QFileDialog()
+        full_paths, _ = dialog.getOpenFileNames(
+            None,
+            'Select image(s)',
+            '',
+            'Images (*.png *.jpg *.jpeg *.gif *.webp *.bmp)',
+        )
+
+        images = []
+        for path in full_paths or []:
+            entry = import_image_file(path)
+            if entry is not None:
+                images.append(entry)
+
+        mw.ankiBrain.reactBridge.send_cmd(IC.DID_IMPORT_IMAGES, {'images': images},
+                                          commandId=commandId)
+
+    def import_clipboard_image(self, commandId):
+        """
+        Image-occlusion import: copy the clipboard image (if any) into
+        media_tmp. Answers DID_IMPORT_IMAGES with the descriptor list (empty
+        when the clipboard holds no image).
+        """
+        images = []
+        clipboard = QGuiApplication.clipboard()
+        image = clipboard.image() if clipboard is not None else None
+        if image is not None and not image.isNull():
+            buffer = QBuffer()
+            buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+            if image.save(buffer, 'PNG'):
+                entry = store_imported_image_bytes(bytes(buffer.data()), 'clipboard.png')
+                if entry is not None:
+                    images.append(entry)
+            buffer.close()
+
+        mw.ankiBrain.reactBridge.send_cmd(IC.DID_IMPORT_IMAGES, {'images': images},
+                                          commandId=commandId)
+
 #The "AnkiBrain" class is the main class. It is responsible for initializing the application, UI setup, file browser interactions,
 #webview load handling. 
 class AnkiBrain:
-    def __init__(self, user_mode: UserMode = UserMode.LOCAL):
+    def __init__(self, user_mode: Optional[UserMode] = None):
+        # None means "not chosen yet": boot always constructs the app and the
+        # webview's first-launch UserModeScreen picks the mode.
         self.user_mode = user_mode
         self.loop = None
+
+        # Purge stale extracted images from previous sessions.
+        try:
+            cleanup_media_tmp()
+        except Exception as e:
+            print(f'AnkiBrain media_tmp cleanup failed: {e}')
+
         self.sidePanel = SidePanel("AnkiBrain", mw)
         self.sidePanel.webview.page().loadFinished.connect(self.on_webengine_load_finished)
         self.webview_loaded = False
@@ -98,8 +175,10 @@ class AnkiBrain:
         self.chatAI = ChatAIModuleAdapter()  # Requires async starting by calling .start
         self.chatReady = False
 
-        self.openai_api_key_dialog = OpenAIAPIKeyDialog()
-        self.openai_api_key_dialog.hide()
+        # AnkiBrain Voice (Kokoro TTS): works in BOTH user modes. Lazy —
+        # nothing spawns until a speak request arrives, so server-mode users
+        # who never use TTS pay nothing.
+        self.tts = KokoroTTSAdapter()
 
         # Should go last because this object takes self and can call items.
         # Therefore, risk of things not completing setup.
@@ -118,9 +197,6 @@ class AnkiBrain:
         mw.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.sidePanel)
         self.sidePanel.resize(500, mw.height())
 
-        # Set up api key dialog.
-        self.openai_api_key_dialog.on_key_save(self.handle_openai_api_key_save)
-
         # Hook for injecting custom javascript into Anki cards.
         # Anki 25 removed the legacy `prepareQA` hook. Its replacement is the
         # `card_will_show` filter, which is called with (text, card, type) for
@@ -135,18 +211,18 @@ class AnkiBrain:
         gui_hooks.webview_did_receive_js_message.append(self.handle_anki_card_webview_pycmd)
 
         add_ankibrain_menu_item('Show/Hide AnkiBrain', self.toggle_panel)
-        add_ankibrain_menu_item('Switch User Mode...', show_user_mode_dialog)
-
-        if self.user_mode == UserMode.LOCAL:
-            add_ankibrain_menu_item('Restart AI...', self.restart_async_members_from_sync)
-            add_ankibrain_menu_item('Set OpenAI API Key...', self.show_openai_api_key_dialog)
-            add_ankibrain_menu_item('Reinstall...', reinstall)
+        # Start-minimized is the inverse of the stored showSidePanel preference
+        # (True = visible at boot). Show/Hide above does not touch it.
+        mw.ankibrain_start_minimized_action = add_ankibrain_menu_toggle(
+            'Start AnkiBrain minimized',
+            self.set_start_minimized,
+            checked=not mw.settingsManager.get('showSidePanel'),
+        )
 
         # Check if AnkiBrain has been updated.
         has_updated = mw.settingsManager.has_ankibrain_updated()
         if has_updated:
-            # If updated, need to have the user reinstall python dependencies.
-            # Show PostUpdateDialog.
+            # Just the changelog: dependency setup is the panel's job now.
             mw.updateDialog = PostUpdateDialog(mw)
             mw.updateDialog.show()
 
@@ -158,7 +234,20 @@ class AnkiBrain:
         self.webview_loaded = True
 
     async def load_user_settings(self):
-        settings = mw.settingsManager.settings
+        # Copy the settings dict so the runtime-only canToggleDevMode flag
+        # never lands in settings.json through a later SettingsManager.save().
+        settings = {
+            **mw.settingsManager.settings,
+            'canToggleDevMode': is_dev_checkout(),
+            'recoveredCards': read_pending_backup(),
+            # Read straight from .env: load_dotenv runs after this call, and the
+            # webview only ever needs to know WHETHER a key exists.
+            'hasOpenaiApiKey': bool((dotenv_values(dotenv_path).get('OPENAI_API_KEY') or '').strip()),
+            # Custom request headers (e.g. opencode Go's x-opencode-session).
+            'openaiExtraHeaders': mw.settingsManager.settings.get('openaiExtraHeaders') or {},
+            # Sent automatically on every request; shown read-only in Settings.
+            'openaiSessionId': mw.settingsManager.settings.get('openaiSessionId') or '',
+        }
         print('Sending DID_LOAD_USER_FILES')
         self.reactBridge.send_cmd(IC.DID_LOAD_SETTINGS, settings)
 
@@ -167,40 +256,80 @@ class AnkiBrain:
         Start up all async members here.
         :return:
         """
-        # Make sure webview is loaded.
-        while not self.webview_loaded:
-            print('Webview is not loaded yet, sleeping async...')
-            await asyncio.sleep(0.1)
+        # DID_FINISH_STARTUP is the only thing that clears the webview's global
+        # loading state, so it is sent from a finally: a broken or missing local
+        # engine must never strand the panel on "Starting AI Engine...".
+        try:
+            # Make sure webview is loaded.
+            while not self.webview_loaded:
+                print('Webview is not loaded yet, sleeping async...')
+                await asyncio.sleep(0.1)
 
-        if self.user_mode == UserMode.LOCAL:
-            self.reactBridge.send_cmd(IC.SET_WEBAPP_LOADING_TEXT, {'text': 'Starting AI Engine...'})
-            print('Starting AnkiBrain...')
-            await self.chatAI.start()
-            self.chatReady = True
-            print('AnkiBrain ChatAI loaded. App is ready.')
+            if self.user_mode == UserMode.LOCAL:
+                self.reactBridge.send_cmd(IC.SET_WEBAPP_LOADING_TEXT, {'text': 'Starting AI Engine...'})
+                print('Starting AnkiBrain...')
+                status = self.chatAI.status()
+                if status['status'] == 'supported-and-installed':
+                    try:
+                        await self.chatAI.start()
+                        self.chatReady = True
+                        print('AnkiBrain ChatAI loaded. App is ready.')
+                    except Exception as e:
+                        # chatAI.start() already recorded the failure in
+                        # state.json; surface it in the panel (banner + Repair)
+                        # and fall through to the settings/startup part.
+                        self.chatReady = False
+                        print(f'(AnkiBrain) local engine start failed: {e}')
+                        self.reactBridge.send_to_js(
+                            {'cmd': 'localEngineStartFailed', 'error': str(e)[:600]})
+                else:
+                    # absent -> prompt the user; drift -> self-heal silently
+                    # (a cache-warm re-sync is seconds and needs no decision).
+                    self.reactBridge.send_to_js({
+                        'cmd': 'localEngineSetupRequired',
+                        'autoStart': status['status'] == 'supported-and-needs-sync',
+                        'status': status,
+                    })
 
-        self.reactBridge.send_cmd(IC.SET_WEBAPP_LOADING_TEXT, {'text': 'Loading your settings...'})
-        await self.load_user_settings()
-        self.reactBridge.send_cmd(IC.DID_FINISH_STARTUP)
+            self.reactBridge.send_cmd(IC.SET_WEBAPP_LOADING_TEXT, {'text': 'Loading your settings...'})
+            await self.load_user_settings()
 
-        # Check for key in .env file in user_files
-        if self.user_mode == UserMode.LOCAL:
-            load_dotenv(dotenv_path, override=True)
-            if os.getenv('OPENAI_API_KEY') is None or os.getenv('OPENAI_API_KEY') == '':
-                print('No API key detected')
-                self.guiThreadSignaler.showNoAPIKeyDialogSignal.emit()
-            else:
-                print(f'Detected API Key: {os.getenv("OPENAI_API_KEY")}')
+            # Check for key in .env file in user_files
+            if self.user_mode == UserMode.LOCAL:
+                load_dotenv(dotenv_path, override=True)
+                if os.getenv('OPENAI_API_KEY') is None or os.getenv('OPENAI_API_KEY') == '':
+                    print('No API key detected')
+                else:
+                    print(f'Detected API Key: {os.getenv("OPENAI_API_KEY")}')
+        finally:
+            self.reactBridge.send_cmd(IC.DID_FINISH_STARTUP)
 
     async def _stop_async_members(self):
         """
         Stop all async members here.
         :return:
         """
-        if self.user_mode == UserMode.LOCAL:
-            print('Stopping AnkiBrain...')
-            await self.chatAI.stop()
-            self.chatReady = False
+        # The voice engine is lazy + idle-unloaded, but a session quit while
+        # it is warm must not leave torch resident; stop() is a no-op when
+        # the engine was never started.
+        try:
+            await self.tts.stop()
+        except Exception as e:
+            print(f'(AnkiBrain) tts stop: {e}')
+
+        # Unconditional: a user-mode switch (or an engine that started under a
+        # previous mode) must be stopped here even though the mode is no longer
+        # LOCAL. ChatAIModuleAdapter.stop() is a no-op when no engine started.
+        print('Stopping AnkiBrain...')
+        await self.chatAI.stop()
+        self.chatReady = False
+
+    async def set_user_mode(self, mode: UserMode):
+        """Switch mode in-process: persist, then restart the async members so
+        the new mode's startup runs (no Anki restart needed)."""
+        self.user_mode = mode
+        mw.settingsManager.set_user_mode(mode)
+        await self.restart_async_members()
 
     async def restart_async_members(self):
         print('Restarting AnkiBrain...')
@@ -219,21 +348,21 @@ class AnkiBrain:
         This is a synchronous function but is a non-blocking operation.
         :return:
         """
-        asyncio.run_coroutine_threadsafe(self.restart_async_members(), mw.ankiBrain.loop)
+        future = asyncio.run_coroutine_threadsafe(self.restart_async_members(), mw.ankiBrain.loop)
+        _report_future_failure(future)
 
     async def ask_dummy(self, query: str):
         output = await self.chatAI.ask_dummy(query)
         return output
 
-    def handle_openai_api_key_save(self, key):
-        self.openai_api_key_dialog.hide()
-        set_key(dotenv_path, 'OPENAI_API_KEY', key)
-        os.environ['OPENAI_API_KEY'] = key
-        self.restart_async_members_from_sync()
-
     def _handle_process_signal(self, signal, frame):
         try:
             self.chatAI.scriptManager.terminate_sync()
+        except Exception as e:
+            print(str(e))
+        try:
+            if self.tts.script_manager:
+                self.tts.script_manager.terminate_sync()
         except Exception as e:
             print(str(e))
 
@@ -260,7 +389,8 @@ class AnkiBrain:
         t.daemon = True
         t.start()
         try:
-            asyncio.run_coroutine_threadsafe(self._start_async_members(), loop)
+            future = asyncio.run_coroutine_threadsafe(self._start_async_members(), loop)
+            _report_future_failure(future)
         except Exception as e:
             print(e)
 
@@ -275,15 +405,17 @@ class AnkiBrain:
         mw.ankiBrain.loop.call_soon_threadsafe(self.loop.stop)
 
     def toggle_panel(self):
+        """Show/Hide is transient: it never changes the start-minimized
+        preference (menu toggle / Settings switch own that)."""
         if self.sidePanel.isVisible():
             self.sidePanel.hide()
-            mw.settingsManager.edit('showSidePanel', False)
         else:
             self.sidePanel.show()
-            mw.settingsManager.edit('showSidePanel', True)
 
-    def show_openai_api_key_dialog(self):
-        self.openai_api_key_dialog.show()
+    def set_start_minimized(self, checked=False):
+        """Menu toggle: records only whether the panel should be hidden at
+        boot. Current visibility is Show/Hide's job."""
+        mw.settingsManager.edit('showSidePanel', not bool(checked))
 
     def handle_anki_card_webview_pycmd(self, handled, cmd, context):
         try:
@@ -329,6 +461,7 @@ class AnkiBrain:
         self.explainTalkButtons = ExplainTalkButtons(parent_win, win_pos)
         self.explainTalkButtons.on_explain_button_click(self.handle_explain_text_pressed)
         self.explainTalkButtons.on_talk_button_click(self.handle_talk_text_pressed)
+        self.explainTalkButtons.on_speak_button_click(self.handle_speak_text_pressed)
 
     # Resolve which webview sent a pycmd message. Anki hands the bridge's owner
     # object to the hook as `context`: the reviewer's is the Reviewer instance
@@ -384,22 +517,38 @@ class AnkiBrain:
         self.explainTalkButtons.destroy()
         self.selectedText = ''
 
-
-def reinstall():
-    system = platform.system()
-    if system == 'Windows':
-        run_win_install()
-    elif system == 'Darwin':
-        run_macos_install()
-    elif system == 'Linux':
-        run_linux_install()
-
-    showInfo('Terminal updater has been launched. Restart Anki after install is completed.')
+    def handle_speak_text_pressed(self):
+        # AnkiBrain Voice: synthesize the selection in-process (works in both
+        # user modes; nothing to do with the ChatAI subprocess or the server)
+        # and let the webview play the returned file:// url.
+        text = self.selectedText
+        self.explainTalkButtons.destroy()
+        self.selectedText = ''
+        if not text:
+            return
+        asyncio.run_coroutine_threadsafe(self.reactBridge.speak_text(text), self.loop)
 
 
 def show_changelog():
     mw.changelog = ChangelogDialog(mw)
     mw.changelog.show()
+
+
+def _report_future_failure(future):
+    """
+    Log an exception raised by a fire-and-forget startup/restart task.
+
+    Without this, any failure before DID_FINISH_STARTUP vanished inside the
+    concurrent future and the panel silently stayed on the loading screen.
+    """
+    def _cb(f):
+        if f.cancelled():
+            return
+        exc = f.exception()
+        if exc is not None:
+            print(f'(AnkiBrain) startup task failed: {exc!r}')
+
+    future.add_done_callback(_cb)
 
 
 def add_ankibrain_menu_item(name: str, fn):
@@ -408,6 +557,16 @@ def add_ankibrain_menu_item(name: str, fn):
 
     # Keep track of added actions for removal later if needed.
     mw.menu_actions.append(action)
+
+
+def add_ankibrain_menu_toggle(name: str, fn, checked: bool):
+    """Checkable menu item: `checked` is the state to show at build time."""
+    action = mw.ankibrain_menu.addAction(name)
+    action.setCheckable(True)
+    action.setChecked(bool(checked))
+    qconnect(action.triggered, fn)
+    mw.menu_actions.append(action)
+    return action
 
 
 def remove_ankibrain_menu_actions():

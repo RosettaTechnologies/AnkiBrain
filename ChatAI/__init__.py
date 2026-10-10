@@ -8,13 +8,19 @@ ankibrain_project_root_dir = path.join(module_dir, '..')
 user_data_dir = path.join(ankibrain_project_root_dir, 'user_files')
 dotenv_path = path.join(user_data_dir, '.env')
 
+# One source of truth for the interprocess command enum, shared with the Anki
+# process: the addon root, one level up (the ChatAI copy was deleted).
+# Appended, never inserted: this directory's own modules keep resolving first
+# and site-packages still outrank the addon tree.
+sys.path.append(path.abspath(ankibrain_project_root_dir))
+
 import json
 from dotenv import load_dotenv
 
 from ChatAIWithDocuments import ChatAIWithDocuments, settings_path, get_card_gen_chunk_size
 from ChatAIWithoutDocuments import ChatAIWithoutDocuments
 from InterprocessCommand import InterprocessCommand as IC
-from langchain.callbacks import get_openai_callback
+from cost_tracking import get_cost_tracker
 
 
 def _module_return(data: dict[str, str]):
@@ -26,11 +32,11 @@ def module_return(cmd: IC, data: dict[str, Any] = None):
     if data is None:
         data = {}
 
-    # Always attach total_cost to the module's response.
-    if oa_cb is not None:
-        data['total_cost'] = oa_cb.total_cost
+    # Always attach the running session cost to the module's response.
+    if cost_tracker is not None:
+        data['total_cost'] = cost_tracker.total_cost
     else:
-        raise Exception('Must supply an OpenAICallbackHandler.')
+        raise Exception('Must supply a CostTracker.')
 
     _module_return({
         'cmd': cmd.value,
@@ -46,7 +52,9 @@ def module_error(text: str):
 
 
 def handle_module_input(data: dict[str, Any]):
-    if os.getenv('OPENAI_API_KEY') is None:
+    # A set-but-empty key used to pass this guard and then fail deep inside the
+    # SDK with an opaque 401; treat blank as missing.
+    if not (os.getenv('OPENAI_API_KEY') or '').strip():
         module_error('Please set OPENAI_API_KEY')
         return
 
@@ -141,12 +149,34 @@ def handle_module_input(data: dict[str, Any]):
         model_name = 'gpt-5.6-luna'
         with open(settings_path, 'r') as f:
             model_name = json.load(f).get('llmModel', model_name)
-        document_chunks = withDocumentsAI.split_document(
+        chunk_texts, chunk_pages, images = withDocumentsAI.split_document_for_cards(
             data['path'],
             chunk_size=get_card_gen_chunk_size(model_name)
         )
-        chunks = [chunk.page_content for chunk in document_chunks]
-        module_return(IC.DID_SPLIT_DOCUMENT, {'chunks': json.dumps(chunks)})
+        module_return(IC.DID_SPLIT_DOCUMENT, {
+            'chunks': json.dumps(chunk_texts),
+            # Each chunk's 1-based source page number (None for page-less
+            # formats), so the webview can group chunks into reviewable pages.
+            'chunk_pages': json.dumps(chunk_pages),
+            # Images are already written to user_files/media_tmp/<run-id>/;
+            # each entry is {'id', 'url', 'mediaType', 'anchorChunk'}.
+            'images': json.dumps(images),
+        })
+
+    elif cmd == IC.GENERATE_OCCLUSION_SHAPES:
+        # Image-occlusion vision pass. The addon resolved the media_tmp id to
+        # an absolute path; this subprocess owns the OpenAI call (same venv,
+        # same key as card generation).
+        model_name = 'gpt-5.6-luna'
+        with open(settings_path, 'r') as f:
+            model_name = json.load(f).get('llmModel', model_name)
+        out = withoutDocumentsSingleQuery.generate_occlusion_shapes(
+            data['path'],
+            context=data.get('context', ''),
+            language=data.get('language', 'English'),
+            model=data.get('model') or model_name,
+        )
+        module_return(IC.DID_GENERATE_OCCLUSION_SHAPES, out)
 
 
 if __name__ == '__main__':
@@ -169,7 +199,7 @@ if __name__ == '__main__':
     except Exception as e:
         module_error(str(e))
 
-    with get_openai_callback() as oa_cb:
+    with get_cost_tracker() as cost_tracker:
         while True:
             input_line = sys.stdin.readline().strip()
             if not input_line:

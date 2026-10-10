@@ -15,9 +15,12 @@ import { PATHS } from "./api/constants";
 import { useDispatch, useSelector } from "react-redux";
 import { handlePythonDataReceived, initPythonBridge } from "./api/PythonBridge";
 import { ImportScreen } from "./Components/Screens/ImportScreen/ImportScreen";
+import { AuthScreen } from "./Components/Screens/AuthScreen/AuthScreen";
+import { UserModeScreen } from "./Components/Screens/UserModeScreen/UserModeScreen";
 import { GlobalLoadingIndicator } from "./Components/GlobalLoadingIndicator";
 import { setBoolGlobalLoadingIndicator } from "./api/redux/slices/bGlobalLoadingIndicator";
 import { AppAlertModal } from "./Components/modals/AppAlertModal";
+import { ErrorDialog } from "./Components/modals/ErrorDialog";
 import { SettingsScreen } from "./Components/Screens/SettingsScreen/SettingsScreen";
 import { EmailVerificationModal } from "./Components/modals/EmailVerificationModal";
 import { InterprocessCommand } from "./api/PythonBridge/InterprocessCommand";
@@ -29,6 +32,9 @@ import {
   useColorMode,
 } from "@chakra-ui/react";
 import { BootReminderModal } from "./Components/modals/BootReminderModal";
+import { VoiceSetupModal } from "./Components/modals/VoiceSetupModal";
+import { LocalEngineSetupModal } from "./Components/modals/LocalEngineSetupModal";
+import { needsLocalEngineGate } from "./api/localEngine";
 
 function App() {
   const appDidBoot = useSelector((state) => state.appDidBoot.value);
@@ -39,6 +45,9 @@ function App() {
     (state) => state.showBootReminderDialog.value
   );
   const showLoginModal = useSelector((state) => state.showLoginModal.value);
+  const userMode = useSelector((state) => state.userMode.value);
+  const user = useSelector((state) => state.user.value);
+  const localEngineStatus = useSelector((state) => state.localEngine.status);
   const appAlertModal = useSelector((state) => state.appAlertModal.value);
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -47,6 +56,45 @@ function App() {
   );
   const { colorMode, toggleColorMode } = useColorMode();
 
+  // Server-mode gate: until a verified session exists, the whole app shell
+  // (SideBar, screens, BottomNav) is replaced by the AuthScreen login/signup
+  // gate. STANDALONE dev mode is exempt so the app can still be previewed
+  // without an account.
+  const needsAuth =
+    import.meta.env.VITE_APP_ENV !== "STANDALONE" &&
+    userMode === "SERVER" &&
+    appDidBoot &&
+    !(user && user.isVerified);
+
+  // LOCAL-mode gate: until the local AI engine is installed the app shell is
+  // replaced by the full-screen engine setup gate. Unsupported platforms are
+  // gated too — that gate explains the verdict and offers the user-mode
+  // selector as the way back to Regular mode. STANDALONE dev is exempt, like
+  // the auth gate.
+  const needsLocalEngine = needsLocalEngineGate(
+    userMode,
+    appDidBoot,
+    localEngineStatus
+  );
+
+  // First-launch gate: no mode chosen yet, so neither of the other two gates
+  // can even be evaluated. The shell and the boot modals stay away until the
+  // mode exists.
+  const needsUserMode = appDidBoot && !userMode;
+
+  // Either gate can hand the whole panel to the mode selector: first launch
+  // (not dismissible — no mode exists yet) or a deliberate "switch mode" from
+  // the auth gate / the engine gate (dismissible, returning to that gate).
+  const selectorOpen = useSelector((state) => state.userModeSelector.value);
+  const showModeSelector = needsUserMode || selectorOpen;
+
+  // The app shell is the last thing standing: every other surface owns the
+  // panel while it is up.
+  const showShell =
+    !globalLoading &&
+    !showModeSelector &&
+    !needsAuth &&
+    !needsLocalEngine;
 
   //Function that can be called globally to render the loading screen
   useEffect(() => {
@@ -68,6 +116,7 @@ function App() {
               user_mode: "SERVER",
               user: null,
               devMode: false,
+              canToggleDevMode: true,
               apiBaseUrl: PROD_SERVER_URL,
             },
           },
@@ -144,6 +193,13 @@ function App() {
             bg: "secondary",
             color: "customBlack",
           },
+          // Active navigation pill (e.g. Make Cards segments). A distinct
+          // solid purple so it never reads as the pink primary action.
+          pillActive: {
+            bg: "customPurple.500",
+            color: "white",
+            _hover: { bg: "customPurple.400", opacity: 1 },
+          },
         },
       },
       Input: {
@@ -176,19 +232,36 @@ function App() {
             flexDirection: "column",
           }}
         >
-          {showLoginModal && <LoginModal isOpen={showLoginModal} />}
+          {!needsAuth && !showModeSelector && showLoginModal && (
+            <LoginModal isOpen={showLoginModal} />
+          )}
 
           {globalLoading && <GlobalLoadingIndicator />}
           <AppAlertModal />
-          <BootReminderModal
-            show={showBootReminderModalNow}
-            onClose={() => {
-              setShowBootReminderModalNow(false);
-            }}
-          />
-          <EmailVerificationModal />
+          <ErrorDialog />
+          {!needsAuth && !needsLocalEngine && !showModeSelector && (
+            <>
+              <BootReminderModal
+                show={showBootReminderModalNow}
+                onClose={() => {
+                  setShowBootReminderModalNow(false);
+                }}
+              />
+              <EmailVerificationModal />
+              <VoiceSetupModal />
+            </>
+          )}
+          {!needsAuth && !showModeSelector && (
+            <LocalEngineSetupModal gate={needsLocalEngine} />
+          )}
 
-          {!globalLoading && (
+          {!globalLoading && showModeSelector && (
+            <UserModeScreen dismissible={!needsUserMode} />
+          )}
+
+          {!globalLoading && !showModeSelector && needsAuth && <AuthScreen />}
+
+          {showShell && (
             <>
               <SideBar />
 

@@ -24,20 +24,24 @@ class ExplainTalkButtons:
 
         self.explainButton = QPushButton('Explain', self.widget)
         self.talkButton = QPushButton('Talk', self.widget)
+        self.speakButton = QPushButton('Speak', self.widget)
 
         self.layout = QHBoxLayout()
         self.layout.addWidget(self.explainButton)
         self.layout.addWidget(self.talkButton)
+        self.layout.addWidget(self.speakButton)
         self.widget.setLayout(self.layout)
 
         self.position = position
-        self.widget.setFixedSize(QSize(200, 60))
+        self.widget.setFixedSize(QSize(310, 60))
         self.widget.move(position.x(), position.y() + 6)
 
         self.explainButton.setFixedSize(QSize(90, 40))
         self.explainButton.setStyleSheet(buttonStyle)
         self.talkButton.setFixedSize(QSize(90, 40))
         self.talkButton.setStyleSheet(buttonStyle)
+        self.speakButton.setFixedSize(QSize(90, 40))
+        self.speakButton.setStyleSheet(buttonStyle)
 
         self.widget.show()
         self.widget.raise_()
@@ -47,6 +51,9 @@ class ExplainTalkButtons:
 
     def on_talk_button_click(self, func):
         self.talkButton.clicked.connect(func)
+
+    def on_speak_button_click(self, func):
+        self.speakButton.clicked.connect(func)
 
     def destroy(self):
         if self.widget is not None:

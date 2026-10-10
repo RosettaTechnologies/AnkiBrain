@@ -63,3 +63,8 @@ yarn-debug.log*
 yarn-error.log*
 .yarn
 /meta.json
+/user_files/media_tmp/
+/user_files/card_backups/
+/user_files/venv/
+/user_files/voice/
+/user_files/local_engine/

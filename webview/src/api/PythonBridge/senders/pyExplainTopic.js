@@ -11,7 +11,7 @@ export function pyExplainTopic(
     language: "English",
   }
 ) {
-  sendPythonCommand(InterprocessCommand.EXPLAIN_TOPIC, {
+  return sendPythonCommand(InterprocessCommand.EXPLAIN_TOPIC, {
     topic,
     options: {
       custom_prompt: options.customPrompt,

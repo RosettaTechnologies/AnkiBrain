@@ -5,8 +5,9 @@ import { isLocalMode } from "./user";
 import { setMakeCardsLoading } from "./redux/slices/makeCardsText";
 import { generateCardsRequest } from "./server-api/cards";
 import { errorToast, infoToast, successToast } from "./toast";
+import { localConfigGate } from "./localConfig";
 import { addFailedCards } from "./redux/slices/failedCards";
-import { pyEditSetting } from "./PythonBridge/senders/pyEditSetting";
+import { assignImagesToCard } from "./batching";
 
 function convertAsterisksToCloze(text) {
   let counter = 1;
@@ -20,7 +21,8 @@ function convertAsterisksToCloze(text) {
 async function handleCardsRawString(
   rawString,
   cardType,
-  dispatch = store.dispatch
+  dispatch = store.dispatch,
+  imageAssignment = null
 ) {
   // Try converting to json
   try {
@@ -33,6 +35,16 @@ async function handleCardsRawString(
         card.tags = [];
       }
 
+      // Positional image attachment: the batch prompt asked the model to
+      // cite the source chunk of each card, so images anchor to that card
+      // specifically instead of every card in the batch. Missing/garbage
+      // citations fall back to the batch's images (capped). The card only
+      // carries ids; bytes live in media_tmp and are embedded on the ANSWER
+      // side (Back for basic cards, Extra for cloze cards) when added to
+      // Anki.
+      assignImagesToCard(card, imageAssignment);
+      delete card.chunk;
+
       /*
        * If cloze, we are expecting the text field to have **double asterisks** surrounding
        * important text that gpt wants to be a cloze deletion.
@@ -44,9 +56,6 @@ async function handleCardsRawString(
 
     dispatch(addCards(cards));
 
-    // TODO: needs to be removed, this only adds the currently made cards to temp cards rather than the entire deck in
-    //  the redux store.
-    await pyEditSetting("tempCards", cards);
     successToast(
       "Made Flashcards",
       `Successfully made ${cards.length} cards.`,
@@ -68,17 +77,32 @@ export async function generateCards(
   customPrompt = "",
   cardType = "basic",
   language = store.getState().language.value,
-  dispatch = store.dispatch
+  dispatch = store.dispatch,
+  imageAssignment = null
 ) {
+  if (isLocalMode()) {
+    const gate = localConfigGate(
+      store.getState().userMode.value,
+      store.getState().appSettings.ai
+    );
+    if (!gate.ok) {
+      infoToast("Setup required", gate.reason);
+      return;
+    }
+  }
   dispatch(setMakeCardsLoading(true));
   try {
     if (isLocalMode()) {
       let res = await pyGenerateCards(text, customPrompt, cardType, language);
-      dispatch(setMakeCardsLoading(false));
 
       let cardsRawString = res.cardsRawString;
       if (cardsRawString) {
-        handleCardsRawString(cardsRawString, cardType, dispatch);
+        handleCardsRawString(
+          cardsRawString,
+          cardType,
+          dispatch,
+          imageAssignment
+        );
       }
     } else {
       let res = await generateCardsRequest(
@@ -88,15 +112,16 @@ export async function generateCards(
         language
       );
 
-      dispatch(setMakeCardsLoading(false));
       if (res.status === "success") {
         dispatch(updateUser(res.data.user));
         let rawString = res.data.response.content;
-        handleCardsRawString(rawString, cardType, dispatch);
+        handleCardsRawString(rawString, cardType, dispatch, imageAssignment);
       }
     }
   } catch (err) {
     errorToast("Error Making Cards", err.message);
+  } finally {
+    dispatch(setMakeCardsLoading(false));
   }
 }
 

@@ -21,28 +21,58 @@ import { asendPythonCommand } from "./PythonBridge";
 import { InterprocessCommand } from "./PythonBridge/InterprocessCommand";
 import { pyEditSetting } from "./PythonBridge/senders/pyEditSetting";
 
-export async function splitDocument(dispatch = store.dispatch) {
+// Extensions the Make Cards picker treats as standalone images (they become
+// image-occlusion cards, never text documents).
+const IMAGE_EXTENSIONS = new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".bmp",
+]);
+
+export function isImageFileDescriptor(file) {
+  return IMAGE_EXTENSIONS.has(((file && file.extension) || "").toLowerCase());
+}
+
+/*
+ * Make Cards file picker: one dialog for documents AND images. Returns
+ * {documents, images} (raw file descriptors from the native picker) or null
+ * when the user cancelled. Nothing is processed yet — the caller shows the
+ * document warning first, then calls splitSelectedDocument / importImagePaths.
+ */
+export async function pickCardsSource() {
+  const res = await pyOpenDocumentBrowser({ allowImages: true });
+  const files = (res && res.documents) || [];
+  if (files.length === 0) {
+    return null;
+  }
+  return {
+    documents: files.filter((file) => !isImageFileDescriptor(file)),
+    images: files.filter((file) => isImageFileDescriptor(file)),
+  };
+}
+
+/*
+ * Split one already-picked document into chunks (and extract its images in
+ * the card-generation split). Local mode runs the ChatAI subprocess; server
+ * mode uploads to the split endpoint. Returns {chunks, chunkPages, images,
+ * doc} or null (toast already shown). chunkPages is one 1-based page number
+ * (or null) per chunk, or null for the whole document when the format/source
+ * carries no page numbers.
+ */
+export async function splitSelectedDocument(
+  document,
+  dispatch = store.dispatch
+) {
+  let doc = document;
+
   if (isLocalMode()) {
     try {
-      let res = await pyOpenDocumentBrowser();
-      let documents = res.documents;
-      if (!documents) {
-        return;
-      }
-
-      if (documents.length > 1) {
-        infoToast(
-          "Multiple Documents",
-          "You have selected multiple documents. Only the first one will be used. This will be changed in a future update!"
-        );
-      }
-
-      let document = documents[0];
-      let path = document.path;
-
-      if (document.size > 1024 * 1024 * 1024) {
+      if (doc.size > 1024 * 1024 * 1024) {
         infoToast("Document Too Large", "The maximum file size is 1 GB.");
-        return;
+        return null;
       }
 
       infoToast(
@@ -50,52 +80,51 @@ export async function splitDocument(dispatch = store.dispatch) {
         "Document processing has begun. This can take a while on files with a lot of text."
       );
 
-      res = await asendPythonCommand(InterprocessCommand.SPLIT_DOCUMENT, {
-        path,
+      let res = await asendPythonCommand(InterprocessCommand.SPLIT_DOCUMENT, {
+        path: doc.path,
       });
 
-      return res.chunks;
+      // Local mode: python wrote extracted images into media_tmp itself and
+      // returns chunk/image JSON strings over the bridge.
+      let chunks = res.chunks;
+      if (typeof chunks === "string") {
+        chunks = JSON.parse(chunks);
+      }
+
+      let chunkPages = res.chunk_pages ?? null;
+      if (typeof chunkPages === "string") {
+        chunkPages = JSON.parse(chunkPages);
+      }
+
+      let images = res.images || [];
+      if (typeof images === "string") {
+        images = JSON.parse(images);
+      }
+
+      return { chunks, chunkPages, images, doc };
     } catch (err) {
       errorToast("Error", err.message);
     }
 
-    return;
+    return null;
   }
 
   if (!store.getState().user.value) {
     infoToast("Log in required", "Please log in first.");
-    return;
+    return null;
   }
 
-  let res = await pyOpenDocumentBrowser();
-  let docs = res.documents;
-  if (!docs) {
-    return;
-  }
-
-  if (docs.length < 1) {
-    return;
-  }
-
-  if (docs.length > 1) {
-    infoToast(
-      "Multiple documents",
-      "You have selected multiple documents; only the first will be imported." // todo fix
-    );
-  }
-
-  let doc = docs[0];
   if (doc.size > 1024 * 1024 * 100) {
     infoToast(
       "Document Too Large",
       "The maximum file size for AnkiBrain Server Mode is 100 MB."
     );
 
-    return;
+    return null;
   }
 
   try {
-    res = await uploadDocument(
+    let res = await uploadDocument(
       doc.path,
       getAPIEndpoints().DOCUMENT_SPLIT,
       store.getState().user.value.accessToken
@@ -103,10 +132,10 @@ export async function splitDocument(dispatch = store.dispatch) {
 
     if (res.status === "fail") {
       infoToast("Request failed", res.message);
-      return Promise.reject(new Error(res.message));
+      return null;
     } else if (res.status === "error") {
       errorToast("Request error", res.message);
-      return Promise.reject(new Error(res.message));
+      return null;
     }
 
     let user = res.data.user;
@@ -117,10 +146,28 @@ export async function splitDocument(dispatch = store.dispatch) {
       chunks = JSON.parse(chunks);
     }
 
-    chunks = chunks.map((chunk) => chunk.pageContent);
-    return chunks;
+    // Server chunks are LangChain JS Document objects: metadata.loc.pageNumber
+    // is the 1-based page (metadata.pageNumber on older versions). Plain
+    // strings or page-less formats leave chunkPages null -> "Section N" rows.
+    let chunkPages = null;
+    if (chunks.length > 0 && typeof chunks[0] === "object") {
+      chunkPages = chunks.map(
+        (chunk) =>
+          chunk.metadata?.loc?.pageNumber ??
+          chunk.metadata?.pageNumber ??
+          null
+      );
+      chunks = chunks.map((chunk) => chunk.pageContent);
+    }
+
+    // Server mode: the python layer already wrote image bytes to
+    // media_tmp; what remains here are {id, url, mediaType, anchorChunk}.
+    let images = res.data.images || [];
+
+    return { chunks, chunkPages, images, doc };
   } catch (err) {
     errorToast("Error attempting request", err);
+    return null;
   }
 }
 
@@ -131,61 +178,54 @@ export async function importDocuments(dispatch = store.dispatch) {
 
   dispatch(setDocumentsLoading(true));
 
-  if (!isLocalMode() && !store.getState().user.value) {
-    infoToast("Log in required", "Please log in first.");
-    return;
-  }
-
-  let res = await pyOpenDocumentBrowser();
-  if (!res.documents) {
-    dispatch(setDocumentsLoading(false));
-    return;
-  }
-
-  let docs = res.documents;
-  if (docs.length < 1) {
-    return;
-  }
-
-  if (!isLocalMode() && docs.length > 1) {
-    infoToast(
-      "Multiple documents",
-      "You have selected multiple documents; only the first will be imported. " +
-        "Multi-document upload will be added in the future!" // todo fix
-    );
-  }
-
-  let doc = docs[0];
-
   try {
+    if (!isLocalMode() && !store.getState().user.value) {
+      infoToast("Log in required", "Please log in first.");
+      return;
+    }
+
+    let res = await pyOpenDocumentBrowser();
+    if (!res.documents) {
+      return;
+    }
+
+    let docs = res.documents;
+    if (docs.length < 1) {
+      return;
+    }
+
+    if (!isLocalMode() && docs.length > 1) {
+      infoToast(
+        "Multiple documents",
+        "You have selected multiple documents; only the first will be imported. " +
+          "Multi-document upload will be added in the future!" // todo fix
+      );
+    }
+
+    let doc = docs[0];
+
     if (isLocalMode()) {
-      try {
-        if (doc.size > 1024 * 1024 * 1024) {
-          infoToast("Document Too Large", "The maximum file size is 1 GB.");
-          return;
-        }
-
-        infoToast(
-          "Adding Documents...",
-          "This can take a while depending on your documents' word count and your CPU/GPU hardware. " +
-            "For example, on limited hardware, the 2019 MGH WhiteBook takes about 10 minutes to import."
-        );
-
-        let res = await asendPythonCommand(InterprocessCommand.ADD_DOCUMENTS, {
-          documents: docs,
-        });
-
-        let documentsAdded = res.documents_added;
-        dispatch(addDocumentsToStore(documentsAdded));
-        successToast(
-          "Documents Added",
-          `${documentsAdded.length} document(s) have been added to your local vector storage.`
-        );
-      } catch (err) {
-        errorToast("Error", err);
-      } finally {
-        dispatch(setDocumentsLoading(false));
+      if (doc.size > 1024 * 1024 * 1024) {
+        infoToast("Document Too Large", "The maximum file size is 1 GB.");
+        return;
       }
+
+      infoToast(
+        "Adding Documents...",
+        "This can take a while depending on your documents' word count and your CPU/GPU hardware. " +
+          "For example, on limited hardware, the 2019 MGH WhiteBook takes about 10 minutes to import."
+      );
+
+      let added = await asendPythonCommand(InterprocessCommand.ADD_DOCUMENTS, {
+        documents: docs,
+      });
+
+      let documentsAdded = added.documents_added;
+      dispatch(addDocumentsToStore(documentsAdded));
+      successToast(
+        "Documents Added",
+        `${documentsAdded.length} document(s) have been added to your local vector storage.`
+      );
 
       return;
     }
@@ -221,7 +261,7 @@ export async function importDocuments(dispatch = store.dispatch) {
       errorToast("Request error", res.message);
     }
   } catch (err) {
-    errorToast("Error attempting request", err);
+    errorToast("Error", String((err && err.message) || err));
   } finally {
     dispatch(setDocumentsLoading(false));
   }
