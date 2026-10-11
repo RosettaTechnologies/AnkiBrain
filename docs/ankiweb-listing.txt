@@ -1,0 +1,80 @@
+<b>EMAIL ANKIBRAIN@RANKMD.ORG FOR ALL SUPPORT ISSUES</b>
+
+<b>Please use Qt6 version of Anki, otherwise you may run into a bug with a blank white screen</b>
+
+Source code: <a href="https://github.com/RosettaTechnologies/AnkiBrain">https://github.com/RosettaTechnologies/AnkiBrain</a>
+
+Changelog: <a href="https://github.com/RosettaTechnologies/AnkiBrain/blob/main/changelog.md">https://github.com/RosettaTechnologies/AnkiBrain/blob/main/changelog.md</a>
+
+Demo Video: <a href="https://www.youtube.com/watch?v=Wyy4-V6iezM" rel="nofollow">https://www.youtube.com/watch?v=Wyy4-V6iezM</a>
+
+For support, visit <a href="https://www.reddit.com/r/ankibrain/" rel="nofollow">https://www.reddit.com/r/ankibrain/</a> or email ankibrain@rankmd.org
+
+AnkiBrain is a ChatGPT AI extension for Anki that allows you to import your own notes for AI explanations and card generation. Use the power of large language models (LLMs), including ChatGPT, to quickly generate topic explanations and new cards. Note/document importing and a temperature of zero ensures that the language model adheres strictly to the source material, which allows for fast and accurate studying. AnkiBrain has many international users and supports dozens of languages from all over the world. Now with Light/Dark user interface modes, with upcoming complete customization of colors and themes to make AnkiBrain as pretty as your Anki setup! Use your own API key or use AnkiBrain Server Mode for frictionless setup.
+
+Support for 49+ languages: English, Spanish, Albanian, Arabic, Armenian, Azerbaijani, Belarusian, Bengali, Bulgarian, Bosnian, Chinese (Mandarin), Chinese (Cantonese), Croatian, Czech, Danish, Dutch, Estonian, Farsi (Persian), Filipino, Finnish, French, German, Greek, Hindi, Icelandic, Indonesian, Irish (Gaelic), Italian, Japanese, Kazakh, Khmer, Korean, Kurdish, Hebrew, Hungarian, Malay, Mongolian, Norwegian, Polish, Portuguese, Romanian, Russian, Serbian, Swedish, Thai, Turkish, Ukrainian, Urdu, Vietnamese, and more!
+
+<b>Automatically make cards from a whole document or input text, and send them to any new or existing deck with custom tags</b>
+
+<img src="https://i.imgur.com/jg31uh6.png">
+
+<img src="https://i.imgur.com/z9yHyA9.png">
+
+<img src="https://i.imgur.com/btPzGYI.png">
+
+<b>Talk directly to AI inside of Anki, clarify questions and make cards from answers</b>
+
+<img src="https://i.imgur.com/doZIihZ.png">
+
+<img src="https://i.imgur.com/lknps46.png">
+
+<b>Import your own notes, PowerPoints, PDFs, lectures, textbooks, research papers, or anything else you want! The AI will analyze it and use your documents as source material.</b>
+<div>
+<img src="https://i.imgur.com/kBOQzZr.png">
+<div>
+<b>Get quick, highly detailed explanations for any topic</b>
+<div>
+<img src="https://i.imgur.com/FdzfuSW.png">
+<div>
+<b>Highlight any text inside a card while studying to send it to AnkiBrain!</b>
+<div>
+<img src="https://i.imgur.com/2pcaapa.png">
+<div>
+<b>For advanced users, ability to customize language model (GPT 5.6 Sol/Terra/Luna supported) and model temperature.</b>
+<img src="https://i.imgur.com/VAwmBEg.png">
+
+<div>
+<b>Support for 49+ languages: English, Spanish, Albanian, Arabic, Armenian, Azerbaijani, Belarusian, Bengali, Bulgarian, Bosnian, Chinese (Mandarin), Chinese (Cantonese), Croatian, Czech, Danish, Dutch, Estonian, Farsi (Persian), Filipino, Finnish, French, German, Greek, Hindi, Icelandic, Indonesian, Irish (Gaelic), Italian, Japanese, Kazakh, Khmer, Korean, Kurdish, Hebrew, Hungarian, Malay, Mongolian, Norwegian, Polish, Portuguese, Romanian, Russian, Serbian, Swedish, Thai, Turkish, Ukrainian, Urdu, Vietnamese, and more</b>
+<div>
+<img src="https://i.imgur.com/g3fwjq3.png" width="350" height="auto">
+<div>
+<img src="https://i.imgur.com/ugIlG5w.png" width="350" height="auto">
+<div>
+<img src="https://i.imgur.com/makSJL6.png" width="350" height="auto">
+<div>
+
+Features:
+
+<b>Topic Explanation</b>
+Generate topic explanations for varying levels of expertise and detail with or without source documents. You can effortlessly send these explanations to Make Cards with a single click.
+
+<b>Automatically Make Cards</b>
+Automatically generate Basic or Cloze type cards using an entire document, or based on any given text (you can simply copy text in here from any source). You can then send these cards to any Anki deck with the click of a button with custom tags - no need for fooling around with external files manually.
+
+<b>Consult the AI</b>
+Based on your documents/notes or without them, you can talk directly to the AI and ask further questions about the material.
+
+<b>Import Documents</b>
+One of the most powerful features, the AnkiBrain AI Engine supports document embedding and provides snippets of these documents to a large language model in order to best answer your questions. You can import PDF, DOCX, PPTX, TXT, and even HTML files. Future features planned for importing content from a link (URL), and importing and analysis of YouTube videos. 
+
+<b>Direct Integration with Anki</b>
+When studying a card, highlighting any text shows options for explaining the topic or for chatting about the topic. Additionally, AnkiBrain to Anki communication is seamless and allows you to add cards directly from AnkiBrain to Anki without fussing around with exporting/importing csv files or Anki deck packages manually.
+
+<b>Free or Minimal Cost</b>
+AnkiBrain is, and always will be, completely free to use in Local Mode, besides the cost accrued with your OpenAI API key (which is typically VERY low). AnkiBrain has a convenient cost tracker which shows you the cost associated with your usage so you do not have to check your OpenAI account frequently. AnkiBrain also offers a mode (called "Regular Mode" or "Server Mode") for non-technical users that does NOT require any setup at all, and does not require an OpenAI key.
+
+Please leave constructive feedback only and report bugs. Visit <a href="https://www.reddit.com/r/ankibrain/" rel="nofollow">https://www.reddit.com/r/ankibrain/</a> for information, installation, support, and bug reports. Email ankibrain@rankmd.org for one on one support.
+
+---
+
+<b>EMAIL ANKIBRAIN@RANKMD.ORG FOR ALL SUPPORT ISSUES</b>
