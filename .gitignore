@@ -68,3 +68,6 @@ yarn-error.log*
 /user_files/venv/
 /user_files/voice/
 /user_files/local_engine/
+
+# demo capture pipeline scratch: hermetic Anki base, logs, probe output
+/demo/out/

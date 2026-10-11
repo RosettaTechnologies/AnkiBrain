@@ -1,0 +1,10 @@
+{
+  "capture_backend": "x11",
+  "defaults": {
+    "window": [
+      1720,
+      1000
+    ],
+    "dock": 780
+  }
+}

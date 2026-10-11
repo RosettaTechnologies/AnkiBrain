@@ -1,0 +1,288 @@
+{
+  "generated_at": "2026-10-10T17:46:42",
+  "passes": {
+    "main": {
+      "generated_at": "2026-10-10T17:46:42",
+      "selected": [
+        "makecards-text-cards",
+        "makecards-review-list",
+        "makecards-card-audio",
+        "makecards-documents-staged",
+        "makecards-images-library",
+        "makecards-occlusion-ai",
+        "makecards-add-to-anki",
+        "explain-answer",
+        "talk-answer",
+        "anki-reviewer-selection",
+        "settings-engine",
+        "settings-voice"
+      ]
+    }
+  },
+  "shots": {
+    "anki-reviewer-selection": {
+      "addon_version": "1.1.0",
+      "anki_version": "26.08.1",
+      "backend": "x11",
+      "crop": null,
+      "elapsed_ms": 16551,
+      "error": "",
+      "feature": "Reviewer",
+      "file": "10-anki-reviewer-selection.png",
+      "generated_at": "2026-10-10T17:46:22",
+      "id": "anki-reviewer-selection",
+      "llm_model": "gpt-5.6-luna",
+      "ok": true,
+      "order": 10,
+      "pass": "main",
+      "size": [
+        3440,
+        2000
+      ],
+      "skipped": false,
+      "title": "Reviewer \u2014 highlight card text to interact"
+    },
+    "explain-answer": {
+      "addon_version": "1.1.0",
+      "anki_version": "26.08.1",
+      "backend": "x11",
+      "crop": null,
+      "elapsed_ms": 21059,
+      "error": "",
+      "feature": "Explain",
+      "file": "08-explain-answer.png",
+      "generated_at": "2026-10-10T17:45:51",
+      "id": "explain-answer",
+      "llm_model": "gpt-5.6-luna",
+      "ok": true,
+      "order": 8,
+      "pass": "main",
+      "size": [
+        3440,
+        2000
+      ],
+      "skipped": false,
+      "title": "Explain \u2014 topic explanation"
+    },
+    "makecards-add-to-anki": {
+      "addon_version": "1.1.0",
+      "anki_version": "26.08.1",
+      "backend": "x11",
+      "crop": null,
+      "elapsed_ms": 23811,
+      "error": "",
+      "feature": "Make Cards",
+      "file": "07-makecards-add-to-anki.png",
+      "generated_at": "2026-10-10T17:45:30",
+      "id": "makecards-add-to-anki",
+      "llm_model": "gpt-5.6-luna",
+      "ok": true,
+      "order": 7,
+      "pass": "main",
+      "size": [
+        3440,
+        2000
+      ],
+      "skipped": false,
+      "title": "Make Cards \u2014 the cards added to the deck"
+    },
+    "makecards-card-audio": {
+      "addon_version": "1.1.0",
+      "anki_version": "26.08.1",
+      "backend": "x11",
+      "crop": null,
+      "elapsed_ms": 14786,
+      "error": "",
+      "feature": "Make Cards (audio)",
+      "file": "03-makecards-card-audio.png",
+      "generated_at": "2026-10-10T17:43:48",
+      "id": "makecards-card-audio",
+      "llm_model": "gpt-5.6-luna",
+      "ok": true,
+      "order": 3,
+      "pass": "main",
+      "size": [
+        3440,
+        2000
+      ],
+      "skipped": false,
+      "title": "Make Cards \u2014 per-field audio from the voice engine"
+    },
+    "makecards-documents-staged": {
+      "addon_version": "1.1.0",
+      "anki_version": "26.08.1",
+      "backend": "x11",
+      "crop": null,
+      "elapsed_ms": 18546,
+      "error": "",
+      "feature": "Make Cards (textbooks)",
+      "file": "04-makecards-documents-staged.png",
+      "generated_at": "2026-10-10T17:44:07",
+      "id": "makecards-documents-staged",
+      "llm_model": "gpt-5.6-luna",
+      "ok": true,
+      "order": 4,
+      "pass": "main",
+      "size": [
+        3440,
+        2000
+      ],
+      "skipped": false,
+      "title": "Make Cards \u2014 a textbook split into staged pages"
+    },
+    "makecards-images-library": {
+      "addon_version": "1.1.0",
+      "anki_version": "26.08.1",
+      "backend": "x11",
+      "crop": null,
+      "elapsed_ms": 12374,
+      "error": "",
+      "feature": "Make Cards (images)",
+      "file": "05-makecards-images-library.png",
+      "generated_at": "2026-10-10T17:44:19",
+      "id": "makecards-images-library",
+      "llm_model": "gpt-5.6-luna",
+      "ok": true,
+      "order": 5,
+      "pass": "main",
+      "size": [
+        3440,
+        2000
+      ],
+      "skipped": false,
+      "title": "Make Cards \u2014 image library, figure on a card"
+    },
+    "makecards-occlusion-ai": {
+      "addon_version": "1.1.0",
+      "anki_version": "26.08.1",
+      "backend": "x11",
+      "crop": null,
+      "elapsed_ms": 41431,
+      "error": "",
+      "feature": "Make Cards (auto occlusion)",
+      "file": "06-makecards-occlusion-ai.png",
+      "generated_at": "2026-10-10T17:45:04",
+      "id": "makecards-occlusion-ai",
+      "llm_model": "gpt-5.6-luna",
+      "ok": true,
+      "order": 6,
+      "pass": "main",
+      "size": [
+        3440,
+        2000
+      ],
+      "skipped": false,
+      "title": "Image occlusion \u2014 masks proposed by the vision model"
+    },
+    "makecards-review-list": {
+      "addon_version": "1.1.0",
+      "anki_version": "26.08.1",
+      "backend": "x11",
+      "crop": null,
+      "elapsed_ms": 8376,
+      "error": "",
+      "feature": "Make Cards (text)",
+      "file": "02-makecards-review-list.png",
+      "generated_at": "2026-10-10T17:43:34",
+      "id": "makecards-review-list",
+      "llm_model": "gpt-5.6-luna",
+      "ok": true,
+      "order": 2,
+      "pass": "main",
+      "size": [
+        3440,
+        2000
+      ],
+      "skipped": false,
+      "title": "Make Cards \u2014 the generated card list"
+    },
+    "makecards-text-cards": {
+      "addon_version": "1.1.0",
+      "anki_version": "26.08.1",
+      "backend": "x11",
+      "crop": null,
+      "elapsed_ms": 33445,
+      "error": "",
+      "feature": "Make Cards (text)",
+      "file": "01-makecards-text-cards.png",
+      "generated_at": "2026-10-10T17:43:25",
+      "id": "makecards-text-cards",
+      "llm_model": "gpt-5.6-luna",
+      "ok": true,
+      "order": 1,
+      "pass": "main",
+      "size": [
+        3440,
+        2000
+      ],
+      "skipped": false,
+      "title": "Make Cards \u2014 cards generated from a text passage"
+    },
+    "settings-engine": {
+      "addon_version": "1.1.0",
+      "anki_version": "26.08.1",
+      "backend": "x11",
+      "crop": null,
+      "elapsed_ms": 9291,
+      "error": "",
+      "feature": "Local mode",
+      "file": "11-settings-engine.png",
+      "generated_at": "2026-10-10T17:46:31",
+      "id": "settings-engine",
+      "llm_model": "gpt-5.6-luna",
+      "ok": true,
+      "order": 11,
+      "pass": "main",
+      "size": [
+        3440,
+        2000
+      ],
+      "skipped": false,
+      "title": "Settings \u2014 local mode endpoint (base URL, key, test)"
+    },
+    "settings-voice": {
+      "addon_version": "1.1.0",
+      "anki_version": "26.08.1",
+      "backend": "x11",
+      "crop": null,
+      "elapsed_ms": 11190,
+      "error": "",
+      "feature": "TTS engine",
+      "file": "12-settings-voice.png",
+      "generated_at": "2026-10-10T17:46:42",
+      "id": "settings-voice",
+      "llm_model": "gpt-5.6-luna",
+      "ok": true,
+      "order": 12,
+      "pass": "main",
+      "size": [
+        3440,
+        2000
+      ],
+      "skipped": false,
+      "title": "Settings \u2014 voice (Text-to-Speech) engine"
+    },
+    "talk-answer": {
+      "addon_version": "1.1.0",
+      "anki_version": "26.08.1",
+      "backend": "x11",
+      "crop": null,
+      "elapsed_ms": 13964,
+      "error": "",
+      "feature": "Talk",
+      "file": "09-talk-answer.png",
+      "generated_at": "2026-10-10T17:46:05",
+      "id": "talk-answer",
+      "llm_model": "gpt-5.6-luna",
+      "ok": true,
+      "order": 9,
+      "pass": "main",
+      "size": [
+        3440,
+        2000
+      ],
+      "skipped": false,
+      "title": "Talk \u2014 answer with the model footer"
+    }
+  }
+}

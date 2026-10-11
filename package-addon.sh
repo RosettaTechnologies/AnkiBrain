@@ -56,6 +56,9 @@ rsync -a \
   --exclude 'build/' --exclude '*.ankiaddon' \
   --exclude 'package-addon.sh' \
   --exclude 'webview/' \
+  --exclude 'demo/' \
+  --exclude 'docs/' \
+  --exclude 'AGENTS.md' \
   --exclude 'user_files/settings.json' --exclude 'user_files/.env' \
   --exclude 'user_files/venv/' --exclude 'user_files/voice/' \
   --exclude 'user_files/local_engine/' \

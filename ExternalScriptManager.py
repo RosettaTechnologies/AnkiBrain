@@ -191,16 +191,18 @@ class ExternalScriptManager:
         try:
             self._check_dead()
             data_str: str = json.dumps(input_data)
-            async with self.lock:  # Acquire lock before writing and draining
+            # One request/response pair at a time, read included: a second
+            # coroutine entering readline() while another is waiting raises
+            # "readuntil() called while another coroutine is already waiting".
+            async with self.lock:
                 self.process.stdin.write(data_str.encode() + b'\n')
                 await self.process.stdin.drain()
+                output_str = await self.process.stdout.readline()
 
-            output_str = await self.process.stdout.readline()
-            async with self.lock:  # Acquire lock again before loading the json
-                if not output_str:
-                    self._check_dead()
-                    raise Exception(f'{self.label}: empty response (process gone?)')
-                output_data = json.loads(output_str.decode().strip())
+            if not output_str:
+                self._check_dead()
+                raise Exception(f'{self.label}: empty response (process gone?)')
+            output_data = json.loads(output_str.decode().strip())
 
             # Handle module error.
             if output_data['cmd'] == InterprocessCommand.SUBMODULE_ERROR.value:

@@ -1,0 +1,303 @@
+{
+  "_comment": "Every shot is the whole Anki window (main window + docked AnkiBrain sidebar), captured by demo/addon/driver.py. Sizes come from config.json defaults; `after` lists the shots a `--only` run must also run to reach this state.",
+  "shots": [
+    {
+      "id": "makecards-text-cards",
+      "order": 1,
+      "title": "Make Cards — cards generated from a text passage",
+      "feature": "Make Cards (text)",
+      "pass": "main",
+      "tags": [
+        "ai"
+      ],
+      "stages": [
+        {
+          "anki": [
+            "seed_collection",
+            "refresh_decks"
+          ],
+          "panel": [
+            "makecards/open_text.js",
+            "makecards/paste_text.js"
+          ],
+          "wait_ms": 1500
+        },
+        {
+          "panel": [
+            "makecards/generate_from_text.js"
+          ],
+          "wait_js": "(() => { const t = document.body.innerText; const m = t.match(/Review & edit cards \\((\\d+)\\)/); return !!m && Number(m[1]) > 0 && !t.includes('Generating…'); })()",
+          "timeout": 300
+        }
+      ]
+    },
+    {
+      "id": "makecards-review-list",
+      "order": 2,
+      "title": "Make Cards — the generated card list",
+      "feature": "Make Cards (text)",
+      "pass": "main",
+      "after": [
+        "makecards-text-cards"
+      ],
+      "panel": [
+        "makecards/scroll_cards.js"
+      ],
+      "wait_js": "(() => { const t = document.body.innerText; const m = t.match(/Review & edit cards \\((\\d+)\\)/); return !!m && Number(m[1]) >= 51 && t.includes('Page 1 of '); })()"
+    },
+    {
+      "id": "makecards-card-audio",
+      "order": 3,
+      "title": "Make Cards — per-field audio from the voice engine",
+      "feature": "Make Cards (audio)",
+      "pass": "main",
+      "tags": [
+        "tts"
+      ],
+      "after": [
+        "makecards-review-list"
+      ],
+      "panel": [
+        "makecards/add_audio.js"
+      ],
+      "wait_js": "!!document.querySelector('[aria-label=\"Play front audio\"]')",
+      "timeout": 300
+    },
+    {
+      "id": "makecards-documents-staged",
+      "order": 4,
+      "title": "Make Cards — a textbook split into staged pages",
+      "feature": "Make Cards (textbooks)",
+      "pass": "main",
+      "tags": [
+        "docs"
+      ],
+      "stages": [
+        {
+          "anki": [
+            "answer_file_dialog:{demo}/out/fixtures/figures.docx"
+          ],
+          "panel": [
+            "makecards/load_document.js"
+          ],
+          "wait_js": "!!document.querySelector('.staged-document-panel') && !!document.querySelectorAll('.staged-entry').length",
+          "timeout": 240
+        },
+        {
+          "panel": [
+            "makecards/focus_staged.js"
+          ],
+          "wait_js": "(() => { const panel = document.querySelector('.staged-document-panel'); if (!panel) return false; if (!panel.querySelectorAll('.staged-entry').length) return false; const box = panel.getBoundingClientRect(); return box.top < innerHeight - 80 && box.bottom > 80 && /included/.test(panel.innerText); })()"
+        }
+      ]
+    },
+    {
+      "id": "makecards-images-library",
+      "order": 5,
+      "title": "Make Cards — image library, figure on a card",
+      "feature": "Make Cards (images)",
+      "pass": "main",
+      "tags": [
+        "docs"
+      ],
+      "after": [
+        "makecards-documents-staged",
+        "makecards-text-cards"
+      ],
+      "panel_after": [
+        "makecards/image_modal_close.js",
+        "makecards/close_images_panel.js"
+      ],
+      "after_js": "!document.body.innerText.includes('Use this image')",
+      "stages": [
+        {
+          "panel": [
+            "makecards/open_images_panel.js",
+            "makecards/open_images_library.js",
+            "makecards/image_insert.js"
+          ],
+          "wait_ms": 900
+        },
+        {
+          "wait_js": "(() => { const modal = [...document.querySelectorAll('[role=\"dialog\"]')].find((d) => (d.textContent || '').includes('Use this image')); if (!modal) return false; return [...modal.querySelectorAll('button')].filter((b) => /inserted/i.test(b.textContent || '')).length >= 1; })()"
+        }
+      ]
+    },
+    {
+      "id": "makecards-occlusion-ai",
+      "order": 6,
+      "title": "Image occlusion — masks proposed by the vision model",
+      "feature": "Make Cards (auto occlusion)",
+      "pass": "main",
+      "tags": [
+        "ai",
+        "vision"
+      ],
+      "after": [
+        "makecards-images-library"
+      ],
+      "stages": [
+        {
+          "anki": [
+            "answer_file_dialog:{demo}/out/fixtures/figure-heart.png"
+          ],
+          "panel": [
+            "makecards/occlusion_type.js",
+            "makecards/load_document.js"
+          ],
+          "wait_js": "document.body.innerText.includes('Edit masks')",
+          "timeout": 180
+        },
+        {
+          "panel": [
+            "makecards/occlusion_edit.js",
+            "makecards/close_images_panel.js"
+          ],
+          "wait_js": "document.body.innerText.includes('Suggest with AI')"
+        },
+        {
+          "panel": [
+            "makecards/occlusion_suggest.js"
+          ],
+          "wait_js": "(() => { const t = document.body.innerText; const m = t.match(/Masks \\((\\d+)\\)/); return !!m && Number(m[1]) >= 5 && !t.includes('Analyzing'); })()",
+          "timeout": 180
+        }
+      ],
+      "panel_after": [
+        "makecards/occlusion_save.js"
+      ],
+      "after_js": "!document.body.innerText.includes('Masks (18)')"
+    },
+    {
+      "id": "makecards-add-to-anki",
+      "order": 7,
+      "title": "Make Cards — the cards added to the deck",
+      "feature": "Make Cards",
+      "pass": "main",
+      "after": [
+        "makecards-card-audio",
+        "makecards-occlusion-ai"
+      ],
+      "keep_toasts": true,
+      "stages": [
+        {
+          "wait_js": "!![...document.querySelectorAll('button')].find((b) => (b.textContent || '').trim() === 'Add to Anki')",
+          "timeout": 300
+        },
+        {
+          "panel": [
+            "makecards/set_deck.js",
+            "makecards/add_to_anki.js"
+          ],
+          "wait_js": "document.body.innerText.includes('added to deck: AnkiBrain Demo')",
+          "timeout": 300
+        },
+        {
+          "anki": [
+            "refresh_decks"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "explain-answer",
+      "order": 8,
+      "title": "Explain — topic explanation",
+      "feature": "Explain",
+      "pass": "main",
+      "tags": [
+        "ai"
+      ],
+      "panel": [
+        "explain/open.js",
+        "explain/ask.js"
+      ],
+      "wait_js": "(() => { const el = document.querySelector('.TopicExplanationContainer'); return !!el && el.innerText.trim().length > 200; })()",
+      "timeout": 240
+    },
+    {
+      "id": "talk-answer",
+      "order": 9,
+      "title": "Talk — answer with the model footer",
+      "feature": "Talk",
+      "pass": "main",
+      "tags": [
+        "ai"
+      ],
+      "stages": [
+        {
+          "panel": [
+            "talk/open.js",
+            "talk/send_prompt.js"
+          ],
+          "wait_js": "!!document.querySelector('.AIMessage') && document.body.innerText.includes('Model: ')",
+          "timeout": 240
+        }
+      ]
+    },
+    {
+      "id": "anki-reviewer-selection",
+      "order": 10,
+      "title": "Reviewer — highlight card text to interact",
+      "feature": "Reviewer",
+      "pass": "main",
+      "after": [
+        "makecards-add-to-anki"
+      ],
+      "stages": [
+        {
+          "anki": [
+            "open_reviewer:basic",
+            "select_card_text:60"
+          ],
+          "wait_ms": 1200
+        }
+      ],
+      "anki_after": [
+        "dismiss_popup",
+        "unsuspend_demo_cards"
+      ]
+    },
+    {
+      "id": "settings-engine",
+      "order": 11,
+      "title": "Settings — local mode endpoint (base URL, key, test)",
+      "feature": "Local mode",
+      "pass": "main",
+      "tags": [
+        "docs"
+      ],
+      "anki": [
+        "deck_browser"
+      ],
+      "stages": [
+        {
+          "panel": [
+            "settings/scroll_engine.js"
+          ],
+          "wait_js": "(() => { const el = [...document.querySelectorAll('*')].find((n) => (n.textContent || '').trim() === 'OpenAI / OpenAI-compatible API'); if (!el) return false; const box = el.getBoundingClientRect(); if (box.top < 40 || box.top > innerHeight - 260) { el.scrollIntoView({ block: 'start' }); return false; } return document.body.innerText.includes('API base URL') && document.body.innerText.includes('Test connection'); })()"
+        },
+        {
+          "wait_js": "(() => { const el = [...document.querySelectorAll('*')].find((n) => (n.textContent || '').trim() === 'OpenAI / OpenAI-compatible API'); if (!el) return false; const box = el.getBoundingClientRect(); if (box.top < 40 || box.top > innerHeight - 260) { el.scrollIntoView({ block: 'start' }); return false; } return document.body.innerText.includes('API base URL') && document.body.innerText.includes('Test connection'); })()"
+        }
+      ]
+    },
+    {
+      "id": "settings-voice",
+      "order": 12,
+      "title": "Settings — voice (Text-to-Speech) engine",
+      "feature": "TTS engine",
+      "pass": "main",
+      "tags": [
+        "tts"
+      ],
+      "panel": [
+        "settings/scroll_voice.js"
+      ],
+      "wait_js": "document.body.innerText.includes('engine installed') && document.body.innerText.includes('Preview voice')",
+      "anki": [
+        "deck_browser"
+      ]
+    }
+  ]
+}
