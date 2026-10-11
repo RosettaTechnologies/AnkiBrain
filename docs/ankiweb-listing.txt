@@ -1,80 +1,118 @@
 <b>EMAIL ANKIBRAIN@RANKMD.ORG FOR ALL SUPPORT ISSUES</b>
 
-<b>Please use Qt6 version of Anki, otherwise you may run into a bug with a blank white screen</b>
+<b>Please use the Qt6 version of Anki, otherwise you may run into a bug with a blank white screen</b>
 
 Source code: <a href="https://github.com/RosettaTechnologies/AnkiBrain">https://github.com/RosettaTechnologies/AnkiBrain</a>
 
 Changelog: <a href="https://github.com/RosettaTechnologies/AnkiBrain/blob/main/changelog.md">https://github.com/RosettaTechnologies/AnkiBrain/blob/main/changelog.md</a>
 
-Demo Video: <a href="https://www.youtube.com/watch?v=Wyy4-V6iezM" rel="nofollow">https://www.youtube.com/watch?v=Wyy4-V6iezM</a>
+Setup guide (Local mode and AnkiBrain Voice): <a href="https://github.com/RosettaTechnologies/AnkiBrain#readme">https://github.com/RosettaTechnologies/AnkiBrain#readme</a>
 
-For support, visit <a href="https://www.reddit.com/r/ankibrain/" rel="nofollow">https://www.reddit.com/r/ankibrain/</a> or email ankibrain@rankmd.org
+Demo video: <a href="https://www.youtube.com/watch?v=Wyy4-V6iezM">https://www.youtube.com/watch?v=Wyy4-V6iezM</a>
 
-AnkiBrain is a ChatGPT AI extension for Anki that allows you to import your own notes for AI explanations and card generation. Use the power of large language models (LLMs), including ChatGPT, to quickly generate topic explanations and new cards. Note/document importing and a temperature of zero ensures that the language model adheres strictly to the source material, which allows for fast and accurate studying. AnkiBrain has many international users and supports dozens of languages from all over the world. Now with Light/Dark user interface modes, with upcoming complete customization of colors and themes to make AnkiBrain as pretty as your Anki setup! Use your own API key or use AnkiBrain Server Mode for frictionless setup.
+Support and information: <a href="https://www.reddit.com/r/ankibrain/">https://www.reddit.com/r/ankibrain/</a> or email ankibrain@rankmd.org
+
+AnkiBrain is an extension for Anki that fully integrates knowledge-based AI study features. Explain any topic, ask follow-up questions, and generate Basic, Cloze, image-occlusion and audio cards from your own notes, textbooks and lecture slides. AnkiBrain cards can be to any deck in one click. Answers and cards are grounded in the documents you import, with the model temperature at 0 by default so the AI follows your source material instead of guessing. Run it entirely on your own computer, or use AnkiBrain's servers for zero setup. 
 
 Support for 49+ languages: English, Spanish, Albanian, Arabic, Armenian, Azerbaijani, Belarusian, Bengali, Bulgarian, Bosnian, Chinese (Mandarin), Chinese (Cantonese), Croatian, Czech, Danish, Dutch, Estonian, Farsi (Persian), Filipino, Finnish, French, German, Greek, Hindi, Icelandic, Indonesian, Irish (Gaelic), Italian, Japanese, Kazakh, Khmer, Korean, Kurdish, Hebrew, Hungarian, Malay, Mongolian, Norwegian, Polish, Portuguese, Romanian, Russian, Serbian, Swedish, Thai, Turkish, Ukrainian, Urdu, Vietnamese, and more!
 
-<b>Automatically make cards from a whole document or input text, and send them to any new or existing deck with custom tags</b>
+<h2>Make cards from anything</h2>
 
-<img src="https://i.imgur.com/jg31uh6.png">
+Paste a passage, add a page from a textbook, snip an image, or import a whole document, and AnkiBrain can create the cards: Basic, Cloze or automatic image occlusion. Every card can be edited, regenerated or deleted inside of AnkiBrain before being added to Anki. The finished set goes to any new or existing deck with the tags you choose. No need for manually fooling around with files or exporting.
 
-<img src="https://i.imgur.com/z9yHyA9.png">
+<img src="https://raw.githubusercontent.com/RosettaTechnologies/AnkiBrain/main/docs/screenshots/01-makecards-text-cards.png">
 
-<img src="https://i.imgur.com/btPzGYI.png">
+<i>Cards generated from a text passage.</i>
 
-<b>Talk directly to AI inside of Anki, clarify questions and make cards from answers</b>
+<img src="https://raw.githubusercontent.com/RosettaTechnologies/AnkiBrain/main/docs/screenshots/02-makecards-review-list.png">
 
-<img src="https://i.imgur.com/doZIihZ.png">
+<i>The generated card list.</i>
 
-<img src="https://i.imgur.com/lknps46.png">
+<h2>Bring your own source material</h2>
 
-<b>Import your own notes, PowerPoints, PDFs, lectures, textbooks, research papers, or anything else you want! The AI will analyze it and use your documents as source material.</b>
-<div>
-<img src="https://i.imgur.com/kBOQzZr.png">
-<div>
-<b>Get quick, highly detailed explanations for any topic</b>
-<div>
-<img src="https://i.imgur.com/FdzfuSW.png">
-<div>
-<b>Highlight any text inside a card while studying to send it to AnkiBrain!</b>
-<div>
-<img src="https://i.imgur.com/2pcaapa.png">
-<div>
-<b>For advanced users, ability to customize language model (GPT 5.6 Sol/Terra/Luna supported) and model temperature.</b>
-<img src="https://i.imgur.com/VAwmBEg.png">
+Import PDFs, Word documents, PowerPoint decks, plain text and HTML files. AnkiBrain can use the relevant passages as the source for its explanations and cards. Figures and diagrams inside PDFs and DOCX files are extracted too, and attached to the cards made from the text around them. For technical users: AnkiBrain does this by embedding documents in a powerful vector database (local or remote).
 
-<div>
-<b>Support for 49+ languages: English, Spanish, Albanian, Arabic, Armenian, Azerbaijani, Belarusian, Bengali, Bulgarian, Bosnian, Chinese (Mandarin), Chinese (Cantonese), Croatian, Czech, Danish, Dutch, Estonian, Farsi (Persian), Filipino, Finnish, French, German, Greek, Hindi, Icelandic, Indonesian, Irish (Gaelic), Italian, Japanese, Kazakh, Khmer, Korean, Kurdish, Hebrew, Hungarian, Malay, Mongolian, Norwegian, Polish, Portuguese, Romanian, Russian, Serbian, Swedish, Thai, Turkish, Ukrainian, Urdu, Vietnamese, and more</b>
-<div>
-<img src="https://i.imgur.com/g3fwjq3.png" width="350" height="auto">
-<div>
-<img src="https://i.imgur.com/ugIlG5w.png" width="350" height="auto">
-<div>
-<img src="https://i.imgur.com/makSJL6.png" width="350" height="auto">
-<div>
+<img src="https://raw.githubusercontent.com/RosettaTechnologies/AnkiBrain/main/docs/screenshots/04-makecards-documents-staged.png">
 
-Features:
+<i>A textbook split into staged pages.</i>
 
-<b>Topic Explanation</b>
-Generate topic explanations for varying levels of expertise and detail with or without source documents. You can effortlessly send these explanations to Make Cards with a single click.
+<img src="https://raw.githubusercontent.com/RosettaTechnologies/AnkiBrain/main/docs/screenshots/05-makecards-images-library.png">
 
-<b>Automatically Make Cards</b>
-Automatically generate Basic or Cloze type cards using an entire document, or based on any given text (you can simply copy text in here from any source). You can then send these cards to any Anki deck with the click of a button with custom tags - no need for fooling around with external files manually.
+<i>The image library, with a figure attached to a card.</i>
 
-<b>Consult the AI</b>
-Based on your documents/notes or without them, you can talk directly to the AI and ask further questions about the material.
+<h2>Automatic image occlusion</h2>
 
-<b>Import Documents</b>
-One of the most powerful features, the AnkiBrain AI Engine supports document embedding and provides snippets of these documents to a large language model in order to best answer your questions. You can import PDF, DOCX, PPTX, TXT, and even HTML files. Future features planned for importing content from a link (URL), and importing and analysis of YouTube videos. 
+Add a diagram, a figure from a paper, or a screenshot you pasted from the clipboard. Image occlusion cards can be created automatically or with a single click. Adjust the masks in the editor inside of AnkiBrain, or let AnkiBrain generate a whole batch of occlusion cards at once. Image occlusion cards use Anki's built-in image occlusion note type.
 
-<b>Direct Integration with Anki</b>
-When studying a card, highlighting any text shows options for explaining the topic or for chatting about the topic. Additionally, AnkiBrain to Anki communication is seamless and allows you to add cards directly from AnkiBrain to Anki without fussing around with exporting/importing csv files or Anki deck packages manually.
+<img src="https://raw.githubusercontent.com/RosettaTechnologies/AnkiBrain/main/docs/screenshots/06-makecards-occlusion-ai.png">
 
-<b>Free or Minimal Cost</b>
-AnkiBrain is, and always will be, completely free to use in Local Mode, besides the cost accrued with your OpenAI API key (which is typically VERY low). AnkiBrain has a convenient cost tracker which shows you the cost associated with your usage so you do not have to check your OpenAI account frequently. AnkiBrain also offers a mode (called "Regular Mode" or "Server Mode") for non-technical users that does NOT require any setup at all, and does not require an OpenAI key.
+<i>Masks proposed by the vision model.</i>
 
-Please leave constructive feedback only and report bugs. Visit <a href="https://www.reddit.com/r/ankibrain/" rel="nofollow">https://www.reddit.com/r/ankibrain/</a> for information, installation, support, and bug reports. Email ankibrain@rankmd.org for one on one support.
+<img src="https://raw.githubusercontent.com/RosettaTechnologies/AnkiBrain/main/docs/screenshots/07-makecards-add-to-anki.png">
 
----
+<i>The cards added to the deck.</i>
+
+<h2>Hear your cards - AnkiBrain Voice</h2>
+
+AnkiBrain Voice is a free high quality text-to-speech engine. Highlight text on a card and press Speak, press the speaker icon on any chat reply, or have card audio generated for the front side, the back side or both, so it plays automatically while you review. AnkiBrain automatically detects the language of the text and speaks it with a matching voice - 54 voices over 9 languages: English (US and UK), Spanish, French, Hindi, Italian, Portuguese, Chinese, and optional Japanese. 
+
+<img src="https://raw.githubusercontent.com/RosettaTechnologies/AnkiBrain/main/docs/screenshots/03-makecards-card-audio.png">
+
+<i>Per-field audio generated by the voice engine.</i>
+
+<img src="https://raw.githubusercontent.com/RosettaTechnologies/AnkiBrain/main/docs/screenshots/12-settings-voice.png">
+
+<i>The voice engine settings.</i>
+
+<h2>Explain and Talk about the material</h2>
+
+Ask for an explanation at the level of detail you want, with or without your own documents behind it, and send it to Make Cards with a single click. Talk is the same idea as a conversation: ask about the material, follow up, and turn any answer into cards by selecting the "share" button on any answer (sends text to Make Cards).
+
+<img src="https://raw.githubusercontent.com/RosettaTechnologies/AnkiBrain/main/docs/screenshots/08-explain-answer.png">
+
+<i>A topic explanation.</i>
+
+<img src="https://raw.githubusercontent.com/RosettaTechnologies/AnkiBrain/main/docs/screenshots/09-talk-answer.png">
+
+<i>A Talk answer.</i>
+
+<h2>Anki Card Interaction - highlight to interact with AnkiBrain</h2>
+
+If you highlight any text on a card while studying, Explain/Talk/Speak buttons appear. Explain opens the topic explanation screen for that passage, Talk opens the chat with it, and Speak reads it aloud with the local voice engine. In a future update, Speak will be changed to automatically adding audio to that card's front or back. 
+
+<img src="https://raw.githubusercontent.com/RosettaTechnologies/AnkiBrain/main/docs/screenshots/10-anki-reviewer-selection.png">
+
+<i>Highlight text on a card to Explain it, Talk about it, or have it read aloud.</i>
+
+<h2>Regular Mode for everyone or Local Mode for advanced users</h2>
+
+<b>Regular (server) mode</b> recommended for most users: no setup required. AI runs on AnkiBrain's servers with no API key to manage.
+
+<b>Local (advanced) mode</b> for advanced users: AnkiBrain installs its own AI engine locally, then set any OpenAI-compatible endpoint (remote or local LLM). A cost tracker is available in the sidebar. Windows 10+ (x86_64), macOS 12+ (Apple Silicon) and Linux x86_64/aarch64 are supported.
+
+<img src="https://raw.githubusercontent.com/RosettaTechnologies/AnkiBrain/main/docs/screenshots/11-settings-engine.png">
+
+<i>Local mode: any OpenAI-compatible endpoint, with a Test connection button that lists its models.</i>
+
+<h2>More features</h2>
+
+<ul>
+<li><b>Topic explanations</b> - in your choice of detail, with or without source documents.</li>
+<li><b>Make Cards</b> - Basic, Cloze and image-occlusion cards from text, images or whole documents, with custom tags.</li>
+<li><b>Talk</b> - a conversation about your material, with every answer one click away from becoming cards.</li>
+<li><b>AnkiBrain Voice</b> - free local text-to-speech and per-field card audio.</li>
+<li><b>Cost tracking</b> - the running session cost in Local mode, with exact prices for the recommended models.</li>
+<li><b>Custom prompts and model settings</b> - edit the prompts used for explanations and cards, and choose the model and temperature.</li>
+<li><b>Light and dark interface.</b></li>
+</ul>
+
+<h2>Languages</h2>
+
+AnkiBrain writes its answers and cards in 49 languages, plus a custom entry for anything else: English, Spanish, Albanian, Arabic, Armenian, Azerbaijani, Belarusian, Bengali, Bulgarian, Bosnian, Chinese (Mandarin), Chinese (Cantonese), Croatian, Czech, Danish, Dutch, Estonian, Farsi (Persian), Filipino, Finnish, French, German, Greek, Hindi, Icelandic, Indonesian, Irish (Gaelic), Italian, Japanese, Kazakh, Khmer, Korean, Kurdish, Hebrew, Hungarian, Malay, Mongolian, Norwegian, Polish, Portuguese, Romanian, Russian, Serbian, Swedish, Thai, Turkish, Ukrainian, Urdu, Vietnamese. Most languages work as a source too - type your question in the language you like. This setting changes the language of the AI's answers; the AnkiBrain interface itself is in English, a future update will provide interface language settings as well.
+
+Please leave constructive feedback only and report bugs. Visit <a href="https://www.reddit.com/r/ankibrain/">https://www.reddit.com/r/ankibrain/</a> for information, installation, support and bug reports, or email ankibrain@rankmd.org for one-on-one support.
 
 <b>EMAIL ANKIBRAIN@RANKMD.ORG FOR ALL SUPPORT ISSUES</b>
+
+<b>Please use the Qt6 version of Anki, otherwise you may run into a bug with a blank white screen</b>
+
