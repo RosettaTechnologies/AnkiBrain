@@ -61,6 +61,7 @@ import { setCards } from "../redux/slices/cards";
 import { setShowCardBottomHint } from "../redux/slices/showCardBottomHint";
 import { setShowSidePanel } from "../redux/slices/showSidePanel";
 import { setDeleteCardsAfterAdding } from "../redux/slices/deleteCardsAfterAdding";
+import { setAddImagesToCards } from "../redux/slices/addImagesToCards";
 import { setShowBootReminderDialog } from "../redux/slices/showBootReminderDialog";
 import { pyEditSetting } from "./senders/pyEditSetting";
 import { pyClearCardsBackup } from "./senders/pyCardBackup";
@@ -247,6 +248,7 @@ export async function handlePythonDataReceived(
       let {
         aiLanguage,
         deleteCardsAfterAdding,
+        addImagesToCards,
         currentVersion,
         customPromptChat,
         customPromptMakeCards,
@@ -290,6 +292,9 @@ export async function handlePythonDataReceived(
         deleteCardsAfterAdding !== null
       ) {
         dispatch(setDeleteCardsAfterAdding(deleteCardsAfterAdding));
+      }
+      if (addImagesToCards !== undefined) {
+        dispatch(setAddImagesToCards(!!addImagesToCards));
       }
       if (currentVersion) {
         dispatch(setCurrentVersion(currentVersion));

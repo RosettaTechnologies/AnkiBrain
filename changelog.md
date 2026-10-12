@@ -1,5 +1,8 @@
 # Changelog
 
+# 1.1.1
+- Add toggle for automatically attaching document images to cards to allow more user flexibility
+
 # 1.1.0
 - FEATURE: Generate cards from documents now include images: figures and diagrams found in
   PDFs and DOCX files are extracted and attached to the flashcards generated from

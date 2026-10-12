@@ -12,6 +12,7 @@ import {
   AlertDialogOverlay,
   Box,
   Button,
+  Checkbox,
   Drawer,
   DrawerBody,
   DrawerCloseButton,
@@ -59,6 +60,7 @@ import {
   setCards,
 } from "../../../api/redux/slices/cards";
 import { addImages, clearImages } from "../../../api/redux/slices/imagesRegistry";
+import { setAddImagesToCards } from "../../../api/redux/slices/addImagesToCards";
 import {
   buildAudioItems,
   cancelAllCardAudio,
@@ -294,6 +296,9 @@ export function CardMakingScreen() {
   const language = useSelector((state) => state.language.value);
   const deleteCardsAfterAdding = useSelector(
     (state) => state.deleteCardsAfterAdding.value
+  );
+  const addImagesToCards = useSelector(
+    (state) => state.addImagesToCards.value
   );
   const devMode = useSelector((state) => state.devMode.value);
   const imagesById = useSelector((state) => state.imagesRegistry.value);
@@ -896,11 +901,18 @@ export function CardMakingScreen() {
           const created = createOcclusionCards(looseImages, {});
           infoToast(
             "Images Added as Occlusion Cards",
-            `Image files always become image-occlusion cards (${created.length} queued). Images found inside the document are attached to the cards made from its text.`
+            addImagesToCards
+              ? `Image files always become image-occlusion cards (${created.length} queued). Images found inside the document are attached to the cards made from its text.`
+              : `Image files always become image-occlusion cards (${created.length} queued). Images found inside the document stay in the Images panel — insert them into cards manually.`
           );
         }
         if (chunks.length > 0) {
-          await generateTextCardsFromDocument({ chunks, images });
+          // Figures stay staged in the Images panel; with the toggle off the
+          // automatic attach (and its [Chunk N] citation prompt) is skipped.
+          await generateTextCardsFromDocument({
+            chunks,
+            images: addImagesToCards ? images : [],
+          });
         }
       }
     } catch (err) {
@@ -1052,6 +1064,14 @@ export function CardMakingScreen() {
   const handleAudioModeChange = async (newMode) => {
     dispatch(editTtsSettingLocal({ key: "ttsCardAudioMode", value: newMode }));
     await pyEditSetting("ttsCardAudioMode", newMode);
+  };
+
+  // Document images: persisted like the other Make Cards policies. Off keeps
+  // extracted figures in the Images panel only — generation neither labels
+  // chunks for citation nor assigns images to cards.
+  const handleAddImagesToCardsChange = async (enabled) => {
+    dispatch(setAddImagesToCards(enabled));
+    await pyEditSetting("addImagesToCards", enabled);
   };
 
   const handleGenerateAudioForAll = () => {
@@ -1293,6 +1313,21 @@ export function CardMakingScreen() {
                   <option value={"cloze"}>Cloze</option>
                   <option value={"occlusion"}>Image Occlusion</option>
                 </Select>
+              </ToolbarGroup>
+              <ToolbarGroup ms={1} h={"32px"} gap={2}>
+                <Checkbox
+                  size={"sm"}
+                  isChecked={addImagesToCards}
+                  aria-label={"Auto-add images to cards"}
+                  onChange={(e) =>
+                    handleAddImagesToCardsChange(e.target.checked)
+                  }
+                  title={
+                    "Attach figures found in the loaded document to the cards made from its text. Off: they stay in the Images panel for manual use."
+                  }
+                >
+                  Auto-add images to cards
+                </Checkbox>
               </ToolbarGroup>
             </ToolbarGroup>
           )}

@@ -46,6 +46,10 @@ default_settings = {
     'customPromptMakeCards': '',
     'customPromptTopicExplanation': '',
     'deleteCardsAfterAdding': True,
+    # Make Cards: figures extracted from a loaded document are attached to the
+    # cards generated from its text. Off = images still land in the Images
+    # panel (manual insert, Image Occlusion) but are never auto-attached.
+    'addImagesToCards': True,
     "colorMode": "dark",
     "currentVersion": get_ankibrain_version(),
     "documents_saved": [],  # local mode only; server mode keeps documents on the account

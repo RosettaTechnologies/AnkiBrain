@@ -40,6 +40,7 @@ import {
 } from "../../../api/occlusion";
 import { pickCardsSource, splitSelectedDocument } from "../../../api/documents";
 import { clearStagedDocument } from "../../../api/redux/slices/stagedDocument";
+import { setAddImagesToCards } from "../../../api/redux/slices/addImagesToCards";
 
 // Chakra's useBreakpointValue probes window.matchMedia; jsdom has none.
 if (!window.matchMedia) {
@@ -86,6 +87,7 @@ beforeEach(() => {
   store.dispatch(clearStagedImages());
   store.dispatch(clearImages());
   store.dispatch(clearStagedDocument());
+  store.dispatch(setAddImagesToCards(true));
   importImageFromClipboard.mockReset();
   importImagePaths.mockReset();
   generateCards.mockReset();
@@ -253,4 +255,68 @@ test("loading a document stages its pages without generating", async () => {
   const generatedText = generateCards.mock.calls[0][0];
   expect(generatedText).toContain("beta");
   expect(generatedText).not.toContain("alpha");
+});
+
+const DOC_IMAGE = {
+  id: "run1/figure.png",
+  url: "file:///media_tmp/run1/figure.png",
+  mediaType: "image/png",
+  anchorChunk: 1,
+};
+
+function mockDocumentWithImage() {
+  pickCardsSource.mockResolvedValue({
+    documents: [
+      { path: "/tmp/lecture.pdf", size: 1000, file_name_with_extension: "lecture.pdf" },
+    ],
+    images: [],
+  });
+  splitSelectedDocument.mockResolvedValue({
+    chunks: ["alpha", "beta"],
+    chunkPages: [1, 2],
+    images: [DOC_IMAGE],
+    doc: { file_name_with_extension: "lecture.pdf" },
+  });
+  importImagePaths.mockResolvedValue([]);
+}
+
+async function makeCardsFromStagedDocument() {
+  renderScreen();
+  fireEvent.click(screen.getByText("Load Document..."));
+  expect(await screen.findByText("Make Cards (2)")).toBeInTheDocument();
+  await act(async () => {
+    fireEvent.click(screen.getByText("Make Cards (2)"));
+  });
+  await waitFor(() => expect(generateCards).toHaveBeenCalledTimes(1));
+}
+
+test("the toolbar Images toggle flips the setting", () => {
+  renderScreen();
+  const box = screen.getByLabelText("Add images to cards");
+  expect(box).toBeChecked();
+  fireEvent.click(box);
+  expect(store.getState().addImagesToCards.value).toBe(false);
+});
+
+test("document images attach to generated cards by default", async () => {
+  mockDocumentWithImage();
+  await makeCardsFromStagedDocument();
+
+  expect(generateCards.mock.calls[0][0]).toContain("[Chunk 0]");
+  expect(generateCards.mock.calls[0][5]).toEqual({
+    images: [{ id: DOC_IMAGE.id, anchorChunk: 1 }],
+    chunkStart: 0,
+    chunkEnd: 2,
+  });
+});
+
+test("with automatic image adds off, generation runs without images", async () => {
+  store.dispatch(setAddImagesToCards(false));
+  mockDocumentWithImage();
+  await makeCardsFromStagedDocument();
+
+  expect(generateCards.mock.calls[0][0]).not.toContain("[Chunk");
+  expect(generateCards.mock.calls[0][5]).toBeNull();
+  // The figure stays registered for the Images panel / manual insertion.
+  expect(store.getState().imagesRegistry.value[DOC_IMAGE.id]).toBeTruthy();
 });

@@ -28,6 +28,7 @@ import { showCardBottomHint } from "./slices/showCardBottomHint";
 import { showSidePanel } from "./slices/showSidePanel";
 import { userModeSelector } from "./slices/userModeSelector";
 import { deleteCardsAfterAdding } from "./slices/deleteCardsAfterAdding";
+import { addImagesToCards } from "./slices/addImagesToCards";
 import { showBootReminderDialog } from "./slices/showBootReminderDialog";
 import { appDidBoot } from "./slices/appDidBoot";
 import { checkedAuth } from "./slices/checkedAuth";
@@ -105,6 +106,7 @@ export const store = configureStore({
     currentVersion: currentVersionSlice.reducer,
     customPrompts: customPrompts.reducer,
     deleteCardsAfterAdding: deleteCardsAfterAdding.reducer,
+    addImagesToCards: addImagesToCards.reducer,
     devMode: devMode.reducer,
     documentContext: documentContextSlice.reducer,
     documents: documentsSlice.reducer,
