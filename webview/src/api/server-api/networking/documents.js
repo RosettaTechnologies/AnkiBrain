@@ -36,9 +36,3 @@ export async function deleteDocumentEndpoint(accessToken) {
   });
 }
 
-export async function postCreateCheckoutSession(accessToken) {
-  return _fetch(getAPIEndpoints().CREATE_CHECKOUT_SESSION, {
-    method: "POST",
-    body: { accessToken },
-  });
-}

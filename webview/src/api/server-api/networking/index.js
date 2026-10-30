@@ -32,6 +32,11 @@ export function getAPIEndpoints() {
     USER_PASSWORD_RESET_CODE: API_BASE_URL + "/user/password-reset-code",
     USER_PASSWORD_RESET: API_BASE_URL + "/user/password-reset",
     CREATE_CHECKOUT_SESSION: `${API_BASE_URL}/create-checkout-session`,
+    CREATE_SUBSCRIPTION_CHECKOUT_SESSION: `${API_BASE_URL}/create-subscription-checkout-session`,
+    CREATE_CUSTOMER_PORTAL_SESSION: `${API_BASE_URL}/create-customer-portal-session`,
+    CHANGE_SUBSCRIPTION: `${API_BASE_URL}/subscription/change`,
+    CANCEL_SUBSCRIPTION: `${API_BASE_URL}/subscription/cancel`,
+    RESUME_SUBSCRIPTION: `${API_BASE_URL}/subscription/resume`,
     PRIVACY_POLICY: `${API_BASE_URL}/privacy-policy.html`,
     TERMS_OF_SERVICE: `${API_BASE_URL}/terms-of-service.html`,
   };

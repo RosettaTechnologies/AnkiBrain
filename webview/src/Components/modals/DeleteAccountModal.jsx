@@ -14,6 +14,7 @@ import {
 import { useState } from "react";
 import { useSelector } from "react-redux";
 import { deleteAccount } from "../../api/user";
+import { getPlan } from "../../api/subscriptions";
 
 const CONFIRM_PHRASE = "yes";
 
@@ -66,6 +67,13 @@ export function DeleteAccountModal({ isOpen, onClose }) {
             </Link>{" "}
             before deleting your account.
           </Text>
+          {user?.subscriptionTier && (
+            <Text mt={3} color={"red.400"}>
+              Your {getPlan(user.subscriptionTier)?.name || ""} subscription will
+              be canceled immediately. No refund is issued for the current
+              billing period.
+            </Text>
+          )}
           <Text mt={4}>
             Type <b>yes</b> to confirm.
           </Text>

@@ -3,25 +3,15 @@ import { useNavigate } from "react-router-dom";
 import React, { useEffect, useState } from "react";
 import { Dropdown } from "bootstrap";
 import { useDispatch, useSelector } from "react-redux";
-import { setShowLoginModal, store, updateUser } from "../../api/redux";
-import {
-  Button,
-  Flex,
-  Heading,
-  Text,
-  useColorMode,
-} from "@chakra-ui/react";
+import { setShowLoginModal } from "../../api/redux";
+import { useColorMode } from "@chakra-ui/react";
 import { isLocalMode, logout } from "../../api/user";
-import { errorToast, infoToast } from "../../api/toast";
-import { postCreateCheckoutSession } from "../../api/server-api/networking/checkout";
-import { setAppAlertModal } from "../../api/redux/slices/appAlertModal";
-import { getAPIEndpoints } from "../../api/server-api/networking";
 import { MdDarkMode } from "react-icons/md";
 import { BsSunFill } from "react-icons/bs";
-import { FaStripe } from "react-icons/fa";
 import { pyEditSetting } from "../../api/PythonBridge/senders/pyEditSetting";
 import { setColorMode } from "../../api/redux/slices/colorMode";
-import { getUser } from "../../api/server-api/networking/user";
+import { getPlan } from "../../api/subscriptions";
+import { BillingModal } from "../modals/BillingModal";
 
 // Session cost for LOCAL mode. At least 4 decimals so a single request's
 // sub-cent cost is visible instead of rounding to $0.00; extra digits when 4
@@ -54,84 +44,31 @@ export function SideBar(props) {
   }, [storeColorMode, colorMode, toggleColorMode]);
 
   const currentVersion = useSelector((state) => state.currentVersion.value);
+  const [showBillingModal, setShowBillingModal] = useState(false);
 
   let loggedIn = !!user;
 
-  async function handleAddBalanceClick() {
-    let res = await postCreateCheckoutSession(user.accessToken);
-    if (res.status === "success") {
-      let url = res.data.url;
-      dispatch(
-        setAppAlertModal({
-          show: true,
-          header: "Add Balance",
-          alertText: (
-            <Flex
-              width={"100%"}
-              height={"100%"}
-              justifyContent={"center"}
-              alignSelf={"center"}
-              direction={"column"}
-            >
-              <Heading fontSize={18}>Pricing Information</Heading>
-              <Text fontSize={12}>
-                AnkiBrain Server Mode uses "pay as you go" pricing and aims to
-                keep AnkiBrain as cheap as possible to make it accessible to all
-                users across the world. Using GPT 5.6 Luna (default) is very
-                cost-effective, and it is recommended for most users and most
-                usage scenarios.
-              </Text>
-              <Text fontSize={12}>
-                GPT 5.6 Luna (default) can generate <b>100 flashcards</b> for
-                about <b>$0.03</b> on average.
-              </Text>
-              <Text fontSize={12}>
-                $1.00 stores <b>2,850 pages</b> for one month.
-              </Text>
-              <Text fontSize={10} color={"gray"}>
-                Storage only applies to documents imported via the Import tab,
-                not to flashcards created in the Make Cards tab.
-              </Text>
-              <Text fontSize={10} color={"gray"}>
-                Files stored in a vector database. See{" "}
-                <a href={getAPIEndpoints().PRIVACY_POLICY} style={{ color: "blue" }}>
-                  Privacy Policy
-                </a>
-              </Text>
-              <Button variant={"accent"} mt={3}>
-                <a
-                  href={url}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}
-                >
-                  <FaStripe size={48} style={{ marginRight: 7.5 }} />
-                  Add Balance
-                </a>
-              </Button>
-            </Flex>
-          ),
-          onClose: async () => {
-            let res = await getUser(store.getState().user.value.accessToken);
-            if (res.status === "success") {
-              infoToast(
-                "Refreshing User Information...",
-                "Refreshing your user information to reflect any added balance.",
-                1000
-              );
-              dispatch(updateUser(res.data.user));
-            }
-          },
-        })
-      );
-    }
-  }
+  // The header is 48px tall inside a 350px panel, so a subscriber shows the
+  // plan name instead of the storage charge; Billing has the full breakdown.
+  const plan = user?.subscriptionTier ? getPlan(user.subscriptionTier) : null;
+  const planResetAt = user?.includedUsageResetAt
+    ? new Date(user.includedUsageResetAt).toLocaleDateString()
+    : null;
+  const planPeriodEnd = user?.subscriptionCurrentPeriodEnd
+    ? new Date(user.subscriptionCurrentPeriodEnd).toLocaleDateString()
+    : null;
+  const planBadgeTitle = plan
+    ? `${plan.name} plan — $${Number(user.includedUsage || 0).toFixed(2)} credit remaining${
+        planResetAt ? ` — resets ${planResetAt}` : ""
+      }${
+        planPeriodEnd
+          ? ` — ${user.subscriptionCancelAtPeriodEnd ? "cancels" : "renews"} ${planPeriodEnd}`
+          : ""
+      }`
+    : null;
 
   return (
+    <>
     <div className="TopHeader">
       <div className="TopHeader-left">
         <span className="TopHeader-brand">AnkiBrain</span>
@@ -173,24 +110,21 @@ export function SideBar(props) {
           <>
             <div className="TopHeader-userInfo">
               <span className="TopHeader-userEmail">{user.email}</span>
-              <span className="TopHeader-userBalance">${user.balance.toFixed(2)}</span>
-              <span className="TopHeader-userStorage">S: ${user.monthlyStorageCharge.toFixed(2)}</span>
+              <span className="TopHeader-userBalance">${Number(user.balance || 0).toFixed(2)}</span>
+              {!user.subscriptionTier && (
+                <span className="TopHeader-userStorage">S: ${Number(user.monthlyStorageCharge || 0).toFixed(2)}</span>
+              )}
+              {plan && (
+                <span className="TopHeader-planBadge" title={planBadgeTitle}>
+                  {plan.name}
+                </span>
+              )}
             </div>
             <button
               className="TopHeader-addBalanceBtn"
-              onClick={async () => {
-                try {
-                  if (store.getState().lockCheckoutSession.value) {
-                    infoToast("Busy...", "Please finish what you are doing before adding balance!");
-                  } else {
-                    await handleAddBalanceClick();
-                  }
-                } catch (err) {
-                  errorToast("Error", err.message);
-                }
-              }}
+              onClick={() => setShowBillingModal(true)}
             >
-              Add Balance
+              Billing
             </button>
             <div className="TopHeader-profile" id="ProfileDropdown">
               <i
@@ -203,6 +137,18 @@ export function SideBar(props) {
                 }}
               />
               <div className="dropdown-menu dropdown-menu-end">
+                <div
+                  className="dropdown-item"
+                  onClick={() => {
+                    const dropdown = new Dropdown(
+                      document.getElementById("ProfileDropdown")
+                    );
+                    dropdown.toggle();
+                    setShowBillingModal(true);
+                  }}
+                >
+                  Billing
+                </div>
                 <div
                   className="dropdown-item"
                   onClick={async () => {
@@ -236,5 +182,10 @@ export function SideBar(props) {
         )}
       </div>
     </div>
+    <BillingModal
+      isOpen={showBillingModal}
+      onClose={() => setShowBillingModal(false)}
+    />
+    </>
   );
 }
