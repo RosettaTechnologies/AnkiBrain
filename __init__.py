@@ -1,4 +1,4 @@
-VERSION = '1.1.1'
+VERSION = '1.2.0'
 
 import sys
 from os import path
