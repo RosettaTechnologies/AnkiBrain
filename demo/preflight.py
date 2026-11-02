@@ -128,7 +128,7 @@ def _error_message(payload, body, code):
 def build_settings(repo_settings, pass_name, version):
     """The settings.json the demo base boots with for one pass."""
     mode = PASS_MODES[pass_name]
-    model = repo_settings.get('llmModel') or 'gpt-5.6-luna'
+    model = repo_settings.get('llmModel') or 'gpt-6-luna'
     models = repo_settings.get('openaiModels') or [model]
     settings = {
         **BASE_OVERRIDES,

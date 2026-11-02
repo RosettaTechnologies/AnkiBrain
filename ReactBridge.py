@@ -380,7 +380,7 @@ class ReactBridge:
                         if not url or not access_token:
                             raise Exception('Log in to use AI occlusion suggestions in server mode.')
                         res = await postOcclusionImage(url, image_path, access_token, {
-                            'model': data.get('model') or 'gpt-5.6-luna',
+                            'model': data.get('model') or 'gpt-6-luna',
                             'language': language,
                             'context': context,
                         })

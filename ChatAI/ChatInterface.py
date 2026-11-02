@@ -38,7 +38,10 @@ def _is_chunk_labeled(text):
 # Vision-capable model prefixes. The legacy models cannot read images, so the
 # occlusion suggestion flow refuses them with a clear message instead of
 # letting the API return an opaque error.
-VISION_MODEL_PREFIXES = ('gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna')
+VISION_MODEL_PREFIXES = (
+    'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna',
+    'gpt-6-astra', 'gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-luna',
+)
 
 OCCLUSION_IMAGE_MIME_BY_EXT = {
     'png': 'image/png',
@@ -226,7 +229,7 @@ class ChatInterface(ABC):
 
     def generate_occlusion_shapes(self, image_path: str, context: str = '',
                                   language: str = 'English',
-                                  model: str = 'gpt-5.6-luna') -> dict:
+                                  model: str = 'gpt-6-luna') -> dict:
         """
         Vision pass for image-occlusion cards: ask the configured model for
         the labeled regions of a diagram/figure and return
@@ -246,7 +249,7 @@ class ChatInterface(ABC):
         if not any(model.startswith(prefix) for prefix in VISION_MODEL_PREFIXES):
             raise Exception(
                 'The selected AI model cannot analyze images. '
-                'Choose a GPT-5.6 model in Settings to use AI occlusion suggestions.')
+                'Choose a GPT-6 or GPT-5.6 model in Settings to use AI occlusion suggestions.')
 
         with open(image_path, 'rb') as f:
             image_bytes = f.read()
@@ -277,8 +280,8 @@ class ChatInterface(ABC):
                         base_url=get_openai_base_url(), default_headers=get_openai_headers(),
                         timeout=120)
         kwargs = {'model': model, 'messages': messages}
-        if model.startswith('gpt-5.6'):
-            # The GPT-5.6 family rejects temperature/max_tokens.
+        if model.startswith(('gpt-5.6', 'gpt-6')):
+            # The GPT-5.6/GPT-6 families reject temperature/max_tokens.
             kwargs['max_completion_tokens'] = 1500
         else:
             kwargs['temperature'] = 0

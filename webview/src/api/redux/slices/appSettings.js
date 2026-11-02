@@ -4,7 +4,7 @@ export const appSettings = createSlice({
   name: "appSettings",
   initialState: {
     ai: {
-      llmModel: "gpt-5.6-luna",
+      llmModel: "gpt-6-luna",
       temperature: 0,
       // OpenAI / OpenAI-compatible endpoint (LOCAL mode). The API key itself
       // never reaches the webview; hasOpenaiApiKey is the only key info.

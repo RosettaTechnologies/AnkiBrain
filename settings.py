@@ -40,6 +40,15 @@ LOCAL_EMBEDDING_BACKEND = 'onnx-minilm-l6-v2'
 # Stored selections are migrated to the current default on boot.
 LEGACY_LLM_MODELS = ('gpt-3.5-turbo', 'gpt-4')
 
+# GPT-5.6 ids the SERVER-mode dropdown replaced with GPT-6. A stored SERVER
+# selection moves to the same tier; LOCAL keeps its id because it may name a
+# custom endpoint's model.
+GPT56_MODEL_TIERS = {
+    'gpt-5.6-sol': 'gpt-6.1-sol',
+    'gpt-5.6-terra': 'gpt-6.1-terra',
+    'gpt-5.6-luna': 'gpt-6-luna',
+}
+
 default_settings = {
     "aiLanguage": 'English',
     'customPromptChat': '',
@@ -58,7 +67,7 @@ default_settings = {
     "localEmbeddingBackend": '',
     "lifetime_total_cost": 0,
     "user_mode": None,
-    "llmModel": 'gpt-5.6-luna',
+    "llmModel": 'gpt-6-luna',
     'temperature': 0,
     # ── OpenAI / OpenAI-compatible endpoint (LOCAL mode) ─────────────────────
     # The API key itself lives in user_files/.env as OPENAI_API_KEY; only the
@@ -171,7 +180,13 @@ class SettingsManager:
         # A stored legacy selection (see LEGACY_LLM_MODELS) is moved to the
         # current default and written back, so this is a no-op on later boots.
         if self.settings.get('llmModel') in LEGACY_LLM_MODELS:
-            self.edit('llmModel', 'gpt-5.6-luna')
+            self.edit('llmModel', 'gpt-6-luna')
+
+        # The SERVER dropdown offers GPT-6 only (see GPT56_MODEL_TIERS); move a
+        # stored GPT-5.6 pick to its tier so it is not silently off-list.
+        if (self.settings.get('user_mode') != UserMode.LOCAL.value
+                and self.settings.get('llmModel') in GPT56_MODEL_TIERS):
+            self.edit('llmModel', GPT56_MODEL_TIERS[self.settings['llmModel']])
 
     def save(self):
         # Write to a sibling temp file and swap it in: a crash mid-write can

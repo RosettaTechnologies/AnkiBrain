@@ -10,7 +10,8 @@ import {
   setOpenAITestResult,
 } from "../../../api/redux/slices/appSettings";
 import { localConfigGate } from "../../../api/localConfig";
-import { OpenAISettings } from "./SettingsScreen";
+import { setUserMode } from "../../../api/redux/slices/userMode";
+import { AdvancedSettings, OpenAISettings } from "./SettingsScreen";
 import {
   pySetOpenAIConfig,
   pyTestOpenAIConnection,
@@ -52,7 +53,7 @@ const clickTest = async (apiKey = "") => {
 beforeEach(() => {
   vi.clearAllMocks();
   store.dispatch(setOpenAIModels([]));
-  store.dispatch(setLLMModel("gpt-5.6-luna"));
+  store.dispatch(setLLMModel("gpt-6-luna"));
   store.dispatch(setOpenAITestResult(null));
   store.dispatch(setOpenAIBaseUrl(""));
   store.dispatch(setHasOpenaiApiKey(false));
@@ -141,10 +142,10 @@ test("an unreachable URL is reported without testing the key", async () => {
 
 test("a free-text model is persisted when the endpoint lists none", async () => {
   renderSection();
-  fireEvent.change(screen.getByPlaceholderText("gpt-5.6-luna"), {
+  fireEvent.change(screen.getByPlaceholderText("gpt-6-luna"), {
     target: { value: "my-gateway-alias" },
   });
-  fireEvent.blur(screen.getByPlaceholderText("gpt-5.6-luna"));
+  fireEvent.blur(screen.getByPlaceholderText("gpt-6-luna"));
   await waitFor(() =>
     expect(pyEditSetting).toHaveBeenCalledWith("llmModel", "my-gateway-alias")
   );
@@ -193,7 +194,7 @@ test("the model dropdown offers nothing before a successful test", () => {
 test("typing filters the listed models", async () => {
   store.dispatch(setOpenAIModels(["a-model", "z-model"]));
   renderSection();
-  fireEvent.change(screen.getByPlaceholderText("gpt-5.6-luna"), {
+  fireEvent.change(screen.getByPlaceholderText("gpt-6-luna"), {
     target: { value: "z" },
   });
   const options = await within(screen.getByRole("listbox")).findAllByRole(
@@ -394,4 +395,22 @@ test("testing with a blank URL field verifies the saved endpoint", async () => {
   expect(localConfigGate("LOCAL", store.getState().appSettings.ai)).toMatchObject(
     { ok: true }
   );
+});
+
+test("SERVER mode offers the GPT-6 model tiers", () => {
+  store.dispatch(setUserMode("SERVER"));
+  render(
+    <ChakraProvider>
+      <Provider store={store}>
+        <AdvancedSettings />
+      </Provider>
+    </ChakraProvider>
+  );
+  const select = screen.getByRole("combobox");
+  expect(within(select).getAllByRole("option").map((o) => o.value)).toEqual([
+    "gpt-6-astra",
+    "gpt-6.1-sol",
+    "gpt-6.1-terra",
+    "gpt-6-luna",
+  ]);
 });

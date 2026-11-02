@@ -1142,7 +1142,7 @@ export const OpenAISettings = (props) => {
               flex={1}
               size={"sm"}
               borderRightRadius={0}
-              placeholder={"gpt-5.6-luna"}
+              placeholder={"gpt-6-luna"}
               value={modelText}
               onChange={(e) => {
                 setModelText(e.target.value);
@@ -1298,7 +1298,14 @@ export const OpenAISettings = (props) => {
   );
 };
 
-const AdvancedSettings = (props) => {
+const SERVER_LLM_OPTIONS = [
+  { value: "gpt-6-astra", label: "GPT-6 Astra (very expensive)" },
+  { value: "gpt-6.1-sol", label: "GPT-6.1 Sol (expensive)" },
+  { value: "gpt-6.1-terra", label: "GPT-6.1 Terra (mid-range)" },
+  { value: "gpt-6-luna", label: "GPT-6 Luna (best value)" },
+];
+
+export const AdvancedSettings = (props) => {
   const temperature = useSelector((state) => state.appSettings.ai.temperature);
   const llm = useSelector((state) => state.appSettings.ai.llmModel);
   // Out-of-range temperature is a field-level problem: inline, not a dialog.
@@ -1328,9 +1335,11 @@ const AdvancedSettings = (props) => {
                 await setLLMModel(e.target.value);
               }}
             >
-              <option value={"gpt-5.6-sol"}>GPT-5.6 Sol (very expensive)</option>
-              <option value={"gpt-5.6-terra"}>GPT-5.6 Terra (expensive)</option>
-              <option value={"gpt-5.6-luna"}>GPT-5.6 Luna (best value)</option>
+              {SERVER_LLM_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </Select>
           )}
           {isLocalMode() && (

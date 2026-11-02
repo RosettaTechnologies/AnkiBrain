@@ -1,5 +1,9 @@
 # Changelog
 
+# 1.2.0
+- Upgrade server mode models to GPT 6 family
+- Heavily discounted subscriptions available as alternative to pay-as-you-go
+
 # 1.1.1
 - Add toggle for automatically attaching document images to cards to allow more user flexibility
 - FEATURE: Billing now estimates what a plan's monthly credit buys for each AI feature —

@@ -21,7 +21,7 @@ settings_path = path.join(user_data_dir, 'settings.json')
 class ChatAIWithoutDocuments(ChatInterface):
     def __init__(self, verbose=False):
         temperature = 0
-        model_name = 'gpt-5.6-luna'
+        model_name = 'gpt-6-luna'
         with open(settings_path, 'r') as f:
             data = json.load(f)
             temperature = data['temperature']

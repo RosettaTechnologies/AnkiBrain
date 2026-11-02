@@ -45,7 +45,7 @@ def get_file_extension(file_name: str) -> str:
 
 
 def get_card_gen_chunk_size(model_name: str) -> int:
-    if model_name and model_name.startswith('gpt-5.6'):
+    if model_name and model_name.startswith(('gpt-5.6', 'gpt-6')):
         return 6000
 
     return 3000
@@ -91,7 +91,7 @@ class ChatAIWithDocuments(ChatInterface):
         self.text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100, length_function=len)
 
         temperature = 0
-        model_name = 'gpt-5.6-luna'
+        model_name = 'gpt-6-luna'
         with open(settings_path, 'r') as f:
             data = json.load(f)
             temperature = data['temperature']

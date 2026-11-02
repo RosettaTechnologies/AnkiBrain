@@ -146,7 +146,7 @@ def handle_module_input(data: dict[str, Any]):
         module_return(IC.DID_DELETE_ALL_DOCUMENTS)
 
     elif cmd == IC.SPLIT_DOCUMENT:
-        model_name = 'gpt-5.6-luna'
+        model_name = 'gpt-6-luna'
         with open(settings_path, 'r') as f:
             model_name = json.load(f).get('llmModel', model_name)
         chunk_texts, chunk_pages, images = withDocumentsAI.split_document_for_cards(
@@ -167,7 +167,7 @@ def handle_module_input(data: dict[str, Any]):
         # Image-occlusion vision pass. The addon resolved the media_tmp id to
         # an absolute path; this subprocess owns the OpenAI call (same venv,
         # same key as card generation).
-        model_name = 'gpt-5.6-luna'
+        model_name = 'gpt-6-luna'
         with open(settings_path, 'r') as f:
             model_name = json.load(f).get('llmModel', model_name)
         out = withoutDocumentsSingleQuery.generate_occlusion_shapes(

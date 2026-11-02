@@ -2,7 +2,7 @@ export const CARD_GEN_CHUNK_SIZE_LARGE = 6000;
 export const CARD_GEN_CHUNK_SIZE_LEGACY = 3000;
 
 export function getCardGenChunkSize(model) {
-  if (/gpt-5\.6/i.test(model || "")) {
+  if (/^gpt-(?:5\.6|6)(?:[.-]|$)/i.test(model || "")) {
     return CARD_GEN_CHUNK_SIZE_LARGE;
   }
 
