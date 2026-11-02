@@ -71,12 +71,14 @@ const userSlice = createSlice({
       state.value = action.payload;
     },
     updateUser: (state, action) => {
+      if (!state.value || !action.payload) return;
       let user = cloneDeep(state.value);
       //user = merge(user, action.payload);
       user = { ...user, ...action.payload };
       state.value = user;
     },
     setEmailVerified: (state) => {
+      if (!state.value) return;
       let user = cloneDeep(state.value);
       user.isVerified = true;
       state.value = user;

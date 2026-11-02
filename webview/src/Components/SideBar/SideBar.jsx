@@ -51,9 +51,12 @@ export function SideBar(props) {
   // The header is 48px tall inside a 350px panel, so a subscriber shows the
   // plan name instead of the storage charge; Billing has the full breakdown.
   const plan = user?.subscriptionTier ? getPlan(user.subscriptionTier) : null;
-  const planResetAt = user?.includedUsageResetAt
-    ? new Date(user.includedUsageResetAt).toLocaleDateString()
-    : null;
+  const planResetAt =
+    user?.includedUsageResetAt &&
+    !user?.subscriptionCancelAtPeriodEnd &&
+    user?.subscriptionStatus !== "past_due"
+      ? new Date(user.includedUsageResetAt).toLocaleDateString()
+      : null;
   const planPeriodEnd = user?.subscriptionCurrentPeriodEnd
     ? new Date(user.subscriptionCurrentPeriodEnd).toLocaleDateString()
     : null;

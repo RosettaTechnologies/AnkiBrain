@@ -1,5 +1,5 @@
 import { pyExplainTopic } from "./PythonBridge/senders/pyExplainTopic";
-import { store } from "./redux";
+import { store, updateUser } from "./redux";
 import { clearMessages } from "./chat";
 import { errorToast, infoToast, successToast } from "./toast";
 import {
@@ -58,7 +58,10 @@ export async function explainTopic(
 
   try {
     const res = await explain(topic, options);
-    if (res.status === "success") {
+    if (res && res.status === "success") {
+      if (res.data?.user) {
+        dispatch(updateUser(res.data.user));
+      }
       dispatch(setTopicExplanation(res.data.response.content));
       successToast("Topic Explanation", `Completed explanation for ${topic}`);
     }

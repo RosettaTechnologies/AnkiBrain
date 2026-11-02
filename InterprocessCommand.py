@@ -184,6 +184,11 @@ class InterprocessCommand(Enum):
     NETWORK_REQUEST = 'NETWORK_REQUEST'
     DID_NETWORK_REQUEST = 'DID_NETWORK_REQUEST'
 
+    # Opens an http(s) URL in the system browser. Used by the billing modal so
+    # Stripe checkout does not depend on an in-webview link click.
+    OPEN_URL = 'OPEN_URL'
+    DID_OPEN_URL = 'DID_OPEN_URL'
+
     PRINT_FROM_JS = 'PRINT_FROM_JS'
     PRINT_FROM_SUBMODULE = 'PRINT_FROM_SUBMODULE'
 

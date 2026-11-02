@@ -1,7 +1,9 @@
 import asyncio
 import json
 import os
+import webbrowser
 from typing import List
+from urllib.parse import urlparse
 
 from aqt import mw
 
@@ -657,6 +659,23 @@ class ReactBridge:
                     self.send_cmd(IC.DID_NETWORK_REQUEST, data=res, commandId=commandId)
                 except Exception as e:
                     self.send_cmd(IC.DID_NETWORK_REQUEST, error=str(e), commandId=commandId)
+
+            elif cmd == IC.OPEN_URL:
+                # Stripe checkout/portal links: open the system browser instead
+                # of relying on an in-webview anchor click. `2` asks for a new
+                # browser tab. Only http(s) reaches the browser.
+                target = (data.get('url') or '').strip()
+                parsed = urlparse(target)
+                opened = False
+                if parsed.scheme not in ('http', 'https') or not parsed.netloc:
+                    print(f'(ReactBridge) refusing to open non-http url: {target[:80]}')
+                else:
+                    try:
+                        opened = await asyncio.to_thread(webbrowser.open, target, 2)
+                    except Exception as e:
+                        print(f'(ReactBridge) browser launch failed: {e}')
+                self.send_cmd(IC.DID_OPEN_URL, {'opened': bool(opened)},
+                              commandId=commandId)
 
             elif cmd == IC.TEST_OPENAI_CONNECTION:
                 # A blank apiKey means "use the saved key", so the user can
