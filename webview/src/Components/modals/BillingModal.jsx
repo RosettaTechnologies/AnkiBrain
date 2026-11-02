@@ -25,12 +25,16 @@ import { updateUser } from "../../api/redux";
 import { infoToast } from "../../api/toast";
 import {
   SUBSCRIPTION_PLANS,
-  estimatedFlashcards,
   formatMultiplier,
   formatUsd,
   getPlan,
   isUpgrade,
 } from "../../api/subscriptions";
+import {
+  PAYG_SAMPLE_USD,
+  USAGE_UNIT_COSTS,
+  estimateUnits,
+} from "../../api/usageEstimates";
 import { postCreateCheckoutSession } from "../../api/server-api/networking/checkout";
 import {
   postCancelSubscription,
@@ -533,7 +537,7 @@ export function BillingModal({ isOpen, onClose }) {
                 valueColor={creditColor}
               />
               <Stat
-                label={"Balance"}
+                label={"Pay-as-you-go credit"}
                 value={dollars(user.balance)}
                 hint={"Available now"}
                 valueColor={balanceColor}
@@ -548,11 +552,16 @@ export function BillingModal({ isOpen, onClose }) {
 
             <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2} mt={3}>
               <Box p={2.5} bg={insetBg} borderRadius={"lg"}>
-                <Flex align={"center"} gap={1.5} wrap={"wrap"}>
-                  <Text fontSize={"xs"} fontWeight={700} color={creditColor}>
-                    Monthly Plans
-                  </Text>
-                  <Badge colorScheme={"purple"} variant={"subtle"} fontSize={"9px"}>
+                <Text fontSize={"sm"} fontWeight={700} color={creditColor}>
+                  Monthly Plans
+                </Text>
+                <Flex justify={"center"} mt={1}>
+                  <Badge
+                    colorScheme={"purple"}
+                    variant={"subtle"}
+                    fontSize={"11px"}
+                    textAlign={"center"}
+                  >
                     Recommended · 2×–3.25× credit
                   </Badge>
                 </Flex>
@@ -562,12 +571,18 @@ export function BillingModal({ isOpen, onClose }) {
                 </Text>
               </Box>
               <Box p={2.5} bg={insetBg} borderRadius={"lg"}>
-                <Flex align={"center"} gap={1.5} wrap={"wrap"}>
-                  <Text fontSize={"xs"} fontWeight={700} color={balanceColor}>
-                    Pay-As-You-Go Balance
-                  </Text>
-                  <Badge colorScheme={"gray"} variant={"subtle"} fontSize={"9px"}>
-                    1× standard rate
+                <Text fontSize={"sm"} fontWeight={700} color={balanceColor}>
+                  Pay-As-You-Go Balance
+                </Text>
+                <Flex justify={"center"} mt={1}>
+                  <Badge
+                    colorScheme={"red"}
+                    variant={"subtle"}
+                    fontSize={"11px"}
+                    textAlign={"center"}
+                  >
+                    <i className="bi bi-x-circle" style={{ marginRight: 4 }} />
+                    No discount multiplier
                   </Badge>
                 </Flex>
                 <Text fontSize={"11px"} color={muted} mt={0.5}>
@@ -808,9 +823,27 @@ export function BillingModal({ isOpen, onClose }) {
                     )}
                   </Flex>
 
-                  <Text fontSize={"xs"} color={muted} mt={1.5}>
-                    ≈ {estimatedFlashcards(planOption).toLocaleString()} flashcards
-                  </Text>
+                  <SimpleGrid columns={2} spacing={1.5} mt={2}>
+                    {USAGE_UNIT_COSTS.map((unit) => (
+                      <Box key={unit.id}>
+                        <Text
+                          fontSize={"10px"}
+                          textTransform={"uppercase"}
+                          letterSpacing={"0.08em"}
+                          color={muted}
+                        >
+                          {unit.label}
+                        </Text>
+                        <Text fontSize={"sm"} fontWeight={700}>
+                          ≈{" "}
+                          {estimateUnits(
+                            unit.costUsd,
+                            planOption.includedUsage
+                          ).toLocaleString()}
+                        </Text>
+                      </Box>
+                    ))}
+                  </SimpleGrid>
 
                   {planOption.extras.length > 0 && (
                     <Box mt={3}>
@@ -943,23 +976,25 @@ export function BillingModal({ isOpen, onClose }) {
               </Flex>
             </Flex>
 
-            <SimpleGrid columns={2} spacing={2.5} mt={3}>
-              <Box p={2.5} bg={insetBg} borderRadius={"lg"}>
-                <Text
-                  fontSize={"10px"}
-                  textTransform={"uppercase"}
-                  letterSpacing={"0.08em"}
-                  color={muted}
-                >
-                  Flashcards
-                </Text>
-                <Text fontSize={"sm"} fontWeight={700} color={balanceColor}>
-                  ≈ 100
-                </Text>
-                <Text fontSize={"xs"} color={muted}>
-                  for about $0.03
-                </Text>
-              </Box>
+            <SimpleGrid columns={{ base: 2, sm: 3 }} spacing={2.5} mt={3}>
+              {USAGE_UNIT_COSTS.map((unit) => (
+                <Box key={unit.id} p={2.5} bg={insetBg} borderRadius={"lg"}>
+                  <Text
+                    fontSize={"10px"}
+                    textTransform={"uppercase"}
+                    letterSpacing={"0.08em"}
+                    color={muted}
+                  >
+                    {unit.label}
+                  </Text>
+                  <Text fontSize={"sm"} fontWeight={700} color={balanceColor}>
+                    ≈ {estimateUnits(unit.costUsd, PAYG_SAMPLE_USD).toLocaleString()}
+                  </Text>
+                  <Text fontSize={"xs"} color={muted}>
+                    for {dollars(PAYG_SAMPLE_USD)}
+                  </Text>
+                </Box>
+              ))}
               <Box p={2.5} bg={insetBg} borderRadius={"lg"}>
                 <Text
                   fontSize={"10px"}
@@ -988,7 +1023,8 @@ export function BillingModal({ isOpen, onClose }) {
             for chat, occlusion, and document storage; when it runs out, charges
             use your pay-as-you-go balance. Credit resets every 30 days and does
             not roll over. Document storage capacity and upload limits are
-            unchanged. Estimates vary by model and prompt length.
+            unchanged. Estimates assume the default model and vary by prompt
+            length.
           </Text>
         </ModalBody>
       </ModalContent>

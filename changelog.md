@@ -2,6 +2,9 @@
 
 # 1.1.1
 - Add toggle for automatically attaching document images to cards to allow more user flexibility
+- FEATURE: Billing now estimates what a plan's monthly credit buys for each AI feature —
+  flashcards, image occlusions, chat messages, and topic explanations — and the
+  pay-as-you-go card prices all of them per $1.00
 
 # 1.1.0
 - FEATURE: Generate cards from documents now include images: figures and diagrams found in

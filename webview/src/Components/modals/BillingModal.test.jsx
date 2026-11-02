@@ -379,3 +379,34 @@ test("an unsubscribed user with a stale past_due status still has enabled Subscr
     )
   ).toBeNull();
 });
+
+test("every plan card estimates what its credit buys per feature", () => {
+  seedUser();
+  renderModal();
+
+  // Max ($65) values are unique in the modal; one row per feature.
+  expect(screen.getByText("≈ 216,667")).toBeInTheDocument();
+  expect(screen.getByText("≈ 14,444")).toBeInTheDocument();
+  expect(screen.getByText("≈ 26,000")).toBeInTheDocument();
+  expect(screen.getByText("≈ 16,250")).toBeInTheDocument();
+  expect(screen.getAllByText("Image occlusions")).toHaveLength(5); // 4 plans + PAYG
+  expect(screen.getAllByText("Topic explanations")).toHaveLength(5);
+});
+
+test("the pay-as-you-go card prices every feature per $1.00", () => {
+  seedUser();
+  renderModal();
+
+  // "≈ 3,333" also appears on the Plus card, so read each feature tile whole:
+  // label, estimate, then the price.
+  expect(
+    screen.getAllByText("for $1.00").map((hint) => hint.parentElement.textContent)
+  ).toEqual([
+    "Flashcards≈ 3,333for $1.00",
+    "Image occlusions≈ 222for $1.00",
+    "Chat messages≈ 400for $1.00",
+    "Topic explanations≈ 250for $1.00",
+  ]);
+  expect(screen.getByText("≈ 2,850 pages")).toBeInTheDocument();
+  expect(screen.queryByText("for about $0.03")).toBeNull();
+});

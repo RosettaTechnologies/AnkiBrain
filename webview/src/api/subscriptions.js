@@ -41,7 +41,7 @@ export const SUBSCRIPTION_PLANS = [
 ];
 
 // Existing marketing estimate: 100 flashcards for $0.03.
-const CARD_COST_USD = 0.0003;
+export const CARD_COST_USD = 0.0003;
 
 export function getPlan(tierId) {
   return SUBSCRIPTION_PLANS.find((plan) => plan.id === tierId) || null;
@@ -56,15 +56,6 @@ export function isUpgrade(fromTierId, toTierId) {
   const from = planRank(fromTierId);
   const to = planRank(toTierId);
   return from > 0 && to > from;
-}
-
-// Accepts either a plan object or a raw dollar amount of usage.
-export function estimatedFlashcards(planOrUsage) {
-  const usage =
-    planOrUsage && typeof planOrUsage === "object"
-      ? Number(planOrUsage.includedUsage) || 0
-      : Number(planOrUsage) || 0;
-  return Math.round(usage / CARD_COST_USD);
 }
 
 export function formatUsd(value) {
