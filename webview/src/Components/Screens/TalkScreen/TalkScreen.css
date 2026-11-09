@@ -13,10 +13,13 @@
 
     display: flex;
     flex-direction: row;
-    align-items: center;
-    justify-content: center;
+    align-items: flex-start;
+    justify-content: flex-start;
+
     word-break: break-word;
-    max-width: 65%;
+
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 .ShareButton:hover {

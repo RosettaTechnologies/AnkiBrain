@@ -1,7 +1,10 @@
-import { Box, Text, useColorMode } from "@chakra-ui/react";
+
+import { Box, useColorMode } from "@chakra-ui/react";
+import MarkdownRenderer from "./MarkdownRenderer";
 
 export const UserMessage = (props) => {
   const { colorMode } = useColorMode();
+
   return (
     <Box
       className={"TalkScreenMessage UserMessage"}
@@ -9,11 +12,15 @@ export const UserMessage = (props) => {
       color={"customBlack"}
       style={{
         alignSelf: "flex-end",
-        marginLeft: 0,
+        marginLeft: 15,
         marginRight: 15,
         marginTop: 15,
         marginBottom: 15,
         paddingTop: 5,
+        width: "calc(100% - 30px)",
+        maxWidth: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
       }}
       key={props.key}
       css={{
@@ -35,7 +42,9 @@ export const UserMessage = (props) => {
         }}
       ></i>
 
-      <Text style={{ textAlign: "center" }}>{props.messageData.text}</Text>
+      <Box flex={1} minWidth={0} width="100%">
+        <MarkdownRenderer content={props.messageData.text} />
+      </Box>
     </Box>
   );
 };

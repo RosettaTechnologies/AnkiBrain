@@ -1,3 +1,4 @@
+
 import {
   Accordion,
   AccordionButton,
@@ -26,6 +27,7 @@ import {
   clearStagedImages,
 } from "../../../api/redux/slices/makeCardsText";
 import { speak } from "../../../api/tts";
+import MarkdownRenderer from "./MarkdownRenderer";
 
 export const AIMessage = (props) => {
   const [showPopover, setShowPopover] = useState(false);
@@ -49,6 +51,10 @@ export const AIMessage = (props) => {
           marginTop: 15,
           marginBottom: 15,
           paddingTop: 5,
+          width: "calc(100% - 30px)",
+          maxWidth: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
         }}
         key={props.key}
         css={{
@@ -71,8 +77,14 @@ export const AIMessage = (props) => {
           }}
         />
 
-        <Flex direction={"column"}>
-          <Text style={{ textAlign: "center" }}>{props.messageData.text}</Text>
+        <Flex
+          direction={"column"}
+          flex={1}
+          minWidth={0}
+          width="100%"
+        >
+          <MarkdownRenderer content={props.messageData.text} />
+
           {props.messageData.sourceSnippets &&
             props.messageData.sourceSnippets.length > 0 && (
               <Accordion allowToggle mt={2}>
@@ -107,7 +119,11 @@ export const AIMessage = (props) => {
               </Accordion>
             )}
 
-          <Flex direction={"row"} justifyContent={"center"}>
+          <Flex
+            direction={"row"}
+            justifyContent={"flex-start"}
+            wrap={"wrap"}
+          >
             <Text fontSize={10} color={"gray"} me={2.5}>
               Model: {props.messageData.model}
             </Text>
@@ -146,7 +162,11 @@ export const AIMessage = (props) => {
             speak(props.messageData.text).finally(() => setSpeaking(false));
           }}
         >
-          <i className={speaking ? "bi bi-hourglass-split" : "bi bi-volume-up-fill"}></i>
+          <i
+            className={
+              speaking ? "bi bi-hourglass-split" : "bi bi-volume-up-fill"
+            }
+          ></i>
         </Box>
       </Box>
 
