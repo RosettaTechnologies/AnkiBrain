@@ -160,7 +160,8 @@ def _install_spacy_model(runner):
     paths, m = runner.paths, _manifest()
     sm = m['spacy_model']
     rc, _ = runner.exec('spacy', 'checking spacy model',
-                        [paths.venv_python, '-c', f'import {sm["name"]}' ], env=paths.engine_env())
+                        [paths.venv_python, '-c', f'import {sm["name"]}' ],
+                        env=paths.engine_env(), cwd=paths.root)
     if rc == 0:
         runner.emit('spacy', 'done', 'Tokenizer model present')
         return
@@ -192,7 +193,8 @@ def _snapshot_model(runner):
     runner.emit('model', 'start', 'Fetching Kokoro-82M voice model', estimate_mb=350)
     rc, tail = runner.exec('model', 'Fetching Kokoro-82M voice model',
                            [paths.venv_python, '-c', code], env=paths.engine_env(),
-                           estimate_mb=350, watched_dirs=[paths.hf_dir], log_name='snapshot.log')
+                           cwd=paths.root, estimate_mb=350, watched_dirs=[paths.hf_dir],
+                           log_name='snapshot.log')
     if rc != 0:
         raise BootstrapError('model', f'Voice model download failed (rc={rc}): {tail}',
                              'If you are behind a firewall, set HF_ENDPOINT to a mirror or retry.')
@@ -221,7 +223,7 @@ def _test_synth(runner, voice=None, text=None):
     ) % (voice[0], _manifest()['model']['hf_repo'], text, voice)
     runner.emit('test', 'start', 'Testing synthesis')
     rc, tail = runner.exec('test', 'Test synthesis', [paths.venv_python, '-c', code],
-                           env=paths.engine_env(), log_name='warmup-test.log')
+                           env=paths.engine_env(), cwd=paths.root, log_name='warmup-test.log')
     if rc == 3:
         raise BootstrapError('model', 'Test synthesis produced an empty audio file.', None)
     if rc != 0:
@@ -277,7 +279,8 @@ def _install_ja_pack(runner):
     # unidic dictionary: the pip package is a fetcher, data is downloaded once.
     rc, tail = runner.exec('ja', 'Downloading unidic dictionary',
                            [paths.venv_python, '-m', 'unidic', 'download'], env=paths.engine_env(),
-                           estimate_mb=150, watched_dirs=[paths.venv_dir], log_name='unidic.log')
+                           cwd=paths.root, estimate_mb=150, watched_dirs=[paths.venv_dir],
+                           log_name='unidic.log')
     if rc != 0:
         raise BootstrapError('ja_build', f'unidic dictionary download failed (rc={rc}): {tail}', None)
     runner.emit('ja', 'done', 'Japanese voice pack ready')

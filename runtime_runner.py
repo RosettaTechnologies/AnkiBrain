@@ -25,6 +25,33 @@ import subprocess
 import threading
 from os import path
 
+# Interpreter state that must never reach a spawned engine Python. Anki embeds
+# its own Python (3.13 on current builds); if inherited by the pinned 3.11
+# engine venv, the child resolves stdlib or C extensions from the host
+# interpreter. On Windows the embeddable layout has untagged extension names
+# next to python313.dll, so the child imports one and dies with
+# "Module use of python313.dll conflicts with this version of Python".
+_HOST_PYTHON_ENV = (
+    'PYTHONHOME', 'PYTHONPATH', 'PYTHONSTARTUP', 'PYTHONEXECUTABLE',
+    'PYTHONUSERBASE', 'PYTHONSAFEPATH', 'PYTHONPLATLIBDIR',
+    '__PYVENV_LAUNCHER__', 'VIRTUAL_ENV', 'VIRTUAL_ENV_PROMPT',
+)
+
+
+def clean_python_env():
+    """Copy of the host env with host Python interpreter state removed.
+
+    Engine venvs are self-contained (managed CPython + lockfile packages), so
+    no host Python variable is meaningful to them; user site-packages stays
+    off so it cannot shadow an engine package. Everything else (PATH,
+    SYSTEMROOT/TEMP, UV_*, HF_*, proxies) passes through.
+    """
+    env = dict(os.environ)
+    for name in _HOST_PYTHON_ENV:
+        env.pop(name, None)
+    env['PYTHONNOUSERSITE'] = '1'
+    return env
+
 
 class BootstrapError(Exception):
     def __init__(self, code, message, hint=None):

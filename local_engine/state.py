@@ -28,6 +28,8 @@ import platform
 import shutil
 from os import path
 
+from runtime_runner import clean_python_env
+
 # The package dir and the add-on root, derived from __file__ only (no
 # project_paths import: keep this loadable in bare stdlib contexts).
 LOCAL_ENGINE_DIR = path.abspath(path.dirname(__file__))
@@ -254,7 +256,7 @@ class EnginePaths:
 
     def uv_env(self):
         """Environment for uv subprocess invocations (bootstrap)."""
-        env = dict(os.environ)
+        env = clean_python_env()
         env.update({
             'UV_PYTHON_INSTALL_DIR': self.python_dir,
             'UV_CACHE_DIR': self.cache_dir,
@@ -268,7 +270,7 @@ class EnginePaths:
 
     def engine_env(self):
         """Environment for the ChatAI subprocess."""
-        env = dict(os.environ)
+        env = clean_python_env()
         env.update({
             'TIKTOKEN_CACHE_DIR': self.tiktoken_dir,
             'PYTHONUNBUFFERED': '1',
